@@ -8,7 +8,7 @@ import {
   Move, 
   Plus, 
   Search, 
-  Grid3x3, 
+  Grid, 
   List, 
   ChevronRight,
   ChevronDown,
@@ -27,6 +27,7 @@ import {
   CheckSquare,
   Square,
   Zap
+
 } from 'lucide-react';
 
 const mockFolders = [
