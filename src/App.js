@@ -634,7 +634,7 @@ const FileManager = () => {
     );
   };
 
-  return (
+return (
     <div className="flex h-screen bg-gray-50">
       {/* Sidebar */}
       <div className="w-80 bg-white border-r border-gray-200 flex flex-col shadow-sm">
@@ -652,4 +652,273 @@ const FileManager = () => {
         <div className="flex-1 overflow-y-auto p-4 space-y-2">
           <div 
             className={`flex items-center px-3 py-2 hover:bg-gray-50 cursor-pointer rounded-lg transition-all ${
-              currentFolder === null ? 'bg-gradient-to-r from-
+              currentFolder === null ? 'bg-gradient-to-r from-purple-50 to-blue-50 border-l-2 border-purple-500' : ''
+            }`}
+            onClick={() => handleFolderSelect(null)}
+          >
+            <Folder className="w-4 h-4 mr-3 text-blue-600" />
+            <span className="text-sm font-semibold text-gray-800">All Content</span>
+          </div>
+          
+          {folderTree.map(folder => <FolderTreeItem key={folder.id} folder={folder} />)}
+        </div>
+        
+        <div className="p-4 border-t border-gray-200 space-y-3">
+          <button
+            onClick={() => setIsCreatingFolder(true)}
+            className="w-full flex items-center justify-center px-4 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all font-medium shadow-sm"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            New Folder
+          </button>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col">
+        {/* Toolbar */}
+        <div className="bg-white/80 backdrop-blur-sm border-b border-gray-200 p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center space-x-4">
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <Search className="w-5 h-5 text-gray-500" />
+                </div>
+                <input
+                  type="text"
+                  placeholder="Search files and folders..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="bg-gray-50 border border-gray-300 rounded-xl pl-12 pr-4 py-3 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent w-80 transition-all"
+                />
+              </div>
+              
+              {allTags.length > 0 && (
+                <select
+                  value={filterTag}
+                  onChange={(e) => setFilterTag(e.target.value)}
+                  className="bg-gray-50 border border-gray-300 rounded-xl px-4 py-3 text-gray-900 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all"
+                >
+                  <option value="">All Tags</option>
+                  {allTags.map(tag => (
+                    <option key={tag} value={tag}>{tag}</option>
+                  ))}
+                </select>
+              )}
+            </div>
+            
+            <div className="flex items-center space-x-3">
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="flex items-center px-4 py-3 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-xl hover:from-emerald-700 hover:to-teal-700 transition-all font-medium shadow-sm"
+              >
+                <Upload className="w-4 h-4 mr-2" />
+                Upload
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                onChange={handleFilesSelected}
+                className="hidden"
+              />
+            </div>
+          </div>
+          
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <button
+                onClick={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')}
+                className="p-2 bg-gray-100 text-gray-600 hover:bg-gray-200 rounded-lg transition-all"
+              >
+                {viewMode === 'grid' ? <List className="w-4 h-4" /> : <Grid className="w-4 h-4" />}
+              </button>
+            </div>
+            
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center text-sm text-gray-600">
+                <span 
+                  className="hover:text-purple-600 cursor-pointer transition-colors"
+                  onClick={() => setCurrentFolder(null)}
+                >
+                  All Content
+                </span>
+                {currentFolder && (
+                  <>
+                    <ChevronRight className="w-4 h-4 mx-2" />
+                    <span className="text-gray-900 font-medium">{currentFolder.name}</span>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Content Area */}
+        <div 
+          className={`flex-1 p-6 overflow-y-auto ${
+            dragOver ? 'bg-gradient-to-br from-purple-50 to-blue-50 border-2 border-dashed border-purple-400' : ''
+          } transition-all`}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+        >
+          {dragOver && (
+            <div className="flex items-center justify-center h-full">
+              <div className="text-center">
+                <div className="w-24 h-24 mx-auto mb-6 bg-gradient-to-br from-purple-500 to-blue-500 rounded-full flex items-center justify-center">
+                  <Upload className="w-12 h-12 text-white" />
+                </div>
+                <p className="text-2xl font-semibold text-gray-800 mb-2">Drop files here to upload</p>
+                <p className="text-gray-600">Support for images, videos, audio, and documents</p>
+              </div>
+            </div>
+          )}
+          
+          {!dragOver && (
+            <div className="grid grid-cols-6 gap-6">
+              {/* Folders */}
+              {currentFolderContents.folders.map(folder => (
+                <div
+                  key={folder.id}
+                  className={`group p-4 bg-white border border-gray-200 rounded-xl cursor-pointer hover:border-purple-300 hover:shadow-sm transition-all relative ${
+                    selectedItems.includes(`folder-${folder.id}`) ? 'border-purple-500 bg-purple-50' : ''
+                  }`}
+                  onClick={() => handleItemSelect(folder, 'folder')}
+                  onDoubleClick={() => handleFolderSelect(folder)}
+                >
+                  <div className="flex flex-col items-center">
+                    <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-500 rounded-xl flex items-center justify-center mb-3">
+                      <Folder className="w-8 h-8 text-white" />
+                    </div>
+                    <h3 className="text-sm font-semibold text-gray-800 text-center mb-1">{folder.name}</h3>
+                    <p className="text-xs text-gray-500">{folder.createdBy}</p>
+                  </div>
+                </div>
+              ))}
+              
+              {/* Files */}
+              {currentFolderContents.files.map(file => (
+                <div
+                  key={file.id}
+                  className={`group p-4 bg-white border border-gray-200 rounded-xl cursor-pointer hover:border-purple-300 hover:shadow-sm transition-all relative ${
+                    selectedItems.includes(`file-${file.id}`) ? 'border-purple-500 bg-purple-50' : ''
+                  }`}
+                  onClick={() => handleItemSelect(file, 'file')}
+                  onDoubleClick={() => previewFile(file)}
+                >
+                  <div className="absolute top-3 left-3">
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium text-white ${getStatusColor(file.status)}`}>
+                      {file.status}
+                    </span>
+                  </div>
+                  
+                  {file.priority && file.priority !== 'normal' && (
+                    <div className="absolute top-3 right-3">
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium text-white ${getPriorityColor(file.priority)}`}>
+                        {file.priority}
+                      </span>
+                    </div>
+                  )}
+                  
+                  <div className="flex flex-col items-center pt-6">
+                    {file.type === 'image' ? (
+                      <div className="w-full h-24 mb-3 relative">
+                        <img 
+                          src={file.url} 
+                          alt={file.name} 
+                          className="w-full h-full object-cover rounded-lg"
+                        />
+                      </div>
+                    ) : (
+                      <div className={`w-16 h-16 rounded-xl flex items-center justify-center mb-3 ${
+                        file.type === 'video' ? 'bg-gradient-to-br from-red-500 to-pink-500' :
+                        file.type === 'audio' ? 'bg-gradient-to-br from-green-500 to-teal-500' :
+                        'bg-gradient-to-br from-gray-500 to-gray-600'
+                      }`}>
+                        {getFileIcon(file.type)}
+                      </div>
+                    )}
+                    
+                    <h3 className="text-sm font-semibold text-gray-800 text-center mb-1">{file.name}</h3>
+                    <p className="text-xs text-gray-500 mb-2">{file.size}</p>
+                    
+                    {file.category && (
+                      <p className="text-xs text-blue-600 mb-2 capitalize">{file.category}</p>
+                    )}
+                    
+                    {file.tags && file.tags.length > 0 && (
+                      <div className="flex flex-wrap gap-1 justify-center">
+                        {file.tags.slice(0, 2).map(tag => (
+                          <span key={tag} className="px-2 py-1 bg-purple-100 text-purple-700 text-xs rounded-full border border-purple-200">
+                            {tag}
+                          </span>
+                        ))}
+                        {file.tags.length > 2 && (
+                          <span className="text-xs text-gray-500">+{file.tags.length - 2}</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          
+          {currentFolderContents.folders.length === 0 && currentFolderContents.files.length === 0 && (
+            <div className="text-center py-16">
+              <div className="w-24 h-24 mx-auto mb-6 bg-gradient-to-br from-gray-400 to-gray-500 rounded-full flex items-center justify-center">
+                <Folder className="w-12 h-12 text-white" />
+              </div>
+              <h3 className="text-xl font-semibold text-gray-700 mb-2">This folder is empty</h3>
+              <p className="text-gray-500 mb-6">Drag and drop files here or use the upload button above</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Upload Modal */}
+      <UploadModal />
+
+      {/* Preview Modal */}
+      {previewModal && <PreviewModal file={previewModal} />}
+
+      {/* New Folder Modal */}
+      {isCreatingFolder && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl p-8 w-96 border border-gray-200 shadow-2xl">
+            <h3 className="text-xl font-semibold text-gray-900 mb-6">Create New Folder</h3>
+            <input
+              type="text"
+              placeholder="Folder name"
+              value={newFolderName}
+              onChange={(e) => setNewFolderName(e.target.value)}
+              className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-xl text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              onKeyPress={(e) => e.key === 'Enter' && createFolder()}
+              autoFocus
+            />
+            <div className="flex justify-end space-x-3 mt-6">
+              <button
+                onClick={() => {
+                  setIsCreatingFolder(false);
+                  setNewFolderName('');
+                }}
+                className="px-6 py-3 text-gray-600 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={createFolder}
+                className="px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-xl hover:from-purple-700 hover:to-blue-700 transition-all font-medium"
+              >
+                Create
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default FileManager;
