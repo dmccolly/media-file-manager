@@ -188,16 +188,6 @@ const App = () => {
     }
   };
 
-  // Priority color
-  const getPriorityColor = (priority) => {
-    switch (priority?.toLowerCase()) {
-      case 'high': return 'text-red-600 bg-red-50';
-      case 'medium': return 'text-yellow-600 bg-yellow-50';
-      case 'low': return 'text-green-600 bg-green-50';
-      default: return 'text-gray-600 bg-gray-50';
-    }
-  };
-
   // File selection
   const toggleFileSelection = (fileId) => {
     setSelectedFiles(prev => 
@@ -251,14 +241,6 @@ const App = () => {
   const navigateToFolder = (folderId) => {
     setCurrentFolder(folderId);
     setSelectedFiles([]);
-  };
-
-  const toggleFolderExpansion = (folderId) => {
-    setExpandedFolders(prev => 
-      prev.includes(folderId) 
-        ? prev.filter(id => id !== folderId)
-        : [...prev, folderId]
-    );
   };
 
   // Upload Modal Component
@@ -342,7 +324,6 @@ const App = () => {
       }
 
       try {
-        // Here you would implement actual file upload to your backend
         console.log('Uploading files:', selectedFiles);
         console.log('With metadata:', uploadData);
         
@@ -603,6 +584,8 @@ const App = () => {
     if (!file) return null;
 
     const renderPreview = () => {
+      const fileExtension = file.type?.toLowerCase();
+      
       switch (file.category.toLowerCase()) {
         case 'graphic':
           return (
@@ -646,6 +629,157 @@ const App = () => {
               </div>
             </div>
           );
+        case 'document':
+          if (['pdf'].includes(fileExtension)) {
+            return (
+              <div className="h-full bg-gray-100">
+                <div className="h-full flex flex-col">
+                  <div className="bg-white border-b p-4 flex items-center justify-between">
+                    <h3 className="font-medium text-gray-900">PDF Viewer</h3>
+                    <div className="flex space-x-2">
+                      <button className="px-3 py-1 bg-gray-100 text-gray-700 rounded text-sm">Zoom In</button>
+                      <button className="px-3 py-1 bg-gray-100 text-gray-700 rounded text-sm">Zoom Out</button>
+                    </div>
+                  </div>
+                  <div className="flex-1 flex items-center justify-center bg-gray-200">
+                    <div className="bg-white shadow-lg rounded-lg p-8 max-w-2xl w-full">
+                      <FileText className="w-16 h-16 text-red-500 mx-auto mb-4" />
+                      <h4 className="text-lg font-semibold text-center mb-2">{file.name}</h4>
+                      <p className="text-gray-600 text-center mb-4">PDF Document</p>
+                      <div className="space-y-2 text-sm text-gray-700">
+                        <p><strong>Size:</strong> {file.size}</p>
+                        <p><strong>Type:</strong> Portable Document Format</p>
+                        <p><strong>Pages:</strong> Multiple pages</p>
+                      </div>
+                      <button className="w-full mt-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center justify-center">
+                        <ExternalLink className="w-4 h-4 mr-2" />
+                        Open PDF in New Tab
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          } else if (['doc', 'docx', 'rtf'].includes(fileExtension)) {
+            return (
+              <div className="h-full bg-gray-100">
+                <div className="h-full flex flex-col">
+                  <div className="bg-white border-b p-4 flex items-center justify-between">
+                    <h3 className="font-medium text-gray-900">Document Viewer</h3>
+                    <div className="flex space-x-2">
+                      <button className="px-3 py-1 bg-blue-100 text-blue-700 rounded text-sm">Edit</button>
+                      <button className="px-3 py-1 bg-gray-100 text-gray-700 rounded text-sm">Print</button>
+                    </div>
+                  </div>
+                  <div className="flex-1 p-6 bg-white m-4 rounded-lg shadow-lg overflow-y-auto">
+                    <div className="max-w-4xl mx-auto">
+                      <div className="mb-6">
+                        <h1 className="text-2xl font-bold text-gray-900 mb-2">{file.title}</h1>
+                        <p className="text-sm text-gray-500">Document preview - {file.name}</p>
+                      </div>
+                      <div className="prose max-w-none">
+                        <p className="text-gray-700 leading-relaxed mb-4">
+                          This is a preview of your Word document. The actual content would be rendered here 
+                          with proper formatting, fonts, and styling preserved.
+                        </p>
+                        <p className="text-gray-700 leading-relaxed mb-4">
+                          {file.description}
+                        </p>
+                        <div className="bg-gray-50 p-4 rounded-lg mb-4">
+                          <p className="text-sm text-gray-600 italic">
+                            Note: This is a demo preview. In a real implementation, the document content 
+                            would be parsed and displayed with full formatting.
+                          </p>
+                        </div>
+                      </div>
+                      <button className="mt-6 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center">
+                        <ExternalLink className="w-4 h-4 mr-2" />
+                        Open in Word Online
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          } else if (['xlsx', 'xls'].includes(fileExtension)) {
+            return (
+              <div className="h-full bg-gray-100">
+                <div className="h-full flex flex-col">
+                  <div className="bg-white border-b p-4 flex items-center justify-between">
+                    <h3 className="font-medium text-gray-900">Spreadsheet Viewer</h3>
+                    <div className="flex space-x-2">
+                      <button className="px-3 py-1 bg-green-100 text-green-700 rounded text-sm">Edit</button>
+                      <button className="px-3 py-1 bg-gray-100 text-gray-700 rounded text-sm">Download</button>
+                    </div>
+                  </div>
+                  <div className="flex-1 p-4">
+                    <div className="bg-white rounded-lg shadow-lg h-full overflow-hidden">
+                      <div className="p-4 border-b">
+                        <h4 className="font-semibold text-gray-900">{file.name}</h4>
+                        <p className="text-sm text-gray-500">Excel Spreadsheet</p>
+                      </div>
+                      <div className="overflow-auto h-full">
+                        <table className="w-full text-sm">
+                          <thead className="bg-gray-50">
+                            <tr>
+                              <th className="px-4 py-2 text-left border-r border-gray-200">A</th>
+                              <th className="px-4 py-2 text-left border-r border-gray-200">B</th>
+                              <th className="px-4 py-2 text-left border-r border-gray-200">C</th>
+                              <th className="px-4 py-2 text-left border-r border-gray-200">D</th>
+                              <th className="px-4 py-2 text-left">E</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr className="border-b border-gray-200">
+                              <td className="px-4 py-2 border-r border-gray-200">Quarter</td>
+                              <td className="px-4 py-2 border-r border-gray-200">Revenue</td>
+                              <td className="px-4 py-2 border-r border-gray-200">Expenses</td>
+                              <td className="px-4 py-2 border-r border-gray-200">Profit</td>
+                              <td className="px-4 py-2">Growth %</td>
+                            </tr>
+                            <tr className="border-b border-gray-200">
+                              <td className="px-4 py-2 border-r border-gray-200">Q1 2025</td>
+                              <td className="px-4 py-2 border-r border-gray-200">$125,000</td>
+                              <td className="px-4 py-2 border-r border-gray-200">$95,000</td>
+                              <td className="px-4 py-2 border-r border-gray-200">$30,000</td>
+                              <td className="px-4 py-2">15.2%</td>
+                            </tr>
+                            <tr className="border-b border-gray-200">
+                              <td className="px-4 py-2 border-r border-gray-200">Q2 2025</td>
+                              <td className="px-4 py-2 border-r border-gray-200">$142,500</td>
+                              <td className="px-4 py-2 border-r border-gray-200">$98,500</td>
+                              <td className="px-4 py-2 border-r border-gray-200">$44,000</td>
+                              <td className="px-4 py-2">22.8%</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                      <div className="p-4 bg-gray-50 border-t">
+                        <button className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center">
+                          <ExternalLink className="w-4 h-4 mr-2" />
+                          Open in Excel Online
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          } else {
+            return (
+              <div className="flex items-center justify-center h-full bg-gray-50">
+                <div className="text-center">
+                  <FileText className="w-24 h-24 text-gray-400 mx-auto mb-4" />
+                  <p className="text-lg font-medium text-gray-900">{file.name}</p>
+                  <p className="text-sm text-gray-500">Text Document</p>
+                  <button className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center mx-auto">
+                    <ExternalLink className="w-4 h-4 mr-2" />
+                    Open in New Tab
+                  </button>
+                </div>
+              </div>
+            );
+          }
         default:
           return (
             <div className="flex items-center justify-center h-full bg-gray-50">
@@ -709,97 +843,6 @@ const App = () => {
                     <p className="mt-1 text-gray-700 font-medium">{file.title}</p>
                   </div>
                   <div><span className="font-medium">Type:</span> {file.type?.toUpperCase()}</div>
-                  <div><span className="font-medium">Size:</span> {file.size}</div>
-                  <div><span className="font-medium">Category:</span> 
-                    <span className="ml-2 px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs">
-                      {file.category}
-                    </span>
-                  </div>
-                  <div><span className="font-medium">Status:</span>
-                    <span className="ml-2 px-2 py-1 bg-green-100 text-green-800 rounded text-xs">
-                      {file.status}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Content Details */}
-              <div className="bg-white rounded-lg p-4 shadow-sm">
-                <h4 className="font-medium text-gray-900 mb-3 flex items-center">
-                  <FileText className="w-4 h-4 mr-2" />
-                  Content Details
-                </h4>
-                <div className="space-y-3 text-sm">
-                  <div>
-                    <span className="font-medium">Description:</span>
-                    <p className="mt-1 text-gray-600 text-xs leading-relaxed">{file.description}</p>
-                  </div>
-                  <div>
-                    <span className="font-medium">Notes:</span>
-                    <p className="mt-1 text-gray-600 text-xs leading-relaxed">{file.notes}</p>
-                  </div>
-                  <div>
-                    <span className="font-medium">Tags:</span>
-                    <div className="mt-1 flex flex-wrap gap-1">
-                      {file.tags?.map((tag, index) => (
-                        <span key={index} className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs">
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Project & Team */}
-              <div className="bg-white rounded-lg p-4 shadow-sm">
-                <h4 className="font-medium text-gray-900 mb-3 flex items-center">
-                  <Users className="w-4 h-4 mr-2" />
-                  Project & Team
-                </h4>
-                <div className="space-y-2 text-sm">
-                  <div><span className="font-medium">Project:</span> {file.project}</div>
-                  <div><span className="font-medium">Submitted By:</span> {file.submittedBy}</div>
-                </div>
-              </div>
-
-              {/* Technical Details */}
-              <div className="bg-white rounded-lg p-4 shadow-sm">
-                <h4 className="font-medium text-gray-900 mb-3 flex items-center">
-                  <Settings className="w-4 h-4 mr-2" />
-                  Technical Details
-                </h4>
-                <div className="space-y-2 text-sm">
-                  <div><span className="font-medium">Created:</span> {file.createdAt}</div>
-                  <div><span className="font-medium">Modified:</span> {file.modifiedAt}</div>
-                  <div><span className="font-medium">MIME Type:</span> {file.type}</div>
-                </div>
-              </div>
-
-              {/* Quick Actions */}
-              <div className="bg-white rounded-lg p-4 shadow-sm">
-                <h4 className="font-medium text-gray-900 mb-3">Quick Actions</h4>
-                <div className="space-y-2">
-                  <button className="w-full text-left px-3 py-2 text-sm bg-blue-50 text-blue-700 rounded hover:bg-blue-100 flex items-center">
-                    <Download className="w-4 h-4 mr-2" />
-                    Download File
-                  </button>
-                  <button className="w-full text-left px-3 py-2 text-sm bg-gray-50 text-gray-700 rounded hover:bg-gray-100 flex items-center">
-                    <ExternalLink className="w-4 h-4 mr-2" />
-                    Open in New Tab
-                  </button>
-                  <button className="w-full text-left px-3 py-2 text-sm bg-gray-50 text-gray-700 rounded hover:bg-gray-100 flex items-center">
-                    <Edit2 className="w-4 h-4 mr-2" />
-                    Edit Metadata
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  };><span className="font-medium">Type:</span> {file.type?.toUpperCase()}</div>
                   <div><span className="font-medium">Size:</span> {file.size}</div>
                   <div><span className="font-medium">Category:</span> 
                     <span className="ml-2 px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs">
