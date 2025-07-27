@@ -40,11 +40,11 @@ const App = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [contextMenu, setContextMenu] = useState(null);
   const [expandedFolders, setExpandedFolders] = useState(['root']);
-  const [allFiles, setAllFiles] = useState([]); // Track all files including uploaded ones
+  const [allFiles, setAllFiles] = useState([]);
   
   const fileInputRef = useRef(null);
 
-  // Sample data with all content
+  // Sample data
   const sampleFiles = [
     {
       id: 1,
@@ -153,7 +153,7 @@ const App = () => {
       const matchesSearch = !searchQuery || 
         file.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         file.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        file.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()));
+        (file.tags && file.tags.some && file.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase())));
       return matchesFolder && matchesSearch;
     });
 
@@ -219,7 +219,18 @@ const App = () => {
         setPreviewModal(file);
         break;
       case 'download':
-        console.log('Downloading:', file.name);
+        if (file.fileObject) {
+          const url = URL.createObjectURL(file.fileObject);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = file.name;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        } else {
+          alert(`Downloading ${file.name}...`);
+        }
         break;
       case 'copy':
         console.log('Copying:', file.name);
@@ -273,8 +284,7 @@ const App = () => {
       const fileArray = Array.from(files);
       setSelectedFiles(prev => [...prev, ...fileArray]);
       
-      // Auto-detect category based on first file
-      if (fileArray.length > 0 && !uploadData.category) {
+      if (fileArray.length > 0) {
         const file = fileArray[0];
         const extension = file.name.split('.').pop().toLowerCase();
         let category = 'Other';
@@ -330,16 +340,11 @@ const App = () => {
       }
 
       try {
-        console.log('Uploading files:', selectedFiles);
-        console.log('With metadata:', uploadData);
-        
-        // Simulate upload progress
         setUploadingFiles(selectedFiles.map(file => ({
           name: file.name,
           progress: 0
         })));
 
-        // Simulate progress updates
         for (let i = 0; i <= 100; i += 10) {
           await new Promise(resolve => setTimeout(resolve, 100));
           setUploadingFiles(prev => prev.map(file => ({
@@ -348,9 +353,8 @@ const App = () => {
           })));
         }
 
-        // Create new file entries and add to allFiles
         const newFiles = selectedFiles.map((file, index) => ({
-          id: Date.now() + index, // Simple ID generation
+          id: Date.now() + index,
           name: file.name,
           title: uploadData.title,
           type: file.name.split('.').pop().toLowerCase(),
@@ -365,16 +369,12 @@ const App = () => {
           modifiedAt: new Date().toISOString().split('T')[0],
           status: 'Active',
           folderId: currentFolder,
-          fileObject: file // Store the actual file object for preview
+          fileObject: file
         }));
 
-        // Add new files to the state
         setAllFiles(prev => [...prev, ...newFiles]);
-
-        // Success
         alert(`Successfully uploaded ${selectedFiles.length} file(s)!`);
         
-        // Reset form
         setShowUploadModal(false);
         setSelectedFiles([]);
         setUploadingFiles([]);
@@ -437,7 +437,6 @@ const App = () => {
                 </button>
               </div>
 
-              {/* Selected Files Preview */}
               {selectedFiles.length > 0 && (
                 <div className="bg-gray-50 rounded-lg p-4">
                   <h3 className="font-medium text-gray-900 mb-3">Selected Files ({selectedFiles.length})</h3>
@@ -461,7 +460,6 @@ const App = () => {
                 </div>
               )}
 
-              {/* Upload Progress */}
               {uploadingFiles.length > 0 && (
                 <div className="bg-blue-50 rounded-lg p-4">
                   <h3 className="font-medium text-blue-900 mb-3">Uploading Files...</h3>
@@ -608,14 +606,12 @@ const App = () => {
     );
   };
 
-  // Enhanced Preview Modal with Database Card
+  // Preview Modal Component
   const PreviewModal = ({ file }) => {
     if (!file) return null;
 
-    // Helper function to download file
     const downloadFile = () => {
       if (file.fileObject) {
-        // For uploaded files with file object
         const url = URL.createObjectURL(file.fileObject);
         const a = document.createElement('a');
         a.href = url;
@@ -625,12 +621,10 @@ const App = () => {
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
       } else {
-        // For sample files, just alert (in real app, would download from server)
         alert(`Downloading ${file.name}...`);
       }
     };
 
-    // Helper function to open in new tab
     const openInNewTab = () => {
       if (file.fileObject) {
         const url = URL.createObjectURL(file.fileObject);
@@ -643,508 +637,64 @@ const App = () => {
     const renderPreview = () => {
       const fileExtension = file.type?.toLowerCase();
       
-      switch (file.category.toLowerCase()) {
-        case 'graphic':
-          if (file.fileObject && file.fileObject.type.startsWith('image/')) {
-            // Show actual image for uploaded files
-            const imageUrl = URL.createObjectURL(file.fileObject);
-            return (
-              <div className="flex items-center justify-center h-full bg-gray-50 p-4">
-                <div className="max-w-full max-h-full">
-                  <img 
-                    src={imageUrl} 
-                    alt={file.name}
-                    className="max-w-full max-h-full object-contain rounded-lg shadow-lg"
-                    onLoad={() => URL.revokeObjectURL(imageUrl)}
-                  />
-                </div>
-              </div>
-            );
-          } else {
-            return (
-              <div className="flex items-center justify-center h-full bg-gray-50">
-                <div className="text-center">
-                  <Image className="w-24 h-24 text-gray-400 mx-auto mb-4" />
-                  <p className="text-lg font-medium text-gray-900">{file.name}</p>
-                  <p className="text-sm text-gray-500">Image Preview</p>
-                  <button 
-                    onClick={openInNewTab}
-                    className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center mx-auto"
-                  >
-                    <ExternalLink className="w-4 h-4 mr-2" />
-                    Open in New Tab
-                  </button>
-                </div>
-              </div>
-            );
-          }
-        case 'video':
-          if (file.fileObject && file.fileObject.type.startsWith('video/')) {
-            // Show actual video player for uploaded files
-            const videoUrl = URL.createObjectURL(file.fileObject);
-            return (
-              <div className="flex items-center justify-center h-full bg-black p-4">
-                <video 
-                  controls 
-                  className="max-w-full max-h-full"
-                  onLoadedData={() => URL.revokeObjectURL(videoUrl)}
-                >
-                  <source src={videoUrl} type={file.fileObject.type} />
-                  Your browser does not support the video tag.
-                </video>
-              </div>
-            );
-          } else {
-            return (
-              <div className="flex items-center justify-center h-full bg-black">
-                <div className="text-center text-white">
-                  <Play className="w-24 h-24 text-white mx-auto mb-4" />
-                  <p className="text-lg font-medium">{file.name}</p>
-                  <p className="text-sm text-gray-300">Video Player</p>
-                  <button 
-                    onClick={openInNewTab}
-                    className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center mx-auto"
-                  >
-                    <Play className="w-4 h-4 mr-2" />
-                    Play Video
-                  </button>
-                </div>
-              </div>
-            );
-          }
-        case 'audio':
-          if (file.fileObject && file.fileObject.type.startsWith('audio/')) {
-            // Show actual audio player for uploaded files
-            const audioUrl = URL.createObjectURL(file.fileObject);
-            return (
-              <div className="flex items-center justify-center h-full bg-gray-900 p-4">
-                <div className="text-center text-white">
-                  <Music className="w-24 h-24 text-white mx-auto mb-6" />
-                  <p className="text-lg font-medium mb-6">{file.name}</p>
-                  <audio 
-                    controls 
-                    className="w-full max-w-md"
-                    onLoadedData={() => URL.revokeObjectURL(audioUrl)}
-                  >
-                    <source src={audioUrl} type={file.fileObject.type} />
-                    Your browser does not support the audio tag.
-                  </audio>
-                </div>
-              </div>
-            );
-          } else {
-            return (
-              <div className="flex items-center justify-center h-full bg-gray-900">
-                <div className="text-center text-white">
-                  <Music className="w-24 h-24 text-white mx-auto mb-4" />
-                  <p className="text-lg font-medium">{file.name}</p>
-                  <p className="text-sm text-gray-300">Audio Player</p>
-                  <button 
-                    onClick={openInNewTab}
-                    className="mt-4 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center mx-auto"
-                  >
-                    <Play className="w-4 h-4 mr-2" />
-                    Play Audio
-                  </button>
-                </div>
-              </div>
-            );
-          }
-        case 'document':
-          if (['pdf'].includes(fileExtension)) {
-            if (file.fileObject && file.fileObject.type === 'application/pdf') {
-              // Show actual PDF for uploaded files
-              const pdfUrl = URL.createObjectURL(file.fileObject);
-              return (
-                <div className="h-full bg-gray-100">
-                  <div className="h-full flex flex-col">
-                    <div className="bg-white border-b p-4 flex items-center justify-between">
-                      <h3 className="font-medium text-gray-900">PDF Viewer</h3>
-                      <div className="flex space-x-2">
-                        <button 
-                          onClick={downloadFile}
-                          className="px-3 py-1 bg-blue-100 text-blue-700 rounded text-sm hover:bg-blue-200"
-                        >
-                          Download
-                        </button>
-                        <button 
-                          onClick={openInNewTab}
-                          className="px-3 py-1 bg-gray-100 text-gray-700 rounded text-sm hover:bg-gray-200"
-                        >
-                          Open in New Tab
-                        </button>
-                      </div>
-                    </div>
-                    <div className="flex-1">
-                      <iframe
-                        src={pdfUrl}
-                        className="w-full h-full border-0"
-                        title="PDF Viewer"
-                        onLoad={() => URL.revokeObjectURL(pdfUrl)}
-                      />
-                    </div>
-                  </div>
-                </div>
-              );
-            } else {
-              return (
-                <div className="h-full bg-gray-100">
-                  <div className="h-full flex flex-col">
-                    <div className="bg-white border-b p-4 flex items-center justify-between">
-                      <h3 className="font-medium text-gray-900">PDF Viewer</h3>
-                      <div className="flex space-x-2">
-                        <button 
-                          onClick={downloadFile}
-                          className="px-3 py-1 bg-blue-100 text-blue-700 rounded text-sm hover:bg-blue-200"
-                        >
-                          Download
-                        </button>
-                        <button 
-                          onClick={openInNewTab}
-                          className="px-3 py-1 bg-gray-100 text-gray-700 rounded text-sm hover:bg-gray-200"
-                        >
-                          Open in New Tab
-                        </button>
-                      </div>
-                    </div>
-                    <div className="flex-1 flex items-center justify-center bg-gray-200">
-                      <div className="bg-white shadow-lg rounded-lg p-8 max-w-2xl w-full">
-                        <FileText className="w-16 h-16 text-red-500 mx-auto mb-4" />
-                        <h4 className="text-lg font-semibold text-center mb-2">{file.name}</h4>
-                        <p className="text-gray-600 text-center mb-4">PDF Document</p>
-                        <div className="space-y-2 text-sm text-gray-700">
-                          <p><strong>Size:</strong> {file.size}</p>
-                          <p><strong>Type:</strong> Portable Document Format</p>
-                          <p><strong>Pages:</strong> Multiple pages</p>
-                        </div>
-                        <button 
-                          onClick={openInNewTab}
-                          className="w-full mt-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center justify-center"
-                        >
-                          <ExternalLink className="w-4 h-4 mr-2" />
-                          Open PDF in New Tab
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              );
-            }
-          } else if (['doc', 'docx', 'rtf'].includes(fileExtension)) {
-            return (
-              <div className="h-full bg-gray-100">
-                <div className="h-full flex flex-col">
-                  <div className="bg-white border-b p-4 flex items-center justify-between">
-                    <h3 className="font-medium text-gray-900">Document Viewer</h3>
-                    <div className="flex space-x-2">
-                      <button 
-                        onClick={downloadFile}
-                        className="px-3 py-1 bg-blue-100 text-blue-700 rounded text-sm hover:bg-blue-200"
-                      >
-                        Download
-                      </button>
-                      <button 
-                        onClick={openInNewTab}
-                        className="px-3 py-1 bg-gray-100 text-gray-700 rounded text-sm hover:bg-gray-200"
-                      >
-                        Open in New Tab
-                      </button>
-                    </div>
-                  </div>
-                  <div className="flex-1 p-6 bg-white m-4 rounded-lg shadow-lg overflow-y-auto">
-                    <div className="max-w-4xl mx-auto">
-                      <div className="mb-6">
-                        <h1 className="text-2xl font-bold text-gray-900 mb-2">{file.title}</h1>
-                        <p className="text-sm text-gray-500">Document preview - {file.name}</p>
-                      </div>
-                      <div className="prose max-w-none">
-                        <p className="text-gray-700 leading-relaxed mb-4">
-                          This is a preview of your Word document. The actual content would be rendered here 
-                          with proper formatting, fonts, and styling preserved.
-                        </p>
-                        <p className="text-gray-700 leading-relaxed mb-4">
-                          {file.description}
-                        </p>
-                        <div className="bg-gray-50 p-4 rounded-lg mb-4">
-                          <p className="text-sm text-gray-600 italic">
-                            Note: To display actual document content, you would need to integrate with a document 
-                            parsing service or use a library like mammoth.js for Word documents.
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            );
-          } else if (['xlsx', 'xls'].includes(fileExtension)) {
-            return (
-              <div className="h-full bg-gray-100">
-                <div className="h-full flex flex-col">
-                  <div className="bg-white border-b p-4 flex items-center justify-between">
-                    <h3 className="font-medium text-gray-900">Spreadsheet Viewer</h3>
-                    <div className="flex space-x-2">
-                      <button 
-                        onClick={downloadFile}
-                        className="px-3 py-1 bg-green-100 text-green-700 rounded text-sm hover:bg-green-200"
-                      >
-                        Download
-                      </button>
-                      <button 
-                        onClick={openInNewTab}
-                        className="px-3 py-1 bg-gray-100 text-gray-700 rounded text-sm hover:bg-gray-200"
-                      >
-                        Open in New Tab
-                      </button>
-                    </div>
-                  </div>
-                  <div className="flex-1 p-4">
-                    <div className="bg-white rounded-lg shadow-lg h-full overflow-hidden">
-                      <div className="p-4 border-b">
-                        <h4 className="font-semibold text-gray-900">{file.name}</h4>
-                        <p className="text-sm text-gray-500">Excel Spreadsheet</p>
-                      </div>
-                      <div className="overflow-auto h-full">
-                        <table className="w-full text-sm">
-                          <thead className="bg-gray-50">
-                            <tr>
-                              <th className="px-4 py-2 text-left border-r border-gray-200">A</th>
-                              <th className="px-4 py-2 text-left border-r border-gray-200">B</th>
-                              <th className="px-4 py-2 text-left border-r border-gray-200">C</th>
-                              <th className="px-4 py-2 text-left border-r border-gray-200">D</th>
-                              <th className="px-4 py-2 text-left">E</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            <tr className="border-b border-gray-200">
-                              <td className="px-4 py-2 border-r border-gray-200">Quarter</td>
-                              <td className="px-4 py-2 border-r border-gray-200">Revenue</td>
-                              <td className="px-4 py-2 border-r border-gray-200">Expenses</td>
-                              <td className="px-4 py-2 border-r border-gray-200">Profit</td>
-                              <td className="px-4 py-2">Growth %</td>
-                            </tr>
-                            <tr className="border-b border-gray-200">
-                              <td className="px-4 py-2 border-r border-gray-200">Q1 2025</td>
-                              <td className="px-4 py-2 border-r border-gray-200">$125,000</td>
-                              <td className="px-4 py-2 border-r border-gray-200">$95,000</td>
-                              <td className="px-4 py-2 border-r border-gray-200">$30,000</td>
-                              <td className="px-4 py-2">15.2%</td>
-                            </tr>
-                            <tr className="border-b border-gray-200">
-                              <td className="px-4 py-2 border-r border-gray-200">Q2 2025</td>
-                              <td className="px-4 py-2 border-r border-gray-200">$142,500</td>
-                              <td className="px-4 py-2 border-r border-gray-200">$98,500</td>
-                              <td className="px-4 py-2 border-r border-gray-200">$44,000</td>
-                              <td className="px-4 py-2">22.8%</td>
-                            </tr>
-                          </tbody>
-                        </table>
-                      </div>
-                      <div className="p-4 bg-gray-50 border-t">
-                        <p className="text-sm text-gray-600 mb-2">
-                          Note: To display actual Excel content, integrate with SheetJS or similar library.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            );
-          } else {
-            return (
-              <div className="flex items-center justify-center h-full bg-gray-50">
-                <div className="text-center">
-                  <FileText className="w-24 h-24 text-gray-400 mx-auto mb-4" />
-                  <p className="text-lg font-medium text-gray-900">{file.name}</p>
-                  <p className="text-sm text-gray-500">Text Document</p>
-                  <button 
-                    onClick={openInNewTab}
-                    className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center mx-auto"
-                  >
-                    <ExternalLink className="w-4 h-4 mr-2" />
-                    Open in New Tab
-                  </button>
-                </div>
-              </div>
-            );
-          }
-        default:
-          return (
-            <div className="flex items-center justify-center h-full bg-gray-50">
-              <div className="text-center">
-                <FileText className="w-24 h-24 text-gray-400 mx-auto mb-4" />
-                <p className="text-lg font-medium text-gray-900">{file.name}</p>
-                <p className="text-sm text-gray-500">Document Preview</p>
-                <button 
-                  onClick={openInNewTab}
-                  className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center mx-auto"
-                >
-                  <ExternalLink className="w-4 h-4 mr-2" />
-                  Open in New Tab
-                </button>
-              </div>
-            </div>
-          );
+      if (file.category?.toLowerCase() === 'graphic' && file.fileObject && file.fileObject.type.startsWith('image/')) {
+        const imageUrl = URL.createObjectURL(file.fileObject);
+        return (
+          <div className="flex items-center justify-center h-full bg-gray-50 p-4">
+            <img 
+              src={imageUrl} 
+              alt={file.name}
+              className="max-w-full max-h-full object-contain rounded-lg shadow-lg"
+              onLoad={() => URL.revokeObjectURL(imageUrl)}
+            />
+          </div>
+        );
       }
-    };
-                        <p><strong>Type:</strong> Portable Document Format</p>
-                        <p><strong>Pages:</strong> Multiple pages</p>
-                      </div>
-                      <button className="w-full mt-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center justify-center">
-                        <ExternalLink className="w-4 h-4 mr-2" />
-                        Open PDF in New Tab
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            );
-          } else if (['doc', 'docx', 'rtf'].includes(fileExtension)) {
-            return (
-              <div className="h-full bg-gray-100">
-                <div className="h-full flex flex-col">
-                  <div className="bg-white border-b p-4 flex items-center justify-between">
-                    <h3 className="font-medium text-gray-900">Document Viewer</h3>
-                    <div className="flex space-x-2">
-                      <button className="px-3 py-1 bg-blue-100 text-blue-700 rounded text-sm">Edit</button>
-                      <button className="px-3 py-1 bg-gray-100 text-gray-700 rounded text-sm">Print</button>
-                    </div>
-                  </div>
-                  <div className="flex-1 p-6 bg-white m-4 rounded-lg shadow-lg overflow-y-auto">
-                    <div className="max-w-4xl mx-auto">
-                      <div className="mb-6">
-                        <h1 className="text-2xl font-bold text-gray-900 mb-2">{file.title}</h1>
-                        <p className="text-sm text-gray-500">Document preview - {file.name}</p>
-                      </div>
-                      <div className="prose max-w-none">
-                        <p className="text-gray-700 leading-relaxed mb-4">
-                          This is a preview of your Word document. The actual content would be rendered here 
-                          with proper formatting, fonts, and styling preserved.
-                        </p>
-                        <p className="text-gray-700 leading-relaxed mb-4">
-                          {file.description}
-                        </p>
-                        <div className="bg-gray-50 p-4 rounded-lg mb-4">
-                          <p className="text-sm text-gray-600 italic">
-                            Note: This is a demo preview. In a real implementation, the document content 
-                            would be parsed and displayed with full formatting.
-                          </p>
-                        </div>
-                      </div>
-                      <button className="mt-6 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center">
-                        <ExternalLink className="w-4 h-4 mr-2" />
-                        Open in Word Online
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            );
-          } else if (['xlsx', 'xls'].includes(fileExtension)) {
-            return (
-              <div className="h-full bg-gray-100">
-                <div className="h-full flex flex-col">
-                  <div className="bg-white border-b p-4 flex items-center justify-between">
-                    <h3 className="font-medium text-gray-900">Spreadsheet Viewer</h3>
-                    <div className="flex space-x-2">
-                      <button className="px-3 py-1 bg-green-100 text-green-700 rounded text-sm">Edit</button>
-                      <button className="px-3 py-1 bg-gray-100 text-gray-700 rounded text-sm">Download</button>
-                    </div>
-                  </div>
-                  <div className="flex-1 p-4">
-                    <div className="bg-white rounded-lg shadow-lg h-full overflow-hidden">
-                      <div className="p-4 border-b">
-                        <h4 className="font-semibold text-gray-900">{file.name}</h4>
-                        <p className="text-sm text-gray-500">Excel Spreadsheet</p>
-                      </div>
-                      <div className="overflow-auto h-full">
-                        <table className="w-full text-sm">
-                          <thead className="bg-gray-50">
-                            <tr>
-                              <th className="px-4 py-2 text-left border-r border-gray-200">A</th>
-                              <th className="px-4 py-2 text-left border-r border-gray-200">B</th>
-                              <th className="px-4 py-2 text-left border-r border-gray-200">C</th>
-                              <th className="px-4 py-2 text-left border-r border-gray-200">D</th>
-                              <th className="px-4 py-2 text-left">E</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            <tr className="border-b border-gray-200">
-                              <td className="px-4 py-2 border-r border-gray-200">Quarter</td>
-                              <td className="px-4 py-2 border-r border-gray-200">Revenue</td>
-                              <td className="px-4 py-2 border-r border-gray-200">Expenses</td>
-                              <td className="px-4 py-2 border-r border-gray-200">Profit</td>
-                              <td className="px-4 py-2">Growth %</td>
-                            </tr>
-                            <tr className="border-b border-gray-200">
-                              <td className="px-4 py-2 border-r border-gray-200">Q1 2025</td>
-                              <td className="px-4 py-2 border-r border-gray-200">$125,000</td>
-                              <td className="px-4 py-2 border-r border-gray-200">$95,000</td>
-                              <td className="px-4 py-2 border-r border-gray-200">$30,000</td>
-                              <td className="px-4 py-2">15.2%</td>
-                            </tr>
-                            <tr className="border-b border-gray-200">
-                              <td className="px-4 py-2 border-r border-gray-200">Q2 2025</td>
-                              <td className="px-4 py-2 border-r border-gray-200">$142,500</td>
-                              <td className="px-4 py-2 border-r border-gray-200">$98,500</td>
-                              <td className="px-4 py-2 border-r border-gray-200">$44,000</td>
-                              <td className="px-4 py-2">22.8%</td>
-                            </tr>
-                          </tbody>
-                        </table>
-                      </div>
-                      <div className="p-4 bg-gray-50 border-t">
-                        <button className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center">
-                          <ExternalLink className="w-4 h-4 mr-2" />
-                          Open in Excel Online
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            );
-          } else {
-            return (
-              <div className="flex items-center justify-center h-full bg-gray-50">
-                <div className="text-center">
-                  <FileText className="w-24 h-24 text-gray-400 mx-auto mb-4" />
-                  <p className="text-lg font-medium text-gray-900">{file.name}</p>
-                  <p className="text-sm text-gray-500">Text Document</p>
-                  <button className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center mx-auto">
-                    <ExternalLink className="w-4 h-4 mr-2" />
-                    Open in New Tab
-                  </button>
-                </div>
-              </div>
-            );
-          }
-        default:
-          return (
-            <div className="flex items-center justify-center h-full bg-gray-50">
-              <div className="text-center">
-                <FileText className="w-24 h-24 text-gray-400 mx-auto mb-4" />
-                <p className="text-lg font-medium text-gray-900">{file.name}</p>
-                <p className="text-sm text-gray-500">Document Preview</p>
-                <button className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center mx-auto">
-                  <ExternalLink className="w-4 h-4 mr-2" />
-                  Open in New Tab
-                </button>
-              </div>
-            </div>
-          );
-      }
-    };
 
-    return (
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-        <div className="bg-white rounded-lg max-w-7xl w-full max-h-[95vh] overflow-hidden shadow-2xl flex">
-          {/* Content Preview - Left Side */}
-          <div className="flex-1 flex flex-col">
-            <div className="flex justify-between items-center">
-              <h3 className="font-semibold text-gray-900">Content Preview</h3>
-              <div className="flex space-x-2">
-                <button 
+      if (file.category?.toLowerCase() === 'video' && file.fileObject && file.fileObject.type.startsWith('video/')) {
+        const videoUrl = URL.createObjectURL(file.fileObject);
+        return (
+          <div className="flex items-center justify-center h-full bg-black p-4">
+            <video 
+              controls 
+              className="max-w-full max-h-full"
+              onLoadedData={() => URL.revokeObjectURL(videoUrl)}
+            >
+              <source src={videoUrl} type={file.fileObject.type} />
+              Your browser does not support the video tag.
+            </video>
+          </div>
+        );
+      }
+
+      if (file.category?.toLowerCase() === 'audio' && file.fileObject && file.fileObject.type.startsWith('audio/')) {
+        const audioUrl = URL.createObjectURL(file.fileObject);
+        return (
+          <div className="flex items-center justify-center h-full bg-gray-900 p-4">
+            <div className="text-center text-white">
+              <Music className="w-24 h-24 text-white mx-auto mb-6" />
+              <p className="text-lg font-medium mb-6">{file.name}</p>
+              <audio 
+                controls 
+                className="w-full max-w-md"
+                onLoadedData={() => URL.revokeObjectURL(audioUrl)}
+              >
+                <source src={audioUrl} type={file.fileObject.type} />
+                Your browser does not support the audio tag.
+              </audio>
+            </div>
+          </div>
+        );
+      }
+
+      if (fileExtension === 'pdf' && file.fileObject && file.fileObject.type === 'application/pdf') {
+        const pdfUrl = URL.createObjectURL(file.fileObject);
+        return (
+          <div className="h-full bg-gray-100">
+            <div className="h-full flex flex-col">
+              <div className="bg-white border-b p-4 flex items-center justify-between">
+                <h3 className="font-medium text-gray-900">PDF Viewer</h3>
+                  <button 
                   onClick={downloadFile}
                   className="p-2 text-gray-500 hover:text-gray-700"
                   title="Download File"
@@ -1165,7 +715,6 @@ const App = () => {
             </div>
           </div>
 
-          {/* Database Card - Right Side */}
           <div className="w-96 border-l bg-gray-50 flex flex-col">
             <div className="p-4 border-b bg-white flex justify-between items-center">
               <h3 className="font-semibold text-gray-900">File Information</h3>
@@ -1178,7 +727,6 @@ const App = () => {
             </div>
             
             <div className="flex-1 overflow-y-auto p-4 space-y-6">
-              {/* Basic Information */}
               <div className="bg-white rounded-lg p-4 shadow-sm">
                 <h4 className="font-medium text-gray-900 mb-3 flex items-center">
                   <File className="w-4 h-4 mr-2" />
@@ -1204,7 +752,6 @@ const App = () => {
                 </div>
               </div>
 
-              {/* Content Details */}
               <div className="bg-white rounded-lg p-4 shadow-sm">
                 <h4 className="font-medium text-gray-900 mb-3 flex items-center">
                   <FileText className="w-4 h-4 mr-2" />
@@ -1222,7 +769,7 @@ const App = () => {
                   <div>
                     <span className="font-medium">Tags:</span>
                     <div className="mt-1 flex flex-wrap gap-1">
-                      {file.tags?.map((tag, index) => (
+                      {file.tags && file.tags.map && file.tags.map((tag, index) => (
                         <span key={index} className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs">
                           {tag}
                         </span>
@@ -1232,7 +779,6 @@ const App = () => {
                 </div>
               </div>
 
-              {/* Project & Team */}
               <div className="bg-white rounded-lg p-4 shadow-sm">
                 <h4 className="font-medium text-gray-900 mb-3 flex items-center">
                   <Users className="w-4 h-4 mr-2" />
@@ -1244,7 +790,6 @@ const App = () => {
                 </div>
               </div>
 
-              {/* Technical Details */}
               <div className="bg-white rounded-lg p-4 shadow-sm">
                 <h4 className="font-medium text-gray-900 mb-3 flex items-center">
                   <Settings className="w-4 h-4 mr-2" />
@@ -1257,15 +802,20 @@ const App = () => {
                 </div>
               </div>
 
-              {/* Quick Actions */}
               <div className="bg-white rounded-lg p-4 shadow-sm">
                 <h4 className="font-medium text-gray-900 mb-3">Quick Actions</h4>
                 <div className="space-y-2">
-                  <button className="w-full text-left px-3 py-2 text-sm bg-blue-50 text-blue-700 rounded hover:bg-blue-100 flex items-center">
+                  <button 
+                    onClick={downloadFile}
+                    className="w-full text-left px-3 py-2 text-sm bg-blue-50 text-blue-700 rounded hover:bg-blue-100 flex items-center"
+                  >
                     <Download className="w-4 h-4 mr-2" />
                     Download File
                   </button>
-                  <button className="w-full text-left px-3 py-2 text-sm bg-gray-50 text-gray-700 rounded hover:bg-gray-100 flex items-center">
+                  <button 
+                    onClick={openInNewTab}
+                    className="w-full text-left px-3 py-2 text-sm bg-gray-50 text-gray-700 rounded hover:bg-gray-100 flex items-center"
+                  >
                     <ExternalLink className="w-4 h-4 mr-2" />
                     Open in New Tab
                   </button>
@@ -1284,7 +834,6 @@ const App = () => {
 
   return (
     <div className="h-screen bg-gray-100 flex flex-col">
-      {/* Header */}
       <div className="bg-white border-b border-gray-200 px-6 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
@@ -1333,11 +882,9 @@ const App = () => {
       </div>
 
       <div className="flex-1 flex overflow-hidden">
-        {/* Sidebar */}
         <div className="w-64 bg-white border-r border-gray-200 overflow-y-auto">
           <div className="p-4">
             <div className="space-y-1">
-              {/* All Content */}
               <div 
                 className={`flex items-center px-3 py-2 hover:bg-gray-50 cursor-pointer rounded-lg transition-all ${
                   currentFolder === null ? 'bg-blue-50 text-blue-700 border border-blue-200' : 'text-gray-700'
@@ -1351,7 +898,6 @@ const App = () => {
                 </span>
               </div>
 
-              {/* Folders */}
               {sampleFolders.map(folder => (
                 <div key={folder.id}>
                   <div 
@@ -1375,9 +921,7 @@ const App = () => {
           </div>
         </div>
 
-        {/* Main Content Area */}
         <div className="flex-1 flex flex-col overflow-hidden">
-          {/* Toolbar */}
           <div className="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <span className="text-sm text-gray-600">
@@ -1412,9 +956,7 @@ const App = () => {
             )}
           </div>
 
-          {/* File List */}
           <div className="flex-1 overflow-y-auto">
-            {/* Headers */}
             <div className="bg-gray-50 border-b border-gray-200 px-6 py-3 grid grid-cols-12 gap-4 text-sm font-medium text-gray-600">
               <div className="col-span-4">Name</div>
               <div className="col-span-2">Modified</div>
@@ -1426,7 +968,6 @@ const App = () => {
             </div>
 
             <div className="divide-y divide-gray-200">
-              {/* Folders */}
               {currentFolderContents.folders.map(folder => (
                 <div
                   key={folder.id}
@@ -1446,7 +987,6 @@ const App = () => {
                 </div>
               ))}
 
-              {/* Files */}
               {currentFolderContents.files.map(file => (
                 <div
                   key={file.id}
@@ -1492,7 +1032,6 @@ const App = () => {
                 </div>
               ))}
 
-              {/* Empty State */}
               {currentFolderContents.files.length === 0 && currentFolderContents.folders.length === 0 && (
                 <div className="flex items-center justify-center py-12">
                   <div className="text-center">
@@ -1518,7 +1057,6 @@ const App = () => {
         </div>
       </div>
 
-      {/* Context Menu */}
       {contextMenu && (
         <div
           className="fixed bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 min-w-[160px]"
@@ -1564,13 +1102,62 @@ const App = () => {
         </div>
       )}
 
-      {/* Upload Modal */}
       <UploadModal />
-
-      {/* Preview Modal */}
       {previewModal && <PreviewModal file={previewModal} />}
     </div>
   );
 };
 
 export default App;
+                  <button 
+                    onClick={downloadFile}
+                    className="px-3 py-1 bg-blue-100 text-blue-700 rounded text-sm hover:bg-blue-200"
+                  >
+                    Download
+                  </button>
+                  <button 
+                    onClick={openInNewTab}
+                    className="px-3 py-1 bg-gray-100 text-gray-700 rounded text-sm hover:bg-gray-200"
+                  >
+                    Open in New Tab
+                  </button>
+                </div>
+              </div>
+              <div className="flex-1">
+                <iframe
+                  src={pdfUrl}
+                  className="w-full h-full border-0"
+                  title="PDF Viewer"
+                  onLoad={() => URL.revokeObjectURL(pdfUrl)}
+                />
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      return (
+        <div className="flex items-center justify-center h-full bg-gray-50">
+          <div className="text-center">
+            <FileText className="w-24 h-24 text-gray-400 mx-auto mb-4" />
+            <p className="text-lg font-medium text-gray-900">{file.name}</p>
+            <p className="text-sm text-gray-500">File Preview</p>
+            <button 
+              onClick={openInNewTab}
+              className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center mx-auto"
+            >
+              <ExternalLink className="w-4 h-4 mr-2" />
+              Open in New Tab
+            </button>
+          </div>
+        </div>
+      );
+    };
+
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-lg max-w-7xl w-full max-h-[95vh] overflow-hidden shadow-2xl flex">
+          <div className="flex-1 flex flex-col">
+            <div className="p-4 border-b bg-gray-50 flex justify-between items-center">
+              <h3 className="font-semibold text-gray-900">Content Preview</h3>
+              <div className="flex space-x-2">
