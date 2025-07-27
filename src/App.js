@@ -446,9 +446,9 @@ const FileManager = () => {
     return (
       <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
         <div className="bg-white rounded-lg max-w-7xl w-full max-h-[95vh] overflow-hidden shadow-2xl flex">
-          {/* Left Panel - Content Preview */}
+          {/* Left Side - Content Preview */}
           <div className="flex-1 flex flex-col">
-            <div className="flex items-center justify-between p-4 border-b bg-gray-50">
+            <div className="flex items-center justify-between p-4 border-b border-r">
               <div className="flex items-center space-x-3">
                 <h3 className="text-lg font-semibold">{file.title || file.name}</h3>
                 <span className={`px-2 py-1 rounded text-xs font-medium text-white ${getStatusColor(file.status)}`}>
@@ -457,7 +457,7 @@ const FileManager = () => {
               </div>
               <button 
                 onClick={() => setPreviewModal(null)} 
-                className="p-1 hover:bg-gray-200 rounded"
+                className="p-1 hover:bg-gray-100 rounded"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -472,7 +472,7 @@ const FileManager = () => {
               
               {file.type === 'video' && (
                 <div className="flex items-center justify-center h-full">
-                  <video controls className="max-w-full max-h-full rounded shadow-lg">
+                  <video controls className="max-w-full max-h-full rounded shadow-lg bg-black">
                     <source src={file.url} type="video/mp4" />
                     Your browser does not support the video tag.
                   </video>
@@ -480,11 +480,11 @@ const FileManager = () => {
               )}
               
               {file.type === 'audio' && (
-                <div className="flex flex-col items-center justify-center h-full text-center">
-                  <div className="w-32 h-32 mb-6 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center shadow-lg">
+                <div className="flex flex-col items-center justify-center h-full">
+                  <div className="w-32 h-32 mb-6 bg-gradient-to-br from-green-500 to-teal-500 rounded-full flex items-center justify-center shadow-lg">
                     <Music className="w-16 h-16 text-white" />
                   </div>
-                  <h3 className="text-xl font-semibold mb-4">{file.title || file.name}</h3>
+                  <h4 className="text-xl font-semibold mb-4 text-center">{file.title || file.name}</h4>
                   <audio controls className="w-full max-w-md">
                     <source src={file.url} type="audio/mpeg" />
                     Your browser does not support the audio element.
@@ -493,234 +493,175 @@ const FileManager = () => {
               )}
               
               {file.type === 'document' && (
-                <div className="flex flex-col items-center justify-center h-full text-center">
-                  <div className="w-32 h-32 mb-6 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-full flex items-center justify-center shadow-lg">
+                <div className="flex flex-col items-center justify-center h-full">
+                  <div className="w-32 h-32 mb-6 bg-gradient-to-br from-purple-500 to-indigo-500 rounded-full flex items-center justify-center shadow-lg">
                     <FileText className="w-16 h-16 text-white" />
                   </div>
-                  <h3 className="text-xl font-semibold mb-4">{file.title || file.name}</h3>
-                  <p className="mb-6 text-gray-600 max-w-md">
-                    Document preview not available in browser. Click below to open in a new tab.
-                  </p>
+                  <h4 className="text-xl font-semibold mb-4 text-center">{file.title || file.name}</h4>
+                  <p className="mb-6 text-gray-600 text-center">Document preview not available in browser</p>
                   <button
                     onClick={() => window.open(file.url, '_blank')}
                     className="flex items-center px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-md"
                   >
                     <ExternalLink className="w-5 h-5 mr-2" />
-                    Open Document
+                    Open in new tab
                   </button>
-                </div>
-              )}
-              
-              {file.type === 'other' && (
-                <div className="flex flex-col items-center justify-center h-full text-center">
-                  <div className="w-32 h-32 mb-6 bg-gradient-to-br from-gray-500 to-gray-600 rounded-full flex items-center justify-center shadow-lg">
-                    <File className="w-16 h-16 text-white" />
-                  </div>
-                  <h3 className="text-xl font-semibold mb-4">{file.title || file.name}</h3>
-                  <p className="mb-6 text-gray-600 max-w-md">
-                    Preview not available for this file type. Click below to download or open.
-                  </p>
-                  <div className="flex space-x-3">
-                    <button
-                      onClick={() => downloadFile(file)}
-                      className="flex items-center px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
-                    >
-                      <Download className="w-4 h-4 mr-2" />
-                      Download
-                    </button>
-                    <button
-                      onClick={() => window.open(file.url, '_blank')}
-                      className="flex items-center px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-                    >
-                      <ExternalLink className="w-4 h-4 mr-2" />
-                      Open
-                    </button>
-                  </div>
                 </div>
               )}
             </div>
           </div>
           
-          {/* Right Panel - Database Fields Card */}
-          <div className="w-96 border-l border-gray-200 bg-gray-50 flex flex-col">
-            <div className="p-4 border-b border-gray-200 bg-white">
+          {/* Right Side - Database Information Card */}
+          <div className="w-96 bg-gray-50 border-l overflow-y-auto">
+            <div className="p-4 bg-white border-b">
               <h4 className="font-semibold text-gray-800 flex items-center">
-                <FileText className="w-4 h-4 mr-2" />
-                File Details
+                <FileText className="w-4 h-4 mr-2 text-blue-600" />
+                File Information
               </h4>
             </div>
             
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
-              {/* Basic Information */}
+            <div className="p-4 space-y-4">
+              {/* Basic Info */}
               <div className="bg-white rounded-lg p-4 shadow-sm">
-                <h5 className="font-medium text-gray-800 mb-3 text-sm uppercase tracking-wide">Basic Information</h5>
-                <div className="space-y-3">
-                  <div>
-                    <label className="text-xs font-medium text-gray-500 block mb-1">FILENAME</label>
-                    <div className="text-sm text-gray-900 font-mono bg-gray-100 px-2 py-1 rounded">{file.name}</div>
+                <h5 className="font-medium text-gray-700 mb-3">Basic Details</h5>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">File Name:</span>
+                    <span className="font-medium text-right flex-1 ml-2">{file.name}</span>
                   </div>
-                  <div>
-                    <label className="text-xs font-medium text-gray-500 block mb-1">TITLE</label>
-                    <div className="text-sm text-gray-900">{file.title || 'No title provided'}</div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Type:</span>
+                    <span className="font-medium capitalize">{file.type}</span>
                   </div>
-                  <div>
-                    <label className="text-xs font-medium text-gray-500 block mb-1">TYPE</label>
-                    <div className="flex items-center">
-                      {getTypeIcon(file.type)}
-                      <span className="text-sm text-gray-900 ml-2 capitalize">{file.type}</span>
-                    </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Size:</span>
+                    <span className="font-medium">{file.size}</span>
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="text-xs font-medium text-gray-500 block mb-1">SIZE</label>
-                      <div className="text-sm text-gray-900">{file.size}</div>
-                    </div>
-                    <div>
-                      <label className="text-xs font-medium text-gray-500 block mb-1">VERSION</label>
-                      <div className="text-sm text-gray-900">{file.version}</div>
-                    </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Modified:</span>
+                    <span className="font-medium">{file.modified}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Version:</span>
+                    <span className="font-medium">{file.version}</span>
                   </div>
                 </div>
               </div>
-              
-              {/* Description */}
-              {file.description && (
-                <div className="bg-white rounded-lg p-4 shadow-sm">
-                  <h5 className="font-medium text-gray-800 mb-3 text-sm uppercase tracking-wide">Description</h5>
-                  <div className="text-sm text-gray-700 leading-relaxed">{file.description}</div>
-                </div>
-              )}
-              
-              {/* Project & Team Information */}
+
+              {/* Content Info */}
               <div className="bg-white rounded-lg p-4 shadow-sm">
-                <h5 className="font-medium text-gray-800 mb-3 text-sm uppercase tracking-wide">Project & Team</h5>
-                <div className="space-y-3">
-                  <div>
-                    <label className="text-xs font-medium text-gray-500 block mb-1">PROJECT</label>
-                    <div className="text-sm text-gray-900">{file.project || 'Not assigned'}</div>
+                <h5 className="font-medium text-gray-700 mb-3">Content Details</h5>
+                {file.title && (
+                  <div className="mb-3">
+                    <label className="text-xs font-medium text-gray-600 uppercase tracking-wide">Title</label>
+                    <p className="text-sm text-gray-900 mt-1">{file.title}</p>
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="text-xs font-medium text-gray-500 block mb-1">CREATED BY</label>
-                      <div className="text-sm text-gray-900">{file.createdBy}</div>
-                    </div>
-                    <div>
-                      <label className="text-xs font-medium text-gray-500 block mb-1">SUBMITTED BY</label>
-                      <div className="text-sm text-gray-900">{file.submittedBy || 'Not specified'}</div>
-                    </div>
+                )}
+                {file.description && (
+                  <div className="mb-3">
+                    <label className="text-xs font-medium text-gray-600 uppercase tracking-wide">Description</label>
+                    <p className="text-sm text-gray-900 mt-1 leading-relaxed">{file.description}</p>
+                  </div>
+                )}
+                {file.notes && (
+                  <div className="mb-3">
+                    <label className="text-xs font-medium text-gray-600 uppercase tracking-wide">Notes</label>
+                    <p className="text-sm text-gray-900 mt-1 leading-relaxed">{file.notes}</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Project & People */}
+              <div className="bg-white rounded-lg p-4 shadow-sm">
+                <h5 className="font-medium text-gray-700 mb-3">Project & Contributors</h5>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Project:</span>
+                    <span className="font-medium text-right flex-1 ml-2">{file.project || 'Not assigned'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Created by:</span>
+                    <span className="font-medium text-right flex-1 ml-2">{file.createdBy}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Submitted by:</span>
+                    <span className="font-medium text-right flex-1 ml-2">{file.submittedBy || 'Not specified'}</span>
                   </div>
                 </div>
               </div>
-              
-              {/* Status & Dates */}
-              <div className="bg-white rounded-lg p-4 shadow-sm">
-                <h5 className="font-medium text-gray-800 mb-3 text-sm uppercase tracking-wide">Status & Timeline</h5>
-                <div className="space-y-3">
-                  <div>
-                    <label className="text-xs font-medium text-gray-500 block mb-1">STATUS</label>
-                    <span className={`inline-flex px-3 py-1 rounded-full text-xs font-medium text-white ${getStatusColor(file.status)}`}>
-                      {file.status}
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="text-xs font-medium text-gray-500 block mb-1">CREATED</label>
-                      <div className="text-sm text-gray-900">{file.modified}</div>
-                    </div>
-                    <div>
-                      <label className="text-xs font-medium text-gray-500 block mb-1">MODIFIED</label>
-                      <div className="text-sm text-gray-900">{file.modified}</div>
-                    </div>
-                  </div>
-                  {file.uploadedAt && (
-                    <div>
-                      <label className="text-xs font-medium text-gray-500 block mb-1">UPLOADED</label>
-                      <div className="text-sm text-gray-900">{new Date(file.uploadedAt).toLocaleString()}</div>
-                    </div>
-                  )}
-                </div>
-              </div>
-              
+
               {/* Tags */}
               {file.tags && file.tags.length > 0 && (
                 <div className="bg-white rounded-lg p-4 shadow-sm">
-                  <h5 className="font-medium text-gray-800 mb-3 text-sm uppercase tracking-wide">Tags</h5>
-                  <div className="flex flex-wrap gap-2">
+                  <h5 className="font-medium text-gray-700 mb-3">Tags</h5>
+                  <div className="flex flex-wrap gap-1">
                     {file.tags.map(tag => (
                       <span key={tag} className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full border border-blue-200">
-                        #{tag}
+                        {tag}
                       </span>
                     ))}
                   </div>
                 </div>
               )}
-              
-              {/* Notes */}
-              {file.notes && (
-                <div className="bg-white rounded-lg p-4 shadow-sm">
-                  <h5 className="font-medium text-gray-800 mb-3 text-sm uppercase tracking-wide">Notes</h5>
-                  <div className="text-sm text-gray-700 leading-relaxed bg-yellow-50 p-3 rounded border-l-4 border-yellow-400">
-                    {file.notes}
-                  </div>
-                </div>
-              )}
-              
-              {/* Technical Information */}
+
+              {/* Technical Info */}
               <div className="bg-white rounded-lg p-4 shadow-sm">
-                <h5 className="font-medium text-gray-800 mb-3 text-sm uppercase tracking-wide">Technical Details</h5>
-                <div className="space-y-3">
+                <h5 className="font-medium text-gray-700 mb-3">Technical Details</h5>
+                <div className="space-y-2 text-sm">
                   {file.mimeType && (
-                    <div>
-                      <label className="text-xs font-medium text-gray-500 block mb-1">MIME TYPE</label>
-                      <div className="text-sm text-gray-900 font-mono">{file.mimeType}</div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">MIME Type:</span>
+                      <span className="font-medium text-right flex-1 ml-2 text-xs">{file.mimeType}</span>
+                    </div>
+                  )}
+                  {file.originalName && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Original Name:</span>
+                      <span className="font-medium text-right flex-1 ml-2 text-xs">{file.originalName}</span>
+                    </div>
+                  )}
+                  {file.uploadedAt && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Uploaded:</span>
+                      <span className="font-medium text-right flex-1 ml-2 text-xs">{new Date(file.uploadedAt).toLocaleString()}</span>
                     </div>
                   )}
                   {file.fileHash && (
-                    <div>
-                      <label className="text-xs font-medium text-gray-500 block mb-1">FILE HASH</label>
-                      <div className="text-xs text-gray-600 font-mono break-all bg-gray-100 p-2 rounded">{file.fileHash}</div>
-                    </div>
-                  )}
-                  {file.originalName && file.originalName !== file.name && (
-                    <div>
-                      <label className="text-xs font-medium text-gray-500 block mb-1">ORIGINAL NAME</label>
-                      <div className="text-sm text-gray-900 font-mono">{file.originalName}</div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">File Hash:</span>
+                      <span className="font-medium text-right flex-1 ml-2 text-xs font-mono">{file.fileHash.substring(0, 16)}...</span>
                     </div>
                   )}
                 </div>
               </div>
-              
+
               {/* Quick Actions */}
               <div className="bg-white rounded-lg p-4 shadow-sm">
-                <h5 className="font-medium text-gray-800 mb-3 text-sm uppercase tracking-wide">Quick Actions</h5>
-                <div className="grid grid-cols-2 gap-2">
+                <h5 className="font-medium text-gray-700 mb-3">Quick Actions</h5>
+                <div className="space-y-2">
                   <button
                     onClick={() => downloadFile(file)}
-                    className="flex items-center justify-center px-3 py-2 bg-green-600 text-white rounded text-sm hover:bg-green-700"
+                    className="w-full flex items-center justify-center px-3 py-2 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 text-sm"
                   >
-                    <Download className="w-4 h-4 mr-1" />
-                    Download
+                    <Download className="w-4 h-4 mr-2" />
+                    Download File
                   </button>
                   <button
                     onClick={() => window.open(file.url, '_blank')}
-                    className="flex items-center justify-center px-3 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
+                    className="w-full flex items-center justify-center px-3 py-2 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 text-sm"
                   >
-                    <ExternalLink className="w-4 h-4 mr-1" />
-                    Open
+                    <ExternalLink className="w-4 h-4 mr-2" />
+                    Open in New Tab
                   </button>
                   <button
-                    onClick={() => {/* Add copy functionality */}}
-                    className="flex items-center justify-center px-3 py-2 bg-gray-600 text-white rounded text-sm hover:bg-gray-700"
+                    onClick={() => {
+                      navigator.clipboard.writeText(file.url);
+                      // Could add a toast notification here
+                    }}
+                    className="w-full flex items-center justify-center px-3 py-2 bg-green-100 text-green-700 rounded hover:bg-green-200 text-sm"
                   >
-                    <Copy className="w-4 h-4 mr-1" />
-                    Copy
-                  </button>
-                  <button
-                    onClick={() => {/* Add edit functionality */}}
-                    className="flex items-center justify-center px-3 py-2 bg-orange-600 text-white rounded text-sm hover:bg-orange-700"
-                  >
-                    <Edit2 className="w-4 h-4 mr-1" />
-                    Edit
+                    <Copy className="w-4 h-4 mr-2" />
+                    Copy URL
                   </button>
                 </div>
               </div>
