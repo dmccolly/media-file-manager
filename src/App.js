@@ -4,12 +4,10 @@ import {
   FolderOpen,
   File, 
   Upload, 
-  Plus, 
   Search, 
   Grid, 
   List, 
   ChevronRight,
-  ChevronDown,
   Image,
   Video,
   FileText,
@@ -25,12 +23,10 @@ import {
   Edit2,
   Download,
   Users,
-  Settings,
-  Link
+  Settings
 } from 'lucide-react';
 
 const App = () => {
-  // States
   const [currentFolder, setCurrentFolder] = useState(null);
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [showUploadModal, setShowUploadModal] = useState(false);
@@ -44,7 +40,6 @@ const App = () => {
   
   const fileInputRef = useRef(null);
 
-  // Sample data
   const sampleFiles = [
     {
       id: 1,
@@ -54,9 +49,9 @@ const App = () => {
       category: 'Document',
       size: '2.4 MB',
       project: 'Marketing Campaign',
-      notes: 'This comprehensive proposal outlines our marketing strategy for the fourth quarter, including budget allocations, target demographics, and expected ROI metrics.',
+      notes: 'This comprehensive proposal outlines our marketing strategy for the fourth quarter.',
       submittedBy: 'John Smith',
-      description: 'A detailed proposal covering all aspects of our Q4 marketing initiative, including digital advertising, content creation, and campaign analytics. The document includes market research, competitor analysis, and projected outcomes.',
+      description: 'A detailed proposal covering all aspects of our Q4 marketing initiative.',
       tags: ['marketing', 'proposal', 'Q4', 'strategy'],
       createdAt: '2025-07-20',
       modifiedAt: '2025-07-25',
@@ -71,100 +66,43 @@ const App = () => {
       category: 'Video',
       size: '145 MB',
       project: 'Team Operations',
-      notes: 'Weekly standup covering project updates, blockers, and next week planning. Includes discussion about new feature rollouts.',
+      notes: 'Weekly standup covering project updates and planning.',
       submittedBy: 'Sarah Johnson',
-      description: 'Recording of our weekly team standup meeting where we discussed current project status, upcoming deadlines, and resource allocation for the next sprint.',
+      description: 'Recording of our weekly team standup meeting.',
       tags: ['meeting', 'standup', 'team', 'video'],
       createdAt: '2025-07-22',
       modifiedAt: '2025-07-22',
-      status: 'Active',
-      folderId: null
-    },
-    {
-      id: 3,
-      name: 'Brand_Logo.png',
-      title: 'Company Brand Logo Vector Graphics File',
-      type: 'png',
-      category: 'Graphic',
-      size: '890 KB',
-      project: 'Brand Identity',
-      notes: 'High-resolution brand logo in PNG format. Transparent background, suitable for web and print use.',
-      submittedBy: 'Design Team',
-      description: 'Official company logo in high-resolution PNG format with transparent background. This version is optimized for digital use and maintains brand consistency across platforms.',
-      tags: ['logo', 'brand', 'graphics', 'png'],
-      createdAt: '2025-07-15',
-      modifiedAt: '2025-07-15',
-      status: 'Active',
-      folderId: 1
-    },
-    {
-      id: 4,
-      name: 'Background_Music.mp3',
-      title: 'Corporate Background Music Track for Videos',
-      type: 'mp3',
-      category: 'Audio',
-      size: '8.2 MB',
-      project: 'Video Production',
-      notes: 'Royalty-free background music suitable for corporate videos, presentations, and promotional content.',
-      submittedBy: 'Audio Team',
-      description: 'Professional background music track designed for corporate use. The track is upbeat yet professional, perfect for presentations, promotional videos, and company communications.',
-      tags: ['music', 'background', 'corporate', 'audio'],
-      createdAt: '2025-07-18',
-      modifiedAt: '2025-07-18',
-      status: 'Active',
-      folderId: 2
-    },
-    {
-      id: 5,
-      name: 'Financial_Report.xlsx',
-      title: 'Q2 2025 Financial Performance Analysis Report',
-      type: 'xlsx',
-      category: 'Document',
-      size: '1.8 MB',
-      project: 'Financial Planning',
-      notes: 'Comprehensive financial analysis including revenue, expenses, profit margins, and growth projections for Q2 2025.',
-      submittedBy: 'Finance Department',
-      description: 'Detailed financial report analyzing Q2 2025 performance with comprehensive charts, graphs, and projections. Includes departmental breakdowns and comparison with previous quarters.',
-      tags: ['finance', 'report', 'Q2', 'analysis'],
-      createdAt: '2025-07-10',
-      modifiedAt: '2025-07-24',
       status: 'Active',
       folderId: null
     }
   ];
 
   const sampleFolders = [
-    { id: 1, name: 'Graphics', parentId: null, icon: 'folder' },
-    { id: 2, name: 'Audio Files', parentId: null, icon: 'folder' },
-    { id: 3, name: 'Documents', parentId: null, icon: 'folder' },
-    { id: 4, name: 'Videos', parentId: null, icon: 'folder' },
-    { id: 5, name: 'Archive', parentId: null, icon: 'folder' }
+    { id: 1, name: 'Graphics', parentId: null },
+    { id: 2, name: 'Audio Files', parentId: null },
+    { id: 3, name: 'Documents', parentId: null },
+    { id: 4, name: 'Videos', parentId: null }
   ];
 
-  // Initialize with sample files
   React.useEffect(() => {
     setAllFiles(sampleFiles);
   }, []);
 
-  // Get current folder contents
   const getCurrentFolderContents = () => {
     const filteredFiles = allFiles.filter(file => {
       const matchesFolder = currentFolder === null ? true : file.folderId === currentFolder;
       const matchesSearch = !searchQuery || 
         file.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        file.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (file.tags && file.tags.some && file.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase())));
+        file.title.toLowerCase().includes(searchQuery.toLowerCase());
       return matchesFolder && matchesSearch;
     });
 
     const folders = currentFolder === null ? sampleFolders.filter(f => !f.parentId) : [];
-    
     return { files: filteredFiles, folders };
   };
 
   const currentFolderContents = getCurrentFolderContents();
 
-  // File type icons
   const getFileIcon = (type) => {
     switch (type?.toLowerCase()) {
       case 'pdf':
@@ -194,7 +132,6 @@ const App = () => {
     }
   };
 
-  // File selection
   const toggleFileSelection = (fileId) => {
     setSelectedFiles(prev => 
       prev.includes(fileId) 
@@ -203,7 +140,6 @@ const App = () => {
     );
   };
 
-  // Context menu handlers
   const handleRightClick = (e, file) => {
     e.preventDefault();
     setContextMenu({
@@ -232,35 +168,23 @@ const App = () => {
           alert(`Downloading ${file.name}...`);
         }
         break;
-      case 'copy':
-        console.log('Copying:', file.name);
-        break;
-      case 'move':
-        console.log('Moving:', file.name);
-        break;
-      case 'delete':
-        console.log('Deleting:', file.name);
-        break;
       default:
         break;
     }
     setContextMenu(null);
   };
 
-  // Close context menu when clicking elsewhere
   React.useEffect(() => {
     const handleClick = () => setContextMenu(null);
     document.addEventListener('click', handleClick);
     return () => document.removeEventListener('click', handleClick);
   }, []);
 
-  // Folder navigation
   const navigateToFolder = (folderId) => {
     setCurrentFolder(folderId);
     setSelectedFiles([]);
   };
 
-  // Upload Modal Component
   const UploadModal = () => {
     const [uploadData, setUploadData] = useState({
       title: '',
@@ -283,24 +207,6 @@ const App = () => {
     const handleFileSelect = (files) => {
       const fileArray = Array.from(files);
       setSelectedFiles(prev => [...prev, ...fileArray]);
-      
-      if (fileArray.length > 0) {
-        const file = fileArray[0];
-        const extension = file.name.split('.').pop().toLowerCase();
-        let category = 'Other';
-        
-        if (['pdf', 'doc', 'docx', 'txt', 'rtf', 'xlsx', 'xls'].includes(extension)) {
-          category = 'Document';
-        } else if (['mp4', 'avi', 'mov', 'wmv', 'webm'].includes(extension)) {
-          category = 'Video';
-        } else if (['mp3', 'wav', 'flac', 'aac', 'm4a'].includes(extension)) {
-          category = 'Audio';
-        } else if (['jpg', 'jpeg', 'png', 'gif', 'svg', 'bmp'].includes(extension)) {
-          category = 'Graphic';
-        }
-        
-        setUploadData(prev => ({ ...prev, category }));
-      }
     };
 
     const handleDrop = (e) => {
@@ -606,7 +512,6 @@ const App = () => {
     );
   };
 
-  // Preview Modal Component
   const PreviewModal = ({ file }) => {
     if (!file) return null;
 
@@ -635,8 +540,6 @@ const App = () => {
     };
 
     const renderPreview = () => {
-      const fileExtension = file.type?.toLowerCase();
-      
       if (file.category?.toLowerCase() === 'graphic' && file.fileObject && file.fileObject.type.startsWith('image/')) {
         const imageUrl = URL.createObjectURL(file.fileObject);
         return (
@@ -687,14 +590,67 @@ const App = () => {
         );
       }
 
-      if (fileExtension === 'pdf' && file.fileObject && file.fileObject.type === 'application/pdf') {
+      if (file.type === 'pdf' && file.fileObject && file.fileObject.type === 'application/pdf') {
         const pdfUrl = URL.createObjectURL(file.fileObject);
         return (
           <div className="h-full bg-gray-100">
             <div className="h-full flex flex-col">
               <div className="bg-white border-b p-4 flex items-center justify-between">
                 <h3 className="font-medium text-gray-900">PDF Viewer</h3>
+                <div className="flex space-x-2">
                   <button 
+                    onClick={downloadFile}
+                    className="px-3 py-1 bg-blue-100 text-blue-700 rounded text-sm hover:bg-blue-200"
+                  >
+                    Download
+                  </button>
+                  <button 
+                    onClick={openInNewTab}
+                    className="px-3 py-1 bg-gray-100 text-gray-700 rounded text-sm hover:bg-gray-200"
+                  >
+                    Open in New Tab
+                  </button>
+                </div>
+              </div>
+              <div className="flex-1">
+                <iframe
+                  src={pdfUrl}
+                  className="w-full h-full border-0"
+                  title="PDF Viewer"
+                  onLoad={() => URL.revokeObjectURL(pdfUrl)}
+                />
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      return (
+        <div className="flex items-center justify-center h-full bg-gray-50">
+          <div className="text-center">
+            <FileText className="w-24 h-24 text-gray-400 mx-auto mb-4" />
+            <p className="text-lg font-medium text-gray-900">{file.name}</p>
+            <p className="text-sm text-gray-500">File Preview</p>
+            <button 
+              onClick={openInNewTab}
+              className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center mx-auto"
+            >
+              <ExternalLink className="w-4 h-4 mr-2" />
+              Open in New Tab
+            </button>
+          </div>
+        </div>
+      );
+    };
+
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-lg max-w-7xl w-full max-h-[95vh] overflow-hidden shadow-2xl flex">
+          <div className="flex-1 flex flex-col">
+            <div className="p-4 border-b bg-gray-50 flex justify-between items-center">
+              <h3 className="font-semibold text-gray-900">Content Preview</h3>
+              <div className="flex space-x-2">
+                <button 
                   onClick={downloadFile}
                   className="p-2 text-gray-500 hover:text-gray-700"
                   title="Download File"
@@ -786,7 +742,6 @@ const App = () => {
                 </h4>
                 <div className="space-y-2 text-sm">
                   <div><span className="font-medium">Project:</span> {file.project}</div>
-                  <div><span className="font-medium">Submitted By:</span> {file.submittedBy}</div>
                 </div>
               </div>
 
@@ -841,10 +796,10 @@ const App = () => {
             <div className="flex items-center space-x-2 text-sm text-gray-500">
               <span>Home</span>
               {currentFolder && (
-                <>
+                <React.Fragment>
                   <ChevronRight className="w-4 h-4" />
                   <span>{sampleFolders.find(f => f.id === currentFolder)?.name}</span>
-                </>
+                </React.Fragment>
               )}
             </div>
           </div>
@@ -1109,55 +1064,3 @@ const App = () => {
 };
 
 export default App;
-                  <button 
-                    onClick={downloadFile}
-                    className="px-3 py-1 bg-blue-100 text-blue-700 rounded text-sm hover:bg-blue-200"
-                  >
-                    Download
-                  </button>
-                  <button 
-                    onClick={openInNewTab}
-                    className="px-3 py-1 bg-gray-100 text-gray-700 rounded text-sm hover:bg-gray-200"
-                  >
-                    Open in New Tab
-                  </button>
-                </div>
-              </div>
-              <div className="flex-1">
-                <iframe
-                  src={pdfUrl}
-                  className="w-full h-full border-0"
-                  title="PDF Viewer"
-                  onLoad={() => URL.revokeObjectURL(pdfUrl)}
-                />
-              </div>
-            </div>
-          </div>
-        );
-      }
-
-      return (
-        <div className="flex items-center justify-center h-full bg-gray-50">
-          <div className="text-center">
-            <FileText className="w-24 h-24 text-gray-400 mx-auto mb-4" />
-            <p className="text-lg font-medium text-gray-900">{file.name}</p>
-            <p className="text-sm text-gray-500">File Preview</p>
-            <button 
-              onClick={openInNewTab}
-              className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center mx-auto"
-            >
-              <ExternalLink className="w-4 h-4 mr-2" />
-              Open in New Tab
-            </button>
-          </div>
-        </div>
-      );
-    };
-
-    return (
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-        <div className="bg-white rounded-lg max-w-7xl w-full max-h-[95vh] overflow-hidden shadow-2xl flex">
-          <div className="flex-1 flex flex-col">
-            <div className="p-4 border-b bg-gray-50 flex justify-between items-center">
-              <h3 className="font-semibold text-gray-900">Content Preview</h3>
-              <div className="flex space-x-2">
