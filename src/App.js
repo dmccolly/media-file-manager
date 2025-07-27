@@ -272,6 +272,8 @@ const App = () => {
       submittedBy: '',
       tags: ''
     });
+    const [selectedFiles, setSelectedFiles] = useState([]);
+    const [dragActive, setDragActive] = useState(false);
 
     const categories = ['Document', 'Video', 'Audio', 'Graphic', 'Other'];
 
@@ -279,18 +281,107 @@ const App = () => {
       setUploadData(prev => ({ ...prev, [field]: value }));
     };
 
-    const handleUpload = () => {
-      console.log('Uploading with metadata:', uploadData);
-      setShowUploadModal(false);
-      setUploadData({
-        title: '',
-        description: '',
-        category: 'Document',
-        project: '',
-        notes: '',
-        submittedBy: '',
-        tags: ''
-      });
+    const handleFileSelect = (files) => {
+      const fileArray = Array.from(files);
+      setSelectedFiles(prev => [...prev, ...fileArray]);
+      
+      // Auto-detect category based on first file
+      if (fileArray.length > 0 && !uploadData.category) {
+        const file = fileArray[0];
+        const extension = file.name.split('.').pop().toLowerCase();
+        let category = 'Other';
+        
+        if (['pdf', 'doc', 'docx', 'txt', 'rtf', 'xlsx', 'xls'].includes(extension)) {
+          category = 'Document';
+        } else if (['mp4', 'avi', 'mov', 'wmv', 'webm'].includes(extension)) {
+          category = 'Video';
+        } else if (['mp3', 'wav', 'flac', 'aac', 'm4a'].includes(extension)) {
+          category = 'Audio';
+        } else if (['jpg', 'jpeg', 'png', 'gif', 'svg', 'bmp'].includes(extension)) {
+          category = 'Graphic';
+        }
+        
+        setUploadData(prev => ({ ...prev, category }));
+      }
+    };
+
+    const handleDrop = (e) => {
+      e.preventDefault();
+      setDragActive(false);
+      handleFileSelect(e.dataTransfer.files);
+    };
+
+    const handleDragOver = (e) => {
+      e.preventDefault();
+      setDragActive(true);
+    };
+
+    const handleDragLeave = (e) => {
+      e.preventDefault();
+      setDragActive(false);
+    };
+
+    const removeFile = (index) => {
+      setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+    };
+
+    const handleUpload = async () => {
+      if (selectedFiles.length === 0) {
+        alert('Please select files to upload');
+        return;
+      }
+
+      if (!uploadData.title.trim()) {
+        alert('Please enter a title');
+        return;
+      }
+
+      if (!uploadData.submittedBy.trim()) {
+        alert('Please enter who submitted this');
+        return;
+      }
+
+      try {
+        // Here you would implement actual file upload to your backend
+        console.log('Uploading files:', selectedFiles);
+        console.log('With metadata:', uploadData);
+        
+        // Simulate upload progress
+        setUploadingFiles(selectedFiles.map(file => ({
+          name: file.name,
+          progress: 0
+        })));
+
+        // Simulate progress updates
+        for (let i = 0; i <= 100; i += 10) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+          setUploadingFiles(prev => prev.map(file => ({
+            ...file,
+            progress: i
+          })));
+        }
+
+        // Success
+        alert(`Successfully uploaded ${selectedFiles.length} file(s)!`);
+        
+        // Reset form
+        setShowUploadModal(false);
+        setSelectedFiles([]);
+        setUploadingFiles([]);
+        setUploadData({
+          title: '',
+          description: '',
+          category: 'Document',
+          project: '',
+          notes: '',
+          submittedBy: '',
+          tags: ''
+        });
+
+      } catch (error) {
+        console.error('Upload failed:', error);
+        alert('Upload failed. Please try again.');
+      }
     };
 
     if (!showUploadModal) return null;
@@ -310,7 +401,14 @@ const App = () => {
             </div>
 
             <div className="space-y-6">
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+              <div 
+                className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+                  dragActive ? 'border-blue-500 bg-blue-50' : 'border-gray-300'
+                }`}
+                onDrop={handleDrop}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+              >
                 <Upload className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                 <p className="text-lg font-medium text-gray-900 mb-2">Drop files here or click to browse</p>
                 <p className="text-sm text-gray-500">Support for multiple file formats</p>
@@ -319,7 +417,7 @@ const App = () => {
                   type="file"
                   multiple
                   className="hidden"
-                  onChange={() => {}}
+                  onChange={(e) => handleFileSelect(e.target.files)}
                 />
                 <button
                   onClick={() => fileInputRef.current?.click()}
@@ -328,6 +426,53 @@ const App = () => {
                   Select Files
                 </button>
               </div>
+
+              {/* Selected Files Preview */}
+              {selectedFiles.length > 0 && (
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <h3 className="font-medium text-gray-900 mb-3">Selected Files ({selectedFiles.length})</h3>
+                  <div className="space-y-2 max-h-32 overflow-y-auto">
+                    {selectedFiles.map((file, index) => (
+                      <div key={index} className="flex items-center justify-between bg-white p-2 rounded border">
+                        <div className="flex items-center">
+                          {getFileIcon(file.name.split('.').pop())}
+                          <span className="ml-2 text-sm font-medium">{file.name}</span>
+                          <span className="ml-2 text-xs text-gray-500">({(file.size / 1024 / 1024).toFixed(2)} MB)</span>
+                        </div>
+                        <button
+                          onClick={() => removeFile(index)}
+                          className="text-red-500 hover:text-red-700"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Upload Progress */}
+              {uploadingFiles.length > 0 && (
+                <div className="bg-blue-50 rounded-lg p-4">
+                  <h3 className="font-medium text-blue-900 mb-3">Uploading Files...</h3>
+                  <div className="space-y-2">
+                    {uploadingFiles.map((file, index) => (
+                      <div key={index} className="bg-white p-2 rounded border">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-sm font-medium">{file.name}</span>
+                          <span className="text-xs text-gray-500">{file.progress}%</span>
+                        </div>
+                        <div className="w-full bg-gray-200 rounded-full h-2">
+                          <div 
+                            className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                            style={{ width: `${file.progress}%` }}
+                          ></div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
@@ -434,14 +579,16 @@ const App = () => {
                 <button
                   onClick={() => setShowUploadModal(false)}
                   className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+                  disabled={uploadingFiles.length > 0}
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleUpload}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                  disabled={selectedFiles.length === 0 || uploadingFiles.length > 0}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
                 >
-                  Upload Files
+                  {uploadingFiles.length > 0 ? 'Uploading...' : `Upload ${selectedFiles.length > 0 ? `(${selectedFiles.length})` : ''} Files`}
                 </button>
               </div>
             </div>
@@ -558,8 +705,101 @@ const App = () => {
                 </h4>
                 <div className="space-y-2 text-sm">
                   <div><span className="font-medium">Name:</span> {file.name}</div>
-                  <div><span className="font-medium">Title:</span> {file.title}</div>
+                  <div><span className="font-medium">Title:</span> 
+                    <p className="mt-1 text-gray-700 font-medium">{file.title}</p>
+                  </div>
                   <div><span className="font-medium">Type:</span> {file.type?.toUpperCase()}</div>
+                  <div><span className="font-medium">Size:</span> {file.size}</div>
+                  <div><span className="font-medium">Category:</span> 
+                    <span className="ml-2 px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs">
+                      {file.category}
+                    </span>
+                  </div>
+                  <div><span className="font-medium">Status:</span>
+                    <span className="ml-2 px-2 py-1 bg-green-100 text-green-800 rounded text-xs">
+                      {file.status}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Content Details */}
+              <div className="bg-white rounded-lg p-4 shadow-sm">
+                <h4 className="font-medium text-gray-900 mb-3 flex items-center">
+                  <FileText className="w-4 h-4 mr-2" />
+                  Content Details
+                </h4>
+                <div className="space-y-3 text-sm">
+                  <div>
+                    <span className="font-medium">Description:</span>
+                    <p className="mt-1 text-gray-600 text-xs leading-relaxed">{file.description}</p>
+                  </div>
+                  <div>
+                    <span className="font-medium">Notes:</span>
+                    <p className="mt-1 text-gray-600 text-xs leading-relaxed">{file.notes}</p>
+                  </div>
+                  <div>
+                    <span className="font-medium">Tags:</span>
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {file.tags?.map((tag, index) => (
+                        <span key={index} className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs">
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Project & Team */}
+              <div className="bg-white rounded-lg p-4 shadow-sm">
+                <h4 className="font-medium text-gray-900 mb-3 flex items-center">
+                  <Users className="w-4 h-4 mr-2" />
+                  Project & Team
+                </h4>
+                <div className="space-y-2 text-sm">
+                  <div><span className="font-medium">Project:</span> {file.project}</div>
+                  <div><span className="font-medium">Submitted By:</span> {file.submittedBy}</div>
+                </div>
+              </div>
+
+              {/* Technical Details */}
+              <div className="bg-white rounded-lg p-4 shadow-sm">
+                <h4 className="font-medium text-gray-900 mb-3 flex items-center">
+                  <Settings className="w-4 h-4 mr-2" />
+                  Technical Details
+                </h4>
+                <div className="space-y-2 text-sm">
+                  <div><span className="font-medium">Created:</span> {file.createdAt}</div>
+                  <div><span className="font-medium">Modified:</span> {file.modifiedAt}</div>
+                  <div><span className="font-medium">MIME Type:</span> {file.type}</div>
+                </div>
+              </div>
+
+              {/* Quick Actions */}
+              <div className="bg-white rounded-lg p-4 shadow-sm">
+                <h4 className="font-medium text-gray-900 mb-3">Quick Actions</h4>
+                <div className="space-y-2">
+                  <button className="w-full text-left px-3 py-2 text-sm bg-blue-50 text-blue-700 rounded hover:bg-blue-100 flex items-center">
+                    <Download className="w-4 h-4 mr-2" />
+                    Download File
+                  </button>
+                  <button className="w-full text-left px-3 py-2 text-sm bg-gray-50 text-gray-700 rounded hover:bg-gray-100 flex items-center">
+                    <ExternalLink className="w-4 h-4 mr-2" />
+                    Open in New Tab
+                  </button>
+                  <button className="w-full text-left px-3 py-2 text-sm bg-gray-50 text-gray-700 rounded hover:bg-gray-100 flex items-center">
+                    <Edit2 className="w-4 h-4 mr-2" />
+                    Edit Metadata
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };><span className="font-medium">Type:</span> {file.type?.toUpperCase()}</div>
                   <div><span className="font-medium">Size:</span> {file.size}</div>
                   <div><span className="font-medium">Category:</span> 
                     <span className="ml-2 px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs">
