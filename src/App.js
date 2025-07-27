@@ -1347,7 +1347,7 @@ const App = () => {
                 <Folder className="w-4 h-4 mr-3" />
                 <span className="font-medium">All Content</span>
                 <span className="ml-auto text-xs bg-gray-200 text-gray-600 px-2 py-1 rounded-full">
-                  {sampleFiles.length}
+                  {allFiles.length}
                 </span>
               </div>
 
@@ -1366,7 +1366,7 @@ const App = () => {
                     }
                     <span className="font-medium">{folder.name}</span>
                     <span className="ml-auto text-xs bg-gray-200 text-gray-600 px-2 py-1 rounded-full">
-                      {sampleFiles.filter(f => f.folderId === folder.id).length}
+                      {allFiles.filter(f => f.folderId === folder.id).length}
                     </span>
                   </div>
                 </div>
