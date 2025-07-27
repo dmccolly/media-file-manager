@@ -1,11 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import { 
   Folder, 
+  FolderOpen,
   File, 
   Upload, 
-  Download, 
-  Copy, 
-  Move, 
   Plus, 
   Search, 
   Grid, 
@@ -17,16 +15,15 @@ import {
   FileText,
   Music,
   X,
-  Edit2,
-  Trash2,
-  RefreshCw,
+  ExternalLink,
   Play,
   Eye,
-  ExternalLink,
   MoreVertical,
-  CheckSquare,
-  Square,
-  Zap
+  Copy,
+  Move,
+  Trash2,
+  Edit2,
+  Download
 } from 'lucide-react';
 
 const mockFolders = [
@@ -42,19 +39,19 @@ const mockFiles = [
     id: 'f1', 
     name: 'hero-banner.jpg', 
     folderId: '1', 
-    type: 'image', 
+    type: 'graphic', 
     size: '4.2 MB', 
     url: 'https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=800&h=400&fit=crop',
     modified: '2024-07-25',
     createdBy: 'design-team',
     version: '2.1',
     tags: ['hero', 'homepage', 'featured'],
-    description: 'Main hero banner for streaming platform homepage',
+    title: 'Main Hero Banner for Streaming Platform Homepage',
+    description: 'This is the primary hero banner image displayed on the homepage of our streaming platform. It features dynamic content and represents our brand identity.',
     status: 'published',
-    category: 'marketing',
-    priority: 'high',
     project: 'Website Redesign',
-    department: 'marketing'
+    submittedBy: 'John Designer',
+    notes: 'Updated to match new brand guidelines. This version includes optimized compression for web delivery.'
   },
   { 
     id: 'f2', 
@@ -67,12 +64,12 @@ const mockFiles = [
     createdBy: 'content-team',
     version: '1.3',
     tags: ['highlights', 'compilation', 'trending'],
-    description: 'Best moments compilation from recent streams',
+    title: 'Best Moments Compilation from Recent Live Streams',
+    description: 'A curated compilation of the most engaging and popular moments from our recent live streaming sessions, edited for promotional use.',
     status: 'processing',
-    category: 'content',
-    priority: 'normal',
-    project: 'Q3 Content',
-    department: 'content'
+    project: 'Q3 Content Strategy',
+    submittedBy: 'Sarah Editor',
+    notes: 'Currently being processed for different quality outputs. Will be available in 4K, 1080p, and 720p versions.'
   },
   { 
     id: 'f3', 
@@ -85,13 +82,49 @@ const mockFiles = [
     createdBy: 'brand-team',
     version: '4.0',
     tags: ['brand', 'guidelines', 'design-system'],
-    description: 'Complete brand guidelines and design system',
+    title: 'Complete Brand Guidelines and Design System Documentation',
+    description: 'Comprehensive documentation covering our brand identity, including logos, color palettes, typography, voice and tone guidelines, and usage examples.',
     status: 'approved',
-    category: 'design',
-    priority: 'urgent',
-    project: 'Brand Update',
-    department: 'design'
+    project: 'Brand Update 2024',
+    submittedBy: 'Brand Manager',
+    notes: 'Latest version includes updated color specifications and new logo variations for digital use.'
   },
+  { 
+    id: 'f4', 
+    name: 'intro-theme.mp3', 
+    folderId: null, 
+    type: 'audio', 
+    size: '12.3 MB', 
+    url: '#',
+    modified: '2024-07-22',
+    createdBy: 'audio-team',
+    version: '1.0',
+    tags: ['music', 'intro', 'theme'],
+    title: 'Signature Intro Theme Music for Live Streams',
+    description: 'Original composition created specifically for use as intro music during live streaming sessions. Features upbeat tempo and memorable melody.',
+    status: 'published',
+    project: 'Audio Branding',
+    submittedBy: 'Audio Producer',
+    notes: 'Available in multiple formats. This is the master quality version.'
+  },
+  { 
+    id: 'f5', 
+    name: 'logo-variations.png', 
+    folderId: null, 
+    type: 'graphic', 
+    size: '1.8 MB', 
+    url: 'https://via.placeholder.com/400x300/6366f1/ffffff?text=Logo+Variations',
+    modified: '2024-07-21',
+    createdBy: 'design-team',
+    version: '1.5',
+    tags: ['logo', 'brand', 'identity'],
+    title: 'Complete Logo Variations Package for All Media',
+    description: 'Collection of logo variations including horizontal, vertical, monochrome, and simplified versions for different use cases and media applications.',
+    status: 'approved',
+    project: 'Brand Update 2024',
+    submittedBy: 'Lead Designer',
+    notes: 'Includes PNG, SVG, and EPS formats. All variations tested for accessibility and readability.'
+  }
 ];
 
 const FileManager = () => {
@@ -99,7 +132,7 @@ const FileManager = () => {
   const [files, setFiles] = useState(mockFiles);
   const [currentFolder, setCurrentFolder] = useState(null);
   const [selectedItems, setSelectedItems] = useState([]);
-  const [viewMode, setViewMode] = useState('grid');
+  const [viewMode, setViewMode] = useState('list');
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedFolders, setExpandedFolders] = useState(['root']);
   const [isCreatingFolder, setIsCreatingFolder] = useState(false);
@@ -109,15 +142,20 @@ const FileManager = () => {
   const [filterTag, setFilterTag] = useState('');
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [uploadingFiles, setUploadingFiles] = useState([]);
+  const [contextMenu, setContextMenu] = useState(null);
+  const [bulkSelectMode, setBulkSelectMode] = useState(false);
   const fileInputRef = useRef(null);
 
+  // Show ALL files when currentFolder is null
   const currentFolderContents = {
-    folders: folders.filter(f => 
-      f.parentId === currentFolder?.id && 
-      f.name.toLowerCase().includes(searchTerm.toLowerCase())
-    ),
-    files: files.filter(f => 
-      f.folderId === currentFolder?.id && 
+    folders: folders.filter(f => {
+      if (currentFolder === null) return f.parentId === null; // Only top-level folders for root
+      return f.parentId === currentFolder?.id;
+    }).filter(f => f.name.toLowerCase().includes(searchTerm.toLowerCase())),
+    files: files.filter(f => {
+      if (currentFolder === null) return true; // Show ALL files when in root
+      return f.folderId === currentFolder?.id;
+    }).filter(f => 
       f.name.toLowerCase().includes(searchTerm.toLowerCase()) &&
       (filterTag === '' || f.tags?.includes(filterTag))
     )
@@ -127,22 +165,29 @@ const FileManager = () => {
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'published': return 'bg-emerald-400';
-      case 'processing': return 'bg-amber-400';
-      case 'approved': return 'bg-blue-400';
-      case 'draft': return 'bg-slate-400';
-      default: return 'bg-slate-500';
+      case 'published': return 'bg-green-500';
+      case 'processing': return 'bg-yellow-500';
+      case 'approved': return 'bg-blue-500';
+      case 'draft': return 'bg-gray-500';
+      default: return 'bg-gray-400';
     }
   };
 
-  const getPriorityColor = (priority) => {
-    switch (priority) {
-      case 'urgent': return 'bg-red-500';
-      case 'high': return 'bg-orange-500';
-      case 'normal': return 'bg-blue-500';
-      case 'low': return 'bg-gray-500';
-      default: return 'bg-gray-400';
+  const getTypeIcon = (type) => {
+    switch (type) {
+      case 'graphic': return <Image className="w-4 h-4 text-blue-600" />;
+      case 'video': return <Video className="w-4 h-4 text-red-600" />;
+      case 'audio': return <Music className="w-4 h-4 text-green-600" />;
+      case 'document': return <FileText className="w-4 h-4 text-purple-600" />;
+      default: return <File className="w-4 h-4 text-gray-600" />;
     }
+  };
+
+  const getTypeCategory = (fileType) => {
+    if (fileType.startsWith('image/')) return 'graphic';
+    if (fileType.startsWith('video/')) return 'video';
+    if (fileType.startsWith('audio/')) return 'audio';
+    return 'document';
   };
 
   const getFolderTree = (parentId = null, level = 0) => {
@@ -162,13 +207,28 @@ const FileManager = () => {
     setSelectedItems([]);
   };
 
-  const handleItemSelect = (item, type) => {
+  const handleItemSelect = (item, type, event) => {
     const itemId = `${type}-${item.id}`;
-    if (selectedItems.includes(itemId)) {
-      setSelectedItems(selectedItems.filter(id => id !== itemId));
+    
+    if (event?.ctrlKey || event?.metaKey || bulkSelectMode) {
+      if (selectedItems.includes(itemId)) {
+        setSelectedItems(selectedItems.filter(id => id !== itemId));
+      } else {
+        setSelectedItems([...selectedItems, itemId]);
+      }
     } else {
-      setSelectedItems([...selectedItems, itemId]);
+      setSelectedItems([itemId]);
     }
+  };
+
+  const handleContextMenu = (event, item, type) => {
+    event.preventDefault();
+    setContextMenu({
+      x: event.clientX,
+      y: event.clientY,
+      item,
+      type
+    });
   };
 
   const toggleFolderExpansion = (folderId) => {
@@ -201,15 +261,13 @@ const FileManager = () => {
       file,
       id: Date.now().toString() + Math.random(),
       name: file.name,
+      title: '',
       description: '',
       tags: '',
-      category: '',
-      priority: 'normal',
-      permissions: 'read,write',
-      expiresAt: '',
-      relatedTo: '',
+      category: getTypeCategory(file.type),
       project: '',
-      department: '',
+      submittedBy: '',
+      notes: '',
       status: 'draft'
     }));
     setUploadingFiles(fileData);
@@ -228,26 +286,20 @@ const FileManager = () => {
         id: fileData.id,
         name: fileData.name,
         folderId: currentFolder?.id || null,
-        type: fileData.file.type.startsWith('image/') ? 'image' : 
-              fileData.file.type.startsWith('video/') ? 'video' : 
-              fileData.file.type.startsWith('audio/') ? 'audio' : 'document',
+        type: fileData.category,
         size: `${(fileData.file.size / 1024 / 1024).toFixed(1)} MB`,
         url: URL.createObjectURL(fileData.file),
         modified: new Date().toISOString().split('T')[0],
         createdBy: 'current-user',
         version: '1.0',
         tags: fileData.tags.split(',').map(tag => tag.trim()).filter(Boolean),
+        title: fileData.title,
         description: fileData.description,
         status: fileData.status,
-        category: fileData.category,
-        priority: fileData.priority,
-        permissions: fileData.permissions.split(',').map(p => p.trim()),
-        expiresAt: fileData.expiresAt,
-        relatedTo: fileData.relatedTo,
         project: fileData.project,
-        department: fileData.department,
+        submittedBy: fileData.submittedBy,
+        notes: fileData.notes,
         uploadedAt: new Date().toISOString(),
-        fileHash: btoa(fileData.file.name + fileData.file.size),
         originalName: fileData.file.name,
         mimeType: fileData.file.type
       };
@@ -265,14 +317,19 @@ const FileManager = () => {
     setPreviewModal(file);
   };
 
-  const getFileIcon = (type) => {
-    switch (type) {
-      case 'image': return <Image className="w-5 h-5 text-white" />;
-      case 'video': return <Video className="w-5 h-5 text-white" />;
-      case 'audio': return <Music className="w-5 h-5 text-white" />;
-      case 'document': return <FileText className="w-5 h-5 text-white" />;
-      default: return <File className="w-5 h-5 text-white" />;
+  const playFile = (file) => {
+    if (file.type === 'video' || file.type === 'audio') {
+      setPreviewModal(file);
+    } else {
+      window.open(file.url, '_blank');
     }
+  };
+
+  const downloadFile = (file) => {
+    const link = document.createElement('a');
+    link.href = file.url;
+    link.download = file.name;
+    link.click();
   };
 
   const handleDragOver = (e) => {
@@ -292,32 +349,39 @@ const FileManager = () => {
       file,
       id: Date.now().toString() + Math.random(),
       name: file.name,
+      title: '',
       description: '',
       tags: '',
-      category: '',
-      priority: 'normal',
-      permissions: 'read,write',
-      expiresAt: '',
-      relatedTo: '',
+      category: getTypeCategory(file.type),
       project: '',
-      department: '',
+      submittedBy: '',
+      notes: '',
       status: 'draft'
     }));
     setUploadingFiles(fileData);
     setShowUploadModal(true);
   };
 
+  const selectAll = () => {
+    const allItems = [
+      ...currentFolderContents.folders.map(f => `folder-${f.id}`),
+      ...currentFolderContents.files.map(f => `file-${f.id}`)
+    ];
+    setSelectedItems(allItems);
+  };
+
   const FolderTreeItem = ({ folder }) => {
     const isExpanded = expandedFolders.includes(folder.id);
     const hasChildren = folder.children.length > 0;
+    const isSelected = currentFolder?.id === folder.id;
     
     return (
       <div key={folder.id}>
         <div 
-          className={`flex items-center px-3 py-2 hover:bg-gray-50 cursor-pointer rounded-lg transition-all ${
-            currentFolder?.id === folder.id ? 'bg-gradient-to-r from-purple-50 to-blue-50 border-l-2 border-purple-500' : ''
+          className={`flex items-center px-2 py-1 hover:bg-blue-50 cursor-pointer text-sm ${
+            isSelected ? 'bg-blue-100 text-blue-800' : 'text-gray-700'
           }`}
-          style={{ paddingLeft: `${folder.level * 16 + 12}px` }}
+          style={{ paddingLeft: `${folder.level * 16 + 8}px` }}
           onClick={() => handleFolderSelect(folder)}
         >
           {hasChildren && (
@@ -326,205 +390,84 @@ const FileManager = () => {
                 e.stopPropagation();
                 toggleFolderExpansion(folder.id);
               }}
-              className="mr-2 p-0.5 hover:bg-gray-200 rounded"
+              className="mr-1 p-0.5"
             >
-              {isExpanded ? <ChevronDown className="w-4 h-4 text-gray-600" /> : <ChevronRight className="w-4 h-4 text-gray-600" />}
+              {isExpanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
             </button>
           )}
-          {!hasChildren && <div className="w-6" />}
-          <Folder className="w-4 h-4 mr-3 text-blue-600" />
-          <span className="text-sm text-gray-800 font-medium">{folder.name}</span>
+          {!hasChildren && <div className="w-4" />}
+          {isExpanded ? <FolderOpen className="w-4 h-4 mr-2 text-blue-600" /> : <Folder className="w-4 h-4 mr-2 text-blue-600" />}
+          <span className="truncate">{folder.name}</span>
         </div>
         {isExpanded && folder.children.map(child => <FolderTreeItem key={child.id} folder={child} />)}
       </div>
     );
   };
 
-  const UploadModal = () => {
-    if (!showUploadModal) return null;
+  const ContextMenu = ({ menu }) => {
+    const { item, type } = menu;
+    
+    const menuItems = [
+      {
+        label: 'Open',
+        icon: type === 'file' && (item.type === 'video' || item.type === 'audio') ? <Play className="w-4 h-4" /> : <Eye className="w-4 h-4" />,
+        action: () => type === 'file' ? playFile(item) : handleFolderSelect(item)
+      },
+      { label: 'Download', icon: <Download className="w-4 h-4" />, action: () => downloadFile(item), show: type === 'file' },
+      { label: 'Copy', icon: <Copy className="w-4 h-4" />, action: () => {} },
+      { label: 'Move', icon: <Move className="w-4 h-4" />, action: () => {} },
+      { label: 'Edit', icon: <Edit2 className="w-4 h-4" />, action: () => {} },
+      { label: 'Delete', icon: <Trash2 className="w-4 h-4" />, action: () => {}, className: 'text-red-600 hover:bg-red-50' }
+    ];
 
     return (
-      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-        <div className="bg-white rounded-2xl p-8 w-full max-w-6xl max-h-[90vh] overflow-y-auto border border-gray-200 shadow-2xl">
-          <h3 className="text-xl font-semibold text-gray-900 mb-6">Upload Files & Add Metadata</h3>
-          
-          <div className="space-y-6">
-            {uploadingFiles.map((fileData, index) => (
-              <div key={index} className="border border-gray-200 rounded-xl p-6">
-                <div className="flex items-center mb-4">
-                  <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-500 rounded-lg flex items-center justify-center mr-4">
-                    {getFileIcon(fileData.file.type.startsWith('image/') ? 'image' : 
-                                  fileData.file.type.startsWith('video/') ? 'video' : 
-                                  fileData.file.type.startsWith('audio/') ? 'audio' : 'document')}
-                  </div>
-                  <div>
-                    <h4 className="font-semibold text-gray-900">{fileData.name}</h4>
-                    <p className="text-sm text-gray-500">{(fileData.file.size / 1024 / 1024).toFixed(1)} MB</p>
-                  </div>
-                </div>
-                
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
-                    <textarea
-                      value={fileData.description}
-                      onChange={(e) => updateFileData(index, 'description', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
-                      rows="3"
-                      placeholder="Describe this file..."
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Tags (comma separated)</label>
-                    <input
-                      type="text"
-                      value={fileData.tags}
-                      onChange={(e) => updateFileData(index, 'tags', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
-                      placeholder="tag1, tag2, tag3"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
-                    <select
-                      value={fileData.category}
-                      onChange={(e) => updateFileData(index, 'category', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
-                    >
-                      <option value="">Select category</option>
-                      <option value="marketing">Marketing</option>
-                      <option value="product">Product</option>
-                      <option value="design">Design</option>
-                      <option value="content">Content</option>
-                      <option value="legal">Legal</option>
-                      <option value="other">Other</option>
-                    </select>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Priority</label>
-                    <select
-                      value={fileData.priority}
-                      onChange={(e) => updateFileData(index, 'priority', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
-                    >
-                      <option value="low">Low</option>
-                      <option value="normal">Normal</option>
-                      <option value="high">High</option>
-                      <option value="urgent">Urgent</option>
-                    </select>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Project</label>
-                    <input
-                      type="text"
-                      value={fileData.project}
-                      onChange={(e) => updateFileData(index, 'project', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
-                      placeholder="Project name"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Department</label>
-                    <select
-                      value={fileData.department}
-                      onChange={(e) => updateFileData(index, 'department', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
-                    >
-                      <option value="">Select department</option>
-                      <option value="marketing">Marketing</option>
-                      <option value="sales">Sales</option>
-                      <option value="design">Design</option>
-                      <option value="development">Development</option>
-                      <option value="content">Content</option>
-                      <option value="legal">Legal</option>
-                    </select>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Related To</label>
-                    <input
-                      type="text"
-                      value={fileData.relatedTo}
-                      onChange={(e) => updateFileData(index, 'relatedTo', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
-                      placeholder="Related file IDs or references"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Expires At (optional)</label>
-                    <input
-                      type="date"
-                      value={fileData.expiresAt}
-                      onChange={(e) => updateFileData(index, 'expiresAt', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
-                    />
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-          
-          <div className="flex justify-end space-x-3 mt-6">
-            <button
-              onClick={() => {
-                setShowUploadModal(false);
-                setUploadingFiles([]);
-              }}
-              className="px-6 py-3 text-gray-600 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={uploadFiles}
-              className="px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-xl hover:from-purple-700 hover:to-blue-700 transition-all font-medium"
-            >
-              Upload {uploadingFiles.length} File{uploadingFiles.length > 1 ? 's' : ''}
-            </button>
-          </div>
-        </div>
+      <div
+        className="fixed bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-50 min-w-32"
+        style={{ left: menu.x, top: menu.y }}
+      >
+        {menuItems.filter(item => item.show !== false).map((menuItem, index) => (
+          <button
+            key={index}
+            className={`w-full text-left px-3 py-2 hover:bg-gray-50 flex items-center space-x-2 text-sm ${menuItem.className || ''}`}
+            onClick={() => {
+              menuItem.action();
+              setContextMenu(null);
+            }}
+          >
+            {menuItem.icon}
+            <span>{menuItem.label}</span>
+          </button>
+        ))}
       </div>
     );
   };
 
-  // INSERT THE REST OF THE CODE HERE - See next comment for continuation
-
   const PreviewModal = ({ file }) => {
     return (
-      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-        <div className="bg-white rounded-2xl max-w-5xl max-h-[90vh] overflow-auto border border-gray-200 shadow-2xl">
-          <div className="flex items-center justify-between p-6 border-b border-gray-200">
-            <div className="flex items-center space-x-4">
-              <h3 className="text-xl font-semibold text-gray-900">{file.name}</h3>
-              <span className={`px-3 py-1 rounded-full text-xs font-medium text-white ${getStatusColor(file.status)}`}>
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div className="bg-white rounded-lg max-w-4xl max-h-[90vh] overflow-auto shadow-2xl">
+          <div className="flex items-center justify-between p-4 border-b">
+            <div className="flex items-center space-x-3">
+              <h3 className="text-lg font-semibold">{file.title || file.name}</h3>
+              <span className={`px-2 py-1 rounded text-xs font-medium text-white ${getStatusColor(file.status)}`}>
                 {file.status}
               </span>
-              {file.priority && (
-                <span className={`px-3 py-1 rounded-full text-xs font-medium text-white ${getPriorityColor(file.priority)}`}>
-                  {file.priority}
-                </span>
-              )}
             </div>
             <button 
               onClick={() => setPreviewModal(null)} 
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              className="p-1 hover:bg-gray-100 rounded"
             >
-              <X className="w-5 h-5 text-gray-600" />
+              <X className="w-5 h-5" />
             </button>
           </div>
           
           <div className="p-6">
-            {file.type === 'image' && (
-              <img src={file.url} alt={file.name} className="max-w-full max-h-96 mx-auto rounded-lg shadow-lg" />
+            {file.type === 'graphic' && (
+              <img src={file.url} alt={file.name} className="max-w-full max-h-96 mx-auto rounded" />
             )}
             
             {file.type === 'video' && (
-              <video controls className="max-w-full max-h-96 mx-auto rounded-lg shadow-lg bg-black">
+              <video controls className="max-w-full max-h-96 mx-auto rounded bg-black">
                 <source src={file.url} type="video/mp4" />
                 Your browser does not support the video tag.
               </video>
@@ -532,8 +475,8 @@ const FileManager = () => {
             
             {file.type === 'audio' && (
               <div className="text-center py-8">
-                <div className="w-24 h-24 mx-auto mb-6 bg-gradient-to-br from-purple-500 to-blue-500 rounded-full flex items-center justify-center">
-                  <Music className="w-12 h-12 text-white" />
+                <div className="w-20 h-20 mx-auto mb-4 bg-green-500 rounded-full flex items-center justify-center">
+                  <Music className="w-10 h-10 text-white" />
                 </div>
                 <audio controls className="mx-auto">
                   <source src={file.url} type="audio/mpeg" />
@@ -544,13 +487,13 @@ const FileManager = () => {
             
             {file.type === 'document' && (
               <div className="text-center py-8">
-                <div className="w-24 h-24 mx-auto mb-6 bg-gradient-to-br from-gray-500 to-gray-600 rounded-full flex items-center justify-center">
-                  <FileText className="w-12 h-12 text-white" />
+                <div className="w-20 h-20 mx-auto mb-4 bg-purple-500 rounded-full flex items-center justify-center">
+                  <FileText className="w-10 h-10 text-white" />
                 </div>
-                <p className="mb-6 text-gray-600">Document preview not available</p>
+                <p className="mb-4 text-gray-600">Document preview not available</p>
                 <button
                   onClick={() => window.open(file.url, '_blank')}
-                  className="flex items-center mx-auto px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all"
+                  className="flex items-center mx-auto px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
                 >
                   <ExternalLink className="w-4 h-4 mr-2" />
                   Open in new tab
@@ -558,73 +501,52 @@ const FileManager = () => {
               </div>
             )}
             
-            <div className="mt-8 p-6 bg-gray-50 rounded-xl border border-gray-200">
-              <div className="grid grid-cols-3 gap-6 text-sm">
-                <div className="space-y-2">
-                  <div className="text-gray-600">Size:</div>
-                  <div className="text-gray-900 font-medium">{file.size}</div>
+            <div className="mt-6 p-4 bg-gray-50 rounded">
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span className="font-medium">Size:</span> {file.size}
                 </div>
-                <div className="space-y-2">
-                  <div className="text-gray-600">Modified:</div>
-                  <div className="text-gray-900 font-medium">{file.modified}</div>
+                <div>
+                  <span className="font-medium">Modified:</span> {file.modified}
                 </div>
-                <div className="space-y-2">
-                  <div className="text-gray-600">Created by:</div>
-                  <div className="text-gray-900 font-medium">{file.createdBy}</div>
+                <div>
+                  <span className="font-medium">Created by:</span> {file.createdBy}
                 </div>
-                <div className="space-y-2">
-                  <div className="text-gray-600">Version:</div>
-                  <div className="text-gray-900 font-medium">{file.version}</div>
+                <div>
+                  <span className="font-medium">Submitted by:</span> {file.submittedBy}
                 </div>
-                <div className="space-y-2">
-                  <div className="text-gray-600">Category:</div>
-                  <div className="text-gray-900 font-medium">{file.category || 'Not specified'}</div>
+                <div>
+                  <span className="font-medium">Project:</span> {file.project}
                 </div>
-                <div className="space-y-2">
-                  <div className="text-gray-600">Project:</div>
-                  <div className="text-gray-900 font-medium">{file.project || 'Not assigned'}</div>
-                </div>
-                <div className="space-y-2">
-                  <div className="text-gray-600">Department:</div>
-                  <div className="text-gray-900 font-medium">{file.department || 'Not specified'}</div>
-                </div>
-                <div className="space-y-2">
-                  <div className="text-gray-600">Priority:</div>
-                  <div className="text-gray-900 font-medium capitalize">{file.priority || 'normal'}</div>
-                </div>
-                <div className="space-y-2">
-                  <div className="text-gray-600">Status:</div>
-                  <div className="text-gray-900 font-medium capitalize">{file.status}</div>
+                <div>
+                  <span className="font-medium">Version:</span> {file.version}
                 </div>
               </div>
+              
               {file.description && (
-                <div className="mt-4 space-y-2">
-                  <div className="text-gray-600">Description:</div>
-                  <div className="text-gray-900">{file.description}</div>
+                <div className="mt-3">
+                  <span className="font-medium">Description:</span>
+                  <p className="mt-1 text-gray-700">{file.description}</p>
                 </div>
               )}
+              
+              {file.notes && (
+                <div className="mt-3">
+                  <span className="font-medium">Notes:</span>
+                  <p className="mt-1 text-gray-700">{file.notes}</p>
+                </div>
+              )}
+              
               {file.tags && file.tags.length > 0 && (
-                <div className="mt-4 space-y-2">
-                  <div className="text-gray-600">Tags:</div>
-                  <div className="flex flex-wrap gap-2">
+                <div className="mt-3">
+                  <span className="font-medium">Tags:</span>
+                  <div className="flex flex-wrap gap-1 mt-1">
                     {file.tags.map(tag => (
-                      <span key={tag} className="px-3 py-1 bg-gradient-to-r from-purple-100 to-blue-100 text-purple-700 text-sm rounded-full border border-purple-200">
+                      <span key={tag} className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded">
                         {tag}
                       </span>
                     ))}
                   </div>
-                </div>
-              )}
-              {file.relatedTo && (
-                <div className="mt-4 space-y-2">
-                  <div className="text-gray-600">Related To:</div>
-                  <div className="text-gray-900">{file.relatedTo}</div>
-                </div>
-              )}
-              {file.expiresAt && (
-                <div className="mt-4 space-y-2">
-                  <div className="text-gray-600">Expires At:</div>
-                  <div className="text-gray-900">{file.expiresAt}</div>
                 </div>
               )}
             </div>
@@ -634,62 +556,53 @@ const FileManager = () => {
     );
   };
 
-return (
-    <div className="flex h-screen bg-gray-50">
-      {/* Sidebar */}
-      <div className="w-80 bg-white border-r border-gray-200 flex flex-col shadow-sm">
-        <div className="p-6 border-b border-gray-200">
-          <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-blue-500 rounded-lg flex items-center justify-center">
-              <Zap className="w-5 h-5 text-white" />
-            </div>
-            <h2 className="text-xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
-              Media Manager
-            </h2>
-          </div>
+  return (
+    <div className="flex h-screen bg-white">
+      {/* Left Sidebar - Tree View */}
+      <div className="w-64 border-r border-gray-200 bg-gray-50">
+        <div className="p-3 border-b border-gray-200 bg-white">
+          <h3 className="font-semibold text-gray-800">Folders</h3>
         </div>
         
-        <div className="flex-1 overflow-y-auto p-4 space-y-2">
+        <div className="p-2 overflow-y-auto h-full">
           <div 
-            className={`flex items-center px-3 py-2 hover:bg-gray-50 cursor-pointer rounded-lg transition-all ${
-              currentFolder === null ? 'bg-gradient-to-r from-purple-50 to-blue-50 border-l-2 border-purple-500' : ''
+            className={`flex items-center px-2 py-1 hover:bg-blue-50 cursor-pointer text-sm mb-1 rounded ${
+              currentFolder === null ? 'bg-blue-100 text-blue-800 font-semibold' : 'text-gray-700'
             }`}
             onClick={() => handleFolderSelect(null)}
           >
-            <Folder className="w-4 h-4 mr-3 text-blue-600" />
-            <span className="text-sm font-semibold text-gray-800">All Content</span>
+            <Folder className="w-4 h-4 mr-2 text-blue-600" />
+            <span>All Content</span>
           </div>
           
           {folderTree.map(folder => <FolderTreeItem key={folder.id} folder={folder} />)}
         </div>
         
-        <div className="p-4 border-t border-gray-200 space-y-3">
+        <div className="p-3 border-t border-gray-200 bg-white">
           <button
             onClick={() => setIsCreatingFolder(true)}
-            className="w-full flex items-center justify-center px-4 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all font-medium shadow-sm"
+            className="w-full flex items-center justify-center px-3 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
           >
-            <Plus className="w-4 h-4 mr-2" />
+            <Plus className="w-4 h-4 mr-1" />
             New Folder
           </button>
         </div>
       </div>
 
-      {/* Main Content */}
+      {/* Main Content Area */}
       <div className="flex-1 flex flex-col">
         {/* Toolbar */}
-        <div className="bg-white/80 backdrop-blur-sm border-b border-gray-200 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center space-x-4">
+        <div className="border-b border-gray-200 bg-white p-3">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center space-x-3">
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                  <Search className="w-5 h-5 text-gray-500" />
-                </div>
+                <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
                 <input
                   type="text"
-                  placeholder="Search files and folders..."
+                  placeholder="Search files..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="bg-gray-50 border border-gray-300 rounded-xl pl-12 pr-4 py-3 text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent w-80 transition-all"
+                  className="pl-10 pr-4 py-2 border border-gray-300 rounded text-sm w-64 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
               
@@ -697,7 +610,7 @@ return (
                 <select
                   value={filterTag}
                   onChange={(e) => setFilterTag(e.target.value)}
-                  className="bg-gray-50 border border-gray-300 rounded-xl px-4 py-3 text-gray-900 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all"
+                  className="px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">All Tags</option>
                   {allTags.map(tag => (
@@ -707,12 +620,12 @@ return (
               )}
             </div>
             
-            <div className="flex items-center space-x-3">
+            <div className="flex items-center space-x-2">
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="flex items-center px-4 py-3 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-xl hover:from-emerald-700 hover:to-teal-700 transition-all font-medium shadow-sm"
+                className="flex items-center px-3 py-2 bg-green-600 text-white rounded text-sm hover:bg-green-700"
               >
-                <Upload className="w-4 h-4 mr-2" />
+                <Upload className="w-4 h-4 mr-1" />
                 Upload
               </button>
               <input
@@ -722,43 +635,38 @@ return (
                 onChange={handleFilesSelected}
                 className="hidden"
               />
-            </div>
-          </div>
-          
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
+              
               <button
                 onClick={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')}
-                className="p-2 bg-gray-100 text-gray-600 hover:bg-gray-200 rounded-lg transition-all"
+                className="p-2 border border-gray-300 rounded hover:bg-gray-50"
               >
                 {viewMode === 'grid' ? <List className="w-4 h-4" /> : <Grid className="w-4 h-4" />}
               </button>
             </div>
-            
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center text-sm text-gray-600">
-                <span 
-                  className="hover:text-purple-600 cursor-pointer transition-colors"
-                  onClick={() => setCurrentFolder(null)}
-                >
-                  All Content
-                </span>
-                {currentFolder && (
-                  <>
-                    <ChevronRight className="w-4 h-4 mx-2" />
-                    <span className="text-gray-900 font-medium">{currentFolder.name}</span>
-                  </>
-                )}
-              </div>
-            </div>
+          </div>
+          
+          {/* Breadcrumb */}
+          <div className="flex items-center text-sm text-gray-600">
+            <span 
+              className="hover:text-blue-600 cursor-pointer"
+              onClick={() => setCurrentFolder(null)}
+            >
+              All Content
+            </span>
+            {currentFolder && (
+              <>
+                <ChevronRight className="w-4 h-4 mx-1" />
+                <span className="text-gray-900 font-medium">{currentFolder.name}</span>
+              </>
+            )}
           </div>
         </div>
 
-        {/* Content Area */}
+        {/* File List */}
         <div 
-          className={`flex-1 p-6 overflow-y-auto ${
-            dragOver ? 'bg-gradient-to-br from-purple-50 to-blue-50 border-2 border-dashed border-purple-400' : ''
-          } transition-all`}
+          className={`flex-1 overflow-y-auto ${
+            dragOver ? 'bg-blue-50 border-2 border-dashed border-blue-400' : ''
+          }`}
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
@@ -766,33 +674,55 @@ return (
           {dragOver && (
             <div className="flex items-center justify-center h-full">
               <div className="text-center">
-                <div className="w-24 h-24 mx-auto mb-6 bg-gradient-to-br from-purple-500 to-blue-500 rounded-full flex items-center justify-center">
-                  <Upload className="w-12 h-12 text-white" />
-                </div>
-                <p className="text-2xl font-semibold text-gray-800 mb-2">Drop files here to upload</p>
-                <p className="text-gray-600">Support for images, videos, audio, and documents</p>
+                <Upload className="w-16 h-16 mx-auto mb-4 text-blue-500" />
+                <p className="text-xl font-semibold text-blue-700">Drop files here to upload</p>
               </div>
             </div>
           )}
           
           {!dragOver && (
-            <div className="grid grid-cols-6 gap-6">
+            <>
+              {/* List View Headers */}
+              <div className="grid grid-cols-12 gap-4 px-4 py-2 text-xs font-medium text-gray-500 bg-gray-50 border-b border-gray-200">
+                <div className="col-span-4">Name</div>
+                <div className="col-span-2">Modified</div>
+                <div className="col-span-1">Type</div>
+                <div className="col-span-1">Size</div>
+                <div className="col-span-2">Project</div>
+                <div className="col-span-1">Status</div>
+                <div className="col-span-1">Actions</div>
+              </div>
+              
               {/* Folders */}
               {currentFolderContents.folders.map(folder => (
                 <div
                   key={folder.id}
-                  className={`group p-4 bg-white border border-gray-200 rounded-xl cursor-pointer hover:border-purple-300 hover:shadow-sm transition-all relative ${
-                    selectedItems.includes(`folder-${folder.id}`) ? 'border-purple-500 bg-purple-50' : ''
+                  className={`grid grid-cols-12 gap-4 px-4 py-2 text-sm hover:bg-gray-50 cursor-pointer border-b border-gray-100 ${
+                    selectedItems.includes(`folder-${folder.id}`) ? 'bg-blue-50' : ''
                   }`}
-                  onClick={() => handleItemSelect(folder, 'folder')}
+                  onClick={(e) => handleItemSelect(folder, 'folder', e)}
                   onDoubleClick={() => handleFolderSelect(folder)}
+                  onContextMenu={(e) => handleContextMenu(e, folder, 'folder')}
                 >
-                  <div className="flex flex-col items-center">
-                    <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-500 rounded-xl flex items-center justify-center mb-3">
-                      <Folder className="w-8 h-8 text-white" />
-                    </div>
-                    <h3 className="text-sm font-semibold text-gray-800 text-center mb-1">{folder.name}</h3>
-                    <p className="text-xs text-gray-500">{folder.createdBy}</p>
+                  <div className="col-span-4 flex items-center">
+                    <Folder className="w-4 h-4 mr-2 text-blue-600" />
+                    <span className="font-medium">{folder.name}</span>
+                  </div>
+                  <div className="col-span-2 text-gray-500">{folder.createdAt}</div>
+                  <div className="col-span-1 text-gray-500">Folder</div>
+                  <div className="col-span-1 text-gray-500">-</div>
+                  <div className="col-span-2 text-gray-500">-</div>
+                  <div className="col-span-1 text-gray-500">-</div>
+                  <div className="col-span-1">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleContextMenu(e, folder, 'folder');
+                      }}
+                      className="p-1 hover:bg-gray-200 rounded"
+                    >
+                      <MoreVertical className="w-4 h-4 text-gray-400" />
+                    </button>
                   </div>
                 </div>
               ))}
@@ -801,115 +731,266 @@ return (
               {currentFolderContents.files.map(file => (
                 <div
                   key={file.id}
-                  className={`group p-4 bg-white border border-gray-200 rounded-xl cursor-pointer hover:border-purple-300 hover:shadow-sm transition-all relative ${
-                    selectedItems.includes(`file-${file.id}`) ? 'border-purple-500 bg-purple-50' : ''
+                  className={`grid grid-cols-12 gap-4 px-4 py-2 text-sm hover:bg-gray-50 cursor-pointer border-b border-gray-100 ${
+                    selectedItems.includes(`file-${file.id}`) ? 'bg-blue-50' : ''
                   }`}
-                  onClick={() => handleItemSelect(file, 'file')}
+                  onClick={(e) => handleItemSelect(file, 'file', e)}
                   onDoubleClick={() => previewFile(file)}
+                  onContextMenu={(e) => handleContextMenu(e, file, 'file')}
                 >
-                  <div className="absolute top-3 left-3">
+                  <div className="col-span-4 flex items-center">
+                    {getTypeIcon(file.type)}
+                    <div className="ml-2">
+                      <div className="font-medium truncate">{file.title || file.name}</div>
+                      {file.title && (
+                        <div className="text-xs text-gray-500 truncate">{file.name}</div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="col-span-2 text-gray-500">{file.modified}</div>
+                  <div className="col-span-1 text-gray-500 capitalize">{file.type}</div>
+                  <div className="col-span-1 text-gray-500">{file.size}</div>
+                  <div className="col-span-2 text-gray-500">{file.project || '-'}</div>
+                  <div className="col-span-1">
                     <span className={`px-2 py-1 rounded-full text-xs font-medium text-white ${getStatusColor(file.status)}`}>
                       {file.status}
                     </span>
                   </div>
-                  
-                  {file.priority && file.priority !== 'normal' && (
-                    <div className="absolute top-3 right-3">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium text-white ${getPriorityColor(file.priority)}`}>
-                        {file.priority}
-                      </span>
-                    </div>
-                  )}
-                  
-                  <div className="flex flex-col items-center pt-6">
-                    {file.type === 'image' ? (
-                      <div className="w-full h-24 mb-3 relative">
-                        <img 
-                          src={file.url} 
-                          alt={file.name} 
-                          className="w-full h-full object-cover rounded-lg"
-                        />
-                      </div>
-                    ) : (
-                      <div className={`w-16 h-16 rounded-xl flex items-center justify-center mb-3 ${
-                        file.type === 'video' ? 'bg-gradient-to-br from-red-500 to-pink-500' :
-                        file.type === 'audio' ? 'bg-gradient-to-br from-green-500 to-teal-500' :
-                        'bg-gradient-to-br from-gray-500 to-gray-600'
-                      }`}>
-                        {getFileIcon(file.type)}
-                      </div>
-                    )}
-                    
-                    <h3 className="text-sm font-semibold text-gray-800 text-center mb-1">{file.name}</h3>
-                    <p className="text-xs text-gray-500 mb-2">{file.size}</p>
-                    
-                    {file.category && (
-                      <p className="text-xs text-blue-600 mb-2 capitalize">{file.category}</p>
-                    )}
-                    
-                    {file.tags && file.tags.length > 0 && (
-                      <div className="flex flex-wrap gap-1 justify-center">
-                        {file.tags.slice(0, 2).map(tag => (
-                          <span key={tag} className="px-2 py-1 bg-purple-100 text-purple-700 text-xs rounded-full border border-purple-200">
-                            {tag}
-                          </span>
-                        ))}
-                        {file.tags.length > 2 && (
-                          <span className="text-xs text-gray-500">+{file.tags.length - 2}</span>
-                        )}
-                      </div>
-                    )}
+                  <div className="col-span-1 flex items-center space-x-1">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        previewFile(file);
+                      }}
+                      className="p-1 hover:bg-gray-200 rounded"
+                      title="Preview"
+                    >
+                      {file.type === 'video' || file.type === 'audio' ? 
+                        <Play className="w-3 h-3 text-green-600" /> : 
+                        <Eye className="w-3 h-3 text-blue-600" />
+                      }
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        downloadFile(file);
+                      }}
+                      className="p-1 hover:bg-gray-200 rounded"
+                      title="Download"
+                    >
+                      <Download className="w-3 h-3 text-gray-600" />
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleContextMenu(e, file, 'file');
+                      }}
+                      className="p-1 hover:bg-gray-200 rounded"
+                    >
+                      <MoreVertical className="w-3 h-3 text-gray-400" />
+                    </button>
                   </div>
                 </div>
               ))}
-            </div>
+            </>
           )}
           
-          {currentFolderContents.folders.length === 0 && currentFolderContents.files.length === 0 && (
+          {currentFolderContents.folders.length === 0 && currentFolderContents.files.length === 0 && !dragOver && (
             <div className="text-center py-16">
-              <div className="w-24 h-24 mx-auto mb-6 bg-gradient-to-br from-gray-400 to-gray-500 rounded-full flex items-center justify-center">
-                <Folder className="w-12 h-12 text-white" />
-              </div>
-              <h3 className="text-xl font-semibold text-gray-700 mb-2">This folder is empty</h3>
-              <p className="text-gray-500 mb-6">Drag and drop files here or use the upload button above</p>
+              <Folder className="w-16 h-16 mx-auto mb-4 text-gray-400" />
+              <h3 className="text-lg font-semibold text-gray-600 mb-2">
+                {currentFolder ? 'This folder is empty' : 'No content found'}
+              </h3>
+              <p className="text-gray-500 mb-4">
+                {currentFolder ? 'Drag and drop files here or use the upload button' : 'Upload some files to get started'}
+              </p>
             </div>
           )}
         </div>
       </div>
 
       {/* Upload Modal */}
-      <UploadModal />
+      {showUploadModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-2xl">
+            <h3 className="text-xl font-semibold mb-6">Upload Files & Add Metadata</h3>
+            
+            <div className="space-y-6">
+              {uploadingFiles.map((fileData, index) => (
+                <div key={index} className="border border-gray-200 rounded-lg p-4">
+                  <div className="flex items-center mb-4">
+                    <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mr-3">
+                      {getTypeIcon(fileData.category)}
+                    </div>
+                    <div>
+                      <h4 className="font-semibold">{fileData.name}</h4>
+                      <p className="text-sm text-gray-500">{(fileData.file.size / 1024 / 1024).toFixed(1)} MB</p>
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Title (10-12 words)</label>
+                      <input
+                        type="text"
+                        value={fileData.title}
+                        onChange={(e) => updateFileData(index, 'title', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="Brief descriptive title for this file"
+                        maxLength="120"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                      <select
+                        value={fileData.category}
+                        onChange={(e) => updateFileData(index, 'category', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="document">Document</option>
+                        <option value="video">Video</option>
+                        <option value="audio">Audio</option>
+                        <option value="graphic">Graphic</option>
+                        <option value="other">Other</option>
+                      </select>
+                    </div>
+                    
+                    <div className="col-span-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Description (up to 500 words)</label>
+                      <textarea
+                        value={fileData.description}
+                        onChange={(e) => updateFileData(index, 'description', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        rows="3"
+                        placeholder="Detailed description of this file and its purpose"
+                        maxLength="3000"
+                      />
+                      <div className="text-xs text-gray-500 mt-1">
+                        {fileData.description.length}/3000 characters
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Tags (comma separated)</label>
+                      <input
+                        type="text"
+                        value={fileData.tags}
+                        onChange={(e) => updateFileData(index, 'tags', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="tag1, tag2, tag3"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Project</label>
+                      <input
+                        type="text"
+                        value={fileData.project}
+                        onChange={(e) => updateFileData(index, 'project', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="Project name or identifier"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Submitted By</label>
+                      <input
+                        type="text"
+                        value={fileData.submittedBy}
+                        onChange={(e) => updateFileData(index, 'submittedBy', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="Person who submitted this file"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                      <select
+                        value={fileData.status}
+                        onChange={(e) => updateFileData(index, 'status', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="draft">Draft</option>
+                        <option value="processing">Processing</option>
+                        <option value="approved">Approved</option>
+                        <option value="published">Published</option>
+                      </select>
+                    </div>
+                    
+                    <div className="col-span-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Notes (up to 500 words)</label>
+                      <textarea
+                        value={fileData.notes}
+                        onChange={(e) => updateFileData(index, 'notes', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        rows="3"
+                        placeholder="Additional notes, comments, or special instructions"
+                        maxLength="3000"
+                      />
+                      <div className="text-xs text-gray-500 mt-1">
+                        {fileData.notes.length}/3000 characters
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            
+            <div className="flex justify-end space-x-3 mt-6">
+              <button
+                onClick={() => {
+                  setShowUploadModal(false);
+                  setUploadingFiles([]);
+                }}
+                className="px-4 py-2 text-gray-600 border border-gray-300 rounded hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={uploadFiles}
+                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+              >
+                Upload {uploadingFiles.length} File{uploadingFiles.length > 1 ? 's' : ''}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Preview Modal */}
       {previewModal && <PreviewModal file={previewModal} />}
 
+      {/* Context Menu */}
+      {contextMenu && <ContextMenu menu={contextMenu} />}
+
       {/* New Folder Modal */}
       {isCreatingFolder && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl p-8 w-96 border border-gray-200 shadow-2xl">
-            <h3 className="text-xl font-semibold text-gray-900 mb-6">Create New Folder</h3>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-96 shadow-2xl">
+            <h3 className="text-lg font-semibold mb-4">Create New Folder</h3>
             <input
               type="text"
               placeholder="Folder name"
               value={newFolderName}
               onChange={(e) => setNewFolderName(e.target.value)}
-              className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-xl text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               onKeyPress={(e) => e.key === 'Enter' && createFolder()}
               autoFocus
             />
-            <div className="flex justify-end space-x-3 mt-6">
+            <div className="flex justify-end space-x-3 mt-4">
               <button
                 onClick={() => {
                   setIsCreatingFolder(false);
                   setNewFolderName('');
                 }}
-                className="px-6 py-3 text-gray-600 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors"
+                className="px-4 py-2 text-gray-600 border border-gray-300 rounded hover:bg-gray-50"
               >
                 Cancel
               </button>
               <button
                 onClick={createFolder}
-                className="px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-xl hover:from-purple-700 hover:to-blue-700 transition-all font-medium"
+                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
               >
                 Create
               </button>
