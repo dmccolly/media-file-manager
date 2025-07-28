@@ -1,4 +1,8 @@
-import React, { useState, useRef, useCallback } from 'react';
+const startFolderEdit = (folderId) => {
+    setFolders(prev => prev.map(folder => 
+      folder.id === folderId ? { ...folder, isEditing: true } : folder
+    ));
+  };import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { 
   Folder, 
   FolderOpen,
@@ -124,8 +128,196 @@ const App = () => {
 
   const fileInputRef = useRef(null);
 
+  // Load files from Airtable on component mount
+  useEffect(() => {
+    loadFilesFromAirtable();
+    loadFoldersFromAirtable();
+  }, []);
+
+  // Database operations
+  const loadFilesFromAirtable = async () => {
+    try {
+      setIsLoading(true);
+      const response = await fetch(`${airtableApi.baseUrl}/Files`, {
+        headers: airtableApi.headers
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        const loadedFiles = data.records.map(record => ({
+          id: record.id,
+          name: record.fields.Name || '',
+          title: record.fields.Title || '',
+          folderId: record.fields.FolderId || 'marketing',
+          type: record.fields.Type || 'document',
+          size: record.fields.Size || '0 MB',
+          modified: record.fields.Modified || new Date().toISOString().split('T')[0],
+          createdBy: record.fields.CreatedBy || 'Unknown',
+          submittedBy: record.fields.SubmittedBy || 'Unknown',
+          status: record.fields.Status || 'draft',
+          project: record.fields.Project || '',
+          description: record.fields.Description || '',
+          notes: record.fields.Notes || '',
+          station: record.fields.Station || '',
+          yearProduced: record.fields.YearProduced || new Date().getFullYear().toString(),
+          tags: record.fields.Tags ? record.fields.Tags.split(',').map(tag => tag.trim()) : [],
+          category: record.fields.Category || 'Document',
+          url: record.fields.CloudinaryURL || '',
+          mimeType: record.fields.MimeType || 'application/octet-stream'
+        }));
+        setFiles(loadedFiles);
+      } else {
+        console.error('Failed to load files from Airtable');
+      }
+    } catch (error) {
+      console.error('Error loading files:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const loadFoldersFromAirtable = async () => {
+    try {
+      const response = await fetch(`${airtableApi.baseUrl}/Folders`, {
+        headers: airtableApi.headers
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        const loadedFolders = data.records.map(record => ({
+          id: record.id,
+          name: record.fields.Name || '',
+          parent: record.fields.Parent || null,
+          children: record.fields.Children ? record.fields.Children.split(',') : [],
+          isEditing: false
+        }));
+        
+        // Merge with default folders, prioritizing database data
+        setFolders(prev => {
+          const merged = [...prev];
+          loadedFolders.forEach(dbFolder => {
+            const existingIndex = merged.findIndex(f => f.id === dbFolder.id);
+            if (existingIndex >= 0) {
+              merged[existingIndex] = { ...merged[existingIndex], ...dbFolder };
+            } else {
+              merged.push(dbFolder);
+            }
+          });
+          return merged;
+        });
+      }
+    } catch (error) {
+      console.error('Error loading folders:', error);
+    }
+  };
+
+  const saveFileToAirtable = async (fileData) => {
+    try {
+      const airtableData = {
+        fields: {
+          Name: fileData.name,
+          Title: fileData.title,
+          FolderId: fileData.folderId,
+          Type: fileData.type,
+          Size: fileData.size,
+          Modified: fileData.modified,
+          CreatedBy: fileData.createdBy,
+          SubmittedBy: fileData.submittedBy,
+          Status: fileData.status,
+          Project: fileData.project,
+          Description: fileData.description,
+          Notes: fileData.notes,
+          Station: fileData.station,
+          YearProduced: fileData.yearProduced,
+          Tags: fileData.tags.join(','),
+          Category: fileData.category,
+          CloudinaryURL: fileData.url,
+          MimeType: fileData.mimeType
+        }
+      };
+
+      const response = await fetch(`${airtableApi.baseUrl}/Files`, {
+        method: 'POST',
+        headers: airtableApi.headers,
+        body: JSON.stringify(airtableData)
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        return result.id;
+      } else {
+        console.error('Failed to save file to Airtable');
+        return null;
+      }
+    } catch (error) {
+      console.error('Error saving file to Airtable:', error);
+      return null;
+    }
+  };
+
+  const updateFileInAirtable = async (fileId, updates) => {
+    try {
+      const response = await fetch(`${airtableApi.baseUrl}/Files/${fileId}`, {
+        method: 'PATCH',
+        headers: airtableApi.headers,
+        body: JSON.stringify({
+          fields: updates
+        })
+      });
+
+      return response.ok;
+    } catch (error) {
+      console.error('Error updating file in Airtable:', error);
+      return false;
+    }
+  };
+
+  const deleteFileFromAirtable = async (fileId) => {
+    try {
+      const response = await fetch(`${airtableApi.baseUrl}/Files/${fileId}`, {
+        method: 'DELETE',
+        headers: airtableApi.headers
+      });
+
+      return response.ok;
+    } catch (error) {
+      console.error('Error deleting file from Airtable:', error);
+      return false;
+    }
+  };
+
+  const uploadToCloudinary = async (file) => {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+
+      const response = await fetch(
+        `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/upload`,
+        {
+          method: 'POST',
+          body: formData
+        }
+      );
+
+      if (response.ok) {
+        const result = await response.json();
+        return {
+          url: result.secure_url,
+          publicId: result.public_id
+        };
+      } else {
+        console.error('Failed to upload to Cloudinary');
+        return null;
+      }
+    } catch (error) {
+      console.error('Error uploading to Cloudinary:', error);
+      return null;
+    }
+  };
+
   // Folder operations
-  const createNewFolder = () => {
+  const createNewFolder = async () => {
     const newFolderId = `folder_${Date.now()}`;
     const newFolder = {
       id: newFolderId,
@@ -146,23 +338,48 @@ const App = () => {
       ));
       setExpandedFolders(prev => [...prev, currentFolder.id]);
     }
+
+    // Save to Airtable
+    try {
+      await fetch(`${airtableApi.baseUrl}/Folders`, {
+        method: 'POST',
+        headers: airtableApi.headers,
+        body: JSON.stringify({
+          fields: {
+            Name: newFolder.name,
+            Parent: newFolder.parent,
+            Children: newFolder.children.join(',')
+          }
+        })
+      });
+    } catch (error) {
+      console.error('Error creating folder in Airtable:', error);
+    }
   };
 
-  const startFolderEdit = (folderId) => {
-    setFolders(prev => prev.map(folder => 
-      folder.id === folderId ? { ...folder, isEditing: true } : folder
-    ));
-  };
-
-  const saveFolderName = (folderId, newName) => {
+  const saveFolderName = async (folderId, newName) => {
     if (newName.trim()) {
       setFolders(prev => prev.map(folder => 
         folder.id === folderId 
           ? { ...folder, name: newName.trim(), isEditing: false }
           : folder
       ));
-      // Update Airtable/Cloudinary here
-      console.log(`Updating folder ${folderId} to name: ${newName}`);
+      
+      // Update in Airtable
+      try {
+        await fetch(`${airtableApi.baseUrl}/Folders/${folderId}`, {
+          method: 'PATCH',
+          headers: airtableApi.headers,
+          body: JSON.stringify({
+            fields: {
+              Name: newName.trim()
+            }
+          })
+        });
+        console.log(`Updated folder ${folderId} to name: ${newName}`);
+      } catch (error) {
+        console.error('Error updating folder in Airtable:', error);
+      }
     } else {
       cancelFolderEdit(folderId);
     }
@@ -212,33 +429,60 @@ const App = () => {
     }
   };
 
-  // Bulk operations
-  const moveSelectedFiles = (targetFolderId) => {
+  // Bulk operations - now with database sync
+  const moveSelectedFiles = async (targetFolderId) => {
+    const filesToMove = Array.from(selectedFiles);
+    
     setFiles(prev => prev.map(file => 
       selectedFiles.has(file.id) 
         ? { ...file, folderId: targetFolderId }
         : file
     ));
+    
+    // Update each file in Airtable
+    for (const fileId of filesToMove) {
+      await updateFileInAirtable(fileId, { FolderId: targetFolderId });
+    }
+    
     setSelectedFiles(new Set());
   };
 
-  const deleteSelectedFiles = () => {
+  const deleteSelectedFiles = async () => {
     if (window.confirm(`Delete ${selectedFiles.size} selected file(s)?`)) {
+      const filesToDelete = Array.from(selectedFiles);
+      
+      // Delete from Airtable
+      for (const fileId of filesToDelete) {
+        await deleteFileFromAirtable(fileId);
+      }
+      
       setFiles(prev => prev.filter(file => !selectedFiles.has(file.id)));
       setSelectedFiles(new Set());
     }
   };
 
-  const copySelectedFiles = (targetFolderId) => {
+  const copySelectedFiles = async (targetFolderId) => {
     const filesToCopy = files.filter(file => selectedFiles.has(file.id));
-    const copiedFiles = filesToCopy.map(file => ({
-      ...file,
-      id: Date.now().toString() + Math.random().toString(36),
-      name: `Copy of ${file.name}`,
-      title: `Copy of ${file.title}`,
-      folderId: targetFolderId,
-      modified: new Date().toISOString().split('T')[0]
-    }));
+    const copiedFiles = [];
+    
+    for (const file of filesToCopy) {
+      const copiedFile = {
+        ...file,
+        id: Date.now().toString() + Math.random().toString(36),
+        name: `Copy of ${file.name}`,
+        title: `Copy of ${file.title}`,
+        folderId: targetFolderId,
+        modified: new Date().toISOString().split('T')[0]
+      };
+      
+      // Save copy to Airtable
+      const airtableId = await saveFileToAirtable(copiedFile);
+      if (airtableId) {
+        copiedFile.id = airtableId;
+        copiedFiles.push(copiedFile);
+      }
+    }
+    
     setFiles(prev => [...prev, ...copiedFiles]);
     setSelectedFiles(new Set());
   };
@@ -285,7 +529,7 @@ const App = () => {
     }
   };
 
-  // Enhanced file drag operations
+  // Enhanced file drag operations - now with database sync
   const handleFileDragStart = (e, fileId) => {
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', fileId);
@@ -300,7 +544,7 @@ const App = () => {
     }
   };
 
-  const handleFolderDrop = (e, folderId) => {
+  const handleFolderDrop = async (e, folderId) => {
     e.preventDefault();
     e.stopPropagation();
     
@@ -315,6 +559,11 @@ const App = () => {
             ? { ...file, folderId } 
             : file
         ));
+        
+        // Update each file in Airtable
+        for (const fileId of draggedFileIds) {
+          await updateFileInAirtable(fileId, { FolderId: folderId });
+        }
         
         // Clear selection if files were moved
         setSelectedFiles(new Set());
@@ -375,47 +624,73 @@ const App = () => {
     });
   }, []);
 
-  const uploadFiles = () => {
+  const uploadFiles = async () => {
     setIsUploading(true);
     setUploadProgress(0);
     
     const totalFiles = uploadingFiles.length;
     let processedFiles = 0;
     
-    uploadingFiles.forEach((fileData, index) => {
-      // Simulate upload progress
-      setTimeout(() => {
-        const newFile = {
-          id: fileData.id,
-          name: fileData.name,
-          title: fileData.title || fileData.name.split('.')[0],
-          folderId: currentFolder?.id === 'all' ? 'marketing' : currentFolder?.id,
-          type: fileData.file.type.startsWith('image/') ? 'image' : 
-                fileData.file.type.startsWith('video/') ? 'video' : 
-                fileData.file.type.startsWith('audio/') ? 'audio' : 'document',
-          size: `${(fileData.file.size / 1024 / 1024).toFixed(1)} MB`,
-          url: URL.createObjectURL(fileData.file),
-          modified: new Date().toISOString().split('T')[0],
-          createdBy: 'Current User',
-          submittedBy: fileData.submittedBy || 'Current User',
-          status: fileData.status,
-          category: fileData.category,
-          project: fileData.project,
-          description: fileData.description,
-          notes: fileData.notes,
-          station: fileData.station,
-          yearProduced: fileData.yearProduced,
-          tags: fileData.tags.split(',').map(tag => tag.trim()).filter(Boolean),
-          mimeType: fileData.file.type
-        };
+    for (const fileData of uploadingFiles) {
+      try {
+        // Upload to Cloudinary first
+        const cloudinaryResult = await uploadToCloudinary(fileData.file);
         
-        setFiles(prev => [...prev, newFile]);
+        if (cloudinaryResult) {
+          const newFile = {
+            name: fileData.name,
+            title: fileData.title || fileData.name.split('.')[0],
+            folderId: currentFolder?.id === 'all' ? 'marketing' : currentFolder?.id,
+            type: fileData.file.type.startsWith('image/') ? 'image' : 
+                  fileData.file.type.startsWith('video/') ? 'video' : 
+                  fileData.file.type.startsWith('audio/') ? 'audio' : 'document',
+            size: `${(fileData.file.size / 1024 / 1024).toFixed(1)} MB`,
+            url: cloudinaryResult.url,
+            modified: new Date().toISOString().split('T')[0],
+            createdBy: 'Current User',
+            submittedBy: fileData.submittedBy || 'Current User',
+            status: fileData.status,
+            category: fileData.category,
+            project: fileData.project,
+            description: fileData.description,
+            notes: fileData.notes,
+            station: fileData.station,
+            yearProduced: fileData.yearProduced,
+            tags: fileData.tags.split(',').map(tag => tag.trim()).filter(Boolean),
+            mimeType: fileData.file.type,
+            cloudinaryPublicId: cloudinaryResult.publicId
+          };
+          
+          // Save to Airtable
+          const airtableId = await saveFileToAirtable(newFile);
+          
+          if (airtableId) {
+            newFile.id = airtableId;
+            setFiles(prev => [...prev, newFile]);
+          }
+        }
+        
         processedFiles++;
-        
         const progress = Math.round((processedFiles / totalFiles) * 100);
         setUploadProgress(progress);
         
-        if (processedFiles === totalFiles) {
+      } catch (error) {
+        console.error('Error uploading file:', error);
+        processedFiles++;
+      }
+    }
+    
+    // Clean up
+    setTimeout(() => {
+      setIsUploading(false);
+      setShowUploadModal(false);
+      setUploadingFiles([]);
+      setUploadProgress(0);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }, 500);
+  }; {
           setTimeout(() => {
             setIsUploading(false);
             setShowUploadModal(false);
@@ -835,7 +1110,7 @@ const App = () => {
         </div>
       </div>
     );
-  }, [showUploadModal, uploadingFiles, currentFolder, updateFileField]);
+  }, [showUploadModal, uploadingFiles, currentFolder, updateFileField, getFileIcon]);
 
   // Compact Folder Tree with Rename Functionality
   const renderFolderTree = (folderId, level = 0) => {
@@ -851,11 +1126,12 @@ const App = () => {
         <div 
           className={`flex items-center px-2 py-1.5 hover:bg-gray-50 cursor-pointer rounded-lg transition-all ${
             isActive ? 'bg-gradient-to-r from-blue-50 to-purple-50 border-r-2 border-purple-500' : ''
-          }`}
+          } ${draggedFiles.size > 0 ? 'border-2 border-dashed border-blue-300 bg-blue-50' : ''}`}
           style={{ paddingLeft: `${8 + level * 16}px` }}
           onClick={() => !folder.isEditing && setCurrentFolder(folder)}
           onDrop={(e) => handleFolderDrop(e, folderId)}
-          onDragOver={(e) => e.preventDefault()}
+          onDragOver={handleFolderDragOver}
+          onDragEnter={(e) => e.preventDefault()}
         >
           {hasChildren && (
             <button
@@ -1025,6 +1301,29 @@ const App = () => {
                       {selectedFiles.size} selected
                     </span>
                     <div className="w-px h-3 bg-gray-300" />
+                    <div className="relative">
+                      <button
+                        onClick={() => {/* Open move menu */}}
+                        className="flex items-center space-x-0.5 px-1 py-0.5 text-xs text-green-600 hover:bg-green-50 rounded"
+                        title="Move selected files"
+                      >
+                        <Move className="w-3 h-3" />
+                        <span>Move to</span>
+                      </button>
+                      {/* Move dropdown menu */}
+                      <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-50 min-w-32 hidden">
+                        {folders.filter(f => f.id !== 'all').map(folder => (
+                          <button
+                            key={folder.id}
+                            onClick={() => moveSelectedFiles(folder.id)}
+                            className="w-full text-left px-3 py-1.5 text-xs hover:bg-gray-50 flex items-center space-x-2"
+                          >
+                            <Folder className="w-3 h-3 text-blue-500" />
+                            <span>{folder.name}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                     <button
                       onClick={() => copySelectedFiles(currentFolder?.id)}
                       className="flex items-center space-x-0.5 px-1 py-0.5 text-xs text-blue-600 hover:bg-blue-50 rounded"
@@ -1071,11 +1370,11 @@ const App = () => {
             {/* Compact List Header */}
             <div className="bg-gray-50 border-b border-gray-200 px-3 py-1.5 grid grid-cols-12 gap-1 text-xs font-medium text-gray-500 uppercase tracking-wide">
               <div className="col-span-1"></div> {/* Checkbox */}
-              <div className="col-span-5">Name</div>
+              <div className="col-span-4">Name <span className="text-gray-400 normal-case">(drag to move)</span></div>
               <div className="col-span-2">Modified</div>
               <div className="col-span-1">Type</div>
               <div className="col-span-1">Size</div>
-              <div className="col-span-1">Project</div>
+              <div className="col-span-2">Project</div>
               <div className="col-span-1">Actions</div>
             </div>
 
@@ -1086,13 +1385,14 @@ const App = () => {
                   key={file.id}
                   className={`grid grid-cols-12 gap-1 px-3 py-1.5 text-xs hover:bg-gray-50 cursor-pointer transition-all ${
                     selectedFiles.has(file.id) ? 'bg-blue-50' : ''
-                  }`}
+                  } ${draggedFiles.has(file.id) ? 'opacity-50' : ''}`}
                   draggable
                   onDragStart={(e) => handleFileDragStart(e, file.id)}
                   onContextMenu={(e) => {
                     e.preventDefault();
                     setContextMenu({ file, x: e.clientX, y: e.clientY });
                   }}
+                  title="Drag to move file to another folder"
                 >
                   {/* Checkbox */}
                   <div className="col-span-1 flex items-center">
@@ -1105,7 +1405,7 @@ const App = () => {
                   </div>
 
                   {/* Name & Icon */}
-                  <div className="col-span-5 flex items-center space-x-1.5">
+                  <div className="col-span-4 flex items-center space-x-1.5">
                     <div className={`w-5 h-5 rounded-lg flex items-center justify-center ${
                       file.type === 'image' ? 'bg-gradient-to-br from-green-500 to-emerald-500' :
                       file.type === 'video' ? 'bg-gradient-to-br from-red-500 to-pink-500' :
@@ -1142,7 +1442,7 @@ const App = () => {
                   </div>
 
                   {/* Project */}
-                  <div className="col-span-1 flex items-center">
+                  <div className="col-span-2 flex items-center">
                     <span className="truncate text-gray-700 text-xs" title={file.project}>
                       {file.project}
                     </span>
