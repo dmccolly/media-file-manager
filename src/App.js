@@ -277,6 +277,7 @@ const App = () => {
         notes: '',
         submittedBy: '',
         station: '',
+        yearProduced: new Date().getFullYear().toString(),
         status: 'draft'
       }));
       setUploadingFiles(fileData);
@@ -284,22 +285,52 @@ const App = () => {
     }
   };
 
-  // File drag operations
+  // Enhanced file drag operations
   const handleFileDragStart = (e, fileId) => {
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', fileId);
-    setDraggedFiles(new Set([fileId]));
+    
+    // If dragging a selected file, include all selected files
+    if (selectedFiles.has(fileId)) {
+      setDraggedFiles(selectedFiles);
+      e.dataTransfer.setData('application/json', JSON.stringify(Array.from(selectedFiles)));
+    } else {
+      setDraggedFiles(new Set([fileId]));
+      e.dataTransfer.setData('application/json', JSON.stringify([fileId]));
+    }
   };
 
   const handleFolderDrop = (e, folderId) => {
     e.preventDefault();
-    const fileId = e.dataTransfer.getData('text/plain');
-    if (fileId) {
-      setFiles(prev => prev.map(file => 
-        file.id === fileId ? { ...file, folderId } : file
-      ));
+    e.stopPropagation();
+    
+    try {
+      // Get dragged file IDs
+      const draggedFileIds = JSON.parse(e.dataTransfer.getData('application/json'));
+      
+      if (draggedFileIds && draggedFileIds.length > 0) {
+        // Move all dragged files to the target folder
+        setFiles(prev => prev.map(file => 
+          draggedFileIds.includes(file.id) 
+            ? { ...file, folderId } 
+            : file
+        ));
+        
+        // Clear selection if files were moved
+        setSelectedFiles(new Set());
+        
+        console.log(`Moved ${draggedFileIds.length} file(s) to folder: ${folderId}`);
+      }
+    } catch (error) {
+      console.error('Error moving files:', error);
     }
+    
     setDraggedFiles(new Set());
+  };
+
+  const handleFolderDragOver = (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
   };
 
   // Upload handlers
@@ -323,6 +354,7 @@ const App = () => {
       notes: '',
       submittedBy: '',
       station: '',
+      yearProduced: new Date().getFullYear().toString(),
       status: 'draft'
     }));
     setUploadingFiles(fileData);
@@ -372,6 +404,7 @@ const App = () => {
           description: fileData.description,
           notes: fileData.notes,
           station: fileData.station,
+          yearProduced: fileData.yearProduced,
           tags: fileData.tags.split(',').map(tag => tag.trim()).filter(Boolean),
           mimeType: fileData.file.type
         };
@@ -702,6 +735,22 @@ const App = () => {
                       }}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-sm"
                       placeholder="Your name or team"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Year Produced</label>
+                    <input
+                      type="number"
+                      value={fileData.yearProduced || new Date().getFullYear()}
+                      onChange={(e) => {
+                        e.persist();
+                        updateFileField(index, 'yearProduced', e.target.value);
+                      }}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-sm"
+                      placeholder="2024"
+                      min="1900"
+                      max="2030"
                     />
                   </div>
                   
