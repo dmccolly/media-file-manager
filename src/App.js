@@ -32,21 +32,21 @@ import {
 } from 'lucide-react';
 
 const App = () => {
-  // Initial folder structure
-  const [folders] = useState([
-    { id: 'all', name: 'All Content', parent: null, children: ['marketing', 'product', 'design'] },
-    { id: 'marketing', name: 'Marketing', parent: 'all', children: ['campaigns', 'assets'] },
-    { id: 'campaigns', name: 'Campaigns', parent: 'marketing', children: [] },
-    { id: 'assets', name: 'Assets', parent: 'marketing', children: [] },
-    { id: 'product', name: 'Product', parent: 'all', children: ['docs', 'specs'] },
-    { id: 'docs', name: 'Documentation', parent: 'product', children: [] },
-    { id: 'specs', name: 'Specifications', parent: 'product', children: [] },
-    { id: 'design', name: 'Design', parent: 'all', children: ['ui', 'graphics'] },
-    { id: 'ui', name: 'UI Design', parent: 'design', children: [] },
-    { id: 'graphics', name: 'Graphics', parent: 'design', children: [] },
+  // Initial folder structure - now editable
+  const [folders, setFolders] = useState([
+    { id: 'all', name: 'All Content', parent: null, children: ['marketing', 'product', 'design'], isEditing: false },
+    { id: 'marketing', name: 'Marketing', parent: 'all', children: ['campaigns', 'assets'], isEditing: false },
+    { id: 'campaigns', name: 'Campaigns', parent: 'marketing', children: [], isEditing: false },
+    { id: 'assets', name: 'Assets', parent: 'marketing', children: [], isEditing: false },
+    { id: 'product', name: 'Product', parent: 'all', children: ['docs', 'specs'], isEditing: false },
+    { id: 'docs', name: 'Documentation', parent: 'product', children: [], isEditing: false },
+    { id: 'specs', name: 'Specifications', parent: 'product', children: [], isEditing: false },
+    { id: 'design', name: 'Design', parent: 'all', children: ['ui', 'graphics'], isEditing: false },
+    { id: 'ui', name: 'UI Design', parent: 'design', children: [], isEditing: false },
+    { id: 'graphics', name: 'Graphics', parent: 'design', children: [], isEditing: false },
   ]);
 
-  // Sample files distributed across folders
+  // Sample files
   const [files, setFiles] = useState([
     {
       id: '1',
@@ -121,6 +121,33 @@ const App = () => {
   const [draggedFiles, setDraggedFiles] = useState(new Set());
 
   const fileInputRef = useRef(null);
+
+  // Folder operations
+  const startFolderEdit = (folderId) => {
+    setFolders(prev => prev.map(folder => 
+      folder.id === folderId ? { ...folder, isEditing: true } : folder
+    ));
+  };
+
+  const saveFolderName = (folderId, newName) => {
+    if (newName.trim()) {
+      setFolders(prev => prev.map(folder => 
+        folder.id === folderId 
+          ? { ...folder, name: newName.trim(), isEditing: false }
+          : folder
+      ));
+      // Update Airtable/Cloudinary here
+      console.log(`Updating folder ${folderId} to name: ${newName}`);
+    } else {
+      cancelFolderEdit(folderId);
+    }
+  };
+
+  const cancelFolderEdit = (folderId) => {
+    setFolders(prev => prev.map(folder => 
+      folder.id === folderId ? { ...folder, isEditing: false } : folder
+    ));
+  };
 
   // Get all files for "All Content" or filter by folder
   const getCurrentFolderFiles = () => {
@@ -275,11 +302,15 @@ const App = () => {
     setShowUploadModal(true);
   };
 
-  const updateFileData = (index, field, value) => {
-    setUploadingFiles(prev => {
-      const newFiles = [...prev];
-      newFiles[index] = { ...newFiles[index], [field]: value };
-      return newFiles;
+  // Fixed input handling
+  const handleInputChange = (index, field, value) => {
+    setUploadingFiles(prevFiles => {
+      const updatedFiles = [...prevFiles];
+      updatedFiles[index] = {
+        ...updatedFiles[index],
+        [field]: value
+      };
+      return updatedFiles;
     });
   };
 
@@ -318,7 +349,7 @@ const App = () => {
 
   // UI Components
   const getFileIcon = (type) => {
-    const iconClass = "w-4 h-4 text-white";
+    const iconClass = "w-3 h-3 text-white";
     switch (type) {
       case 'image': return <Image className={iconClass} />;
       case 'video': return <Video className={iconClass} />;
@@ -337,13 +368,13 @@ const App = () => {
     }
   };
 
-  // Enhanced Preview Modal with Database Card
+  // Compact Preview Modal
   const PreviewModal = ({ file }) => {
     return (
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-        <div className="bg-white rounded-lg max-w-5xl w-full max-h-[90vh] overflow-hidden shadow-2xl flex">
-          {/* Content Preview Panel */}
-          <div className="flex-1 bg-gray-50 flex items-center justify-center p-6">
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-2">
+        <div className="bg-white rounded-lg max-w-4xl w-full max-h-[95vh] overflow-hidden shadow-2xl flex">
+          {/* Content Preview Panel - More Compact */}
+          <div className="flex-1 bg-gray-50 flex items-center justify-center p-4">
             {file.type === 'image' ? (
               <img 
                 src={file.url} 
@@ -360,22 +391,22 @@ const App = () => {
               </video>
             ) : file.type === 'audio' ? (
               <div className="text-center">
-                <div className="w-24 h-24 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center mb-4">
-                  <Music className="w-12 h-12 text-white" />
+                <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center mb-3">
+                  <Music className="w-8 h-8 text-white" />
                 </div>
-                <audio src={file.url} controls className="mb-3">
+                <audio src={file.url} controls className="mb-2">
                   Your browser does not support audio playback.
                 </audio>
-                <p className="text-gray-600 text-sm">Audio File</p>
+                <p className="text-gray-600 text-xs">Audio File</p>
               </div>
             ) : (
               <div className="text-center">
-                <div className="w-24 h-24 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-full flex items-center justify-center mb-4">
-                  <FileText className="w-12 h-12 text-white" />
+                <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-full flex items-center justify-center mb-3">
+                  <FileText className="w-8 h-8 text-white" />
                 </div>
                 <button
                   onClick={() => window.open(file.url, '_blank')}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2 text-sm"
+                  className="px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-1 text-xs"
                 >
                   <ExternalLink className="w-3 h-3" />
                   <span>Open Document</span>
@@ -384,72 +415,72 @@ const App = () => {
             )}
           </div>
 
-          {/* Database Information Panel */}
-          <div className="w-80 bg-white border-l border-gray-200 overflow-y-auto">
-            <div className="p-4">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-semibold text-gray-900">File Details</h3>
+          {/* Compact Database Panel - Much Narrower */}
+          <div className="w-64 bg-white border-l border-gray-200 overflow-y-auto">
+            <div className="p-3">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-xs font-semibold text-gray-900">File Details</h3>
                 <button
                   onClick={() => setPreviewModal(null)}
                   className="p-1 hover:bg-gray-100 rounded-full transition-colors"
                 >
-                  <X className="w-4 h-4 text-gray-500" />
+                  <X className="w-3 h-3 text-gray-500" />
                 </button>
               </div>
 
-              {/* Basic Information */}
-              <div className="space-y-4">
+              <div className="space-y-3">
+                {/* Basic Info - Compact */}
                 <div>
-                  <h4 className="text-xs font-medium text-gray-700 mb-2 flex items-center">
-                    <File className="w-3 h-3 mr-1" />
-                    Basic Information
+                  <h4 className="text-xs font-medium text-gray-700 mb-1 flex items-center">
+                    <File className="w-2 h-2 mr-1" />
+                    Basic Info
                   </h4>
-                  <div className="space-y-2 text-xs">
+                  <div className="space-y-1 text-xs">
                     <div>
-                      <span className="text-gray-500">Name:</span>
-                      <p className="font-medium text-gray-900 mt-0.5">{file.name}</p>
+                      <span className="text-gray-500 text-xs">Name:</span>
+                      <p className="font-medium text-gray-900 mt-0.5 text-xs leading-tight">{file.name}</p>
                     </div>
                     <div>
-                      <span className="text-gray-500">Title:</span>
-                      <p className="font-medium text-gray-900 mt-0.5">{file.title}</p>
+                      <span className="text-gray-500 text-xs">Title:</span>
+                      <p className="font-medium text-gray-900 mt-0.5 text-xs leading-tight">{file.title}</p>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-500">Type:</span>
-                      <span className="font-medium">{file.category}</span>
+                      <span className="text-gray-500 text-xs">Type:</span>
+                      <span className="font-medium text-xs">{file.category}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-500">Size:</span>
-                      <span className="font-medium">{file.size}</span>
+                      <span className="text-gray-500 text-xs">Size:</span>
+                      <span className="font-medium text-xs">{file.size}</span>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-gray-500">Status:</span>
-                      <span className={`px-1.5 py-0.5 rounded-full text-xs text-white ${getStatusColor(file.status)}`}>
+                      <span className="text-gray-500 text-xs">Status:</span>
+                      <span className={`px-1 py-0.5 rounded-full text-white ${getStatusColor(file.status)}`} style={{ fontSize: '10px' }}>
                         {file.status}
                       </span>
                     </div>
                   </div>
                 </div>
 
-                {/* Content Details */}
+                {/* Content - Compact */}
                 <div>
-                  <h4 className="text-xs font-medium text-gray-700 mb-2 flex items-center">
-                    <FileText className="w-3 h-3 mr-1" />
-                    Content Details
+                  <h4 className="text-xs font-medium text-gray-700 mb-1 flex items-center">
+                    <FileText className="w-2 h-2 mr-1" />
+                    Content
                   </h4>
-                  <div className="space-y-2 text-xs">
+                  <div className="space-y-1 text-xs">
                     <div>
-                      <span className="text-gray-500">Description:</span>
-                      <p className="text-gray-900 mt-0.5 text-xs leading-relaxed">{file.description}</p>
+                      <span className="text-gray-500 text-xs">Description:</span>
+                      <p className="text-gray-900 mt-0.5 text-xs leading-tight">{file.description}</p>
                     </div>
                     <div>
-                      <span className="text-gray-500">Notes:</span>
-                      <p className="text-gray-900 mt-0.5 text-xs leading-relaxed">{file.notes}</p>
+                      <span className="text-gray-500 text-xs">Notes:</span>
+                      <p className="text-gray-900 mt-0.5 text-xs leading-tight">{file.notes}</p>
                     </div>
                     <div>
-                      <span className="text-gray-500">Tags:</span>
+                      <span className="text-gray-500 text-xs">Tags:</span>
                       <div className="flex flex-wrap gap-1 mt-0.5">
                         {file.tags.map((tag, index) => (
-                          <span key={index} className="px-1.5 py-0.5 bg-blue-100 text-blue-800 rounded-full" style={{ fontSize: '10px' }}>
+                          <span key={index} className="px-1 py-0.5 bg-blue-100 text-blue-800 rounded-full" style={{ fontSize: '9px' }}>
                             {tag}
                           </span>
                         ))}
@@ -458,58 +489,40 @@ const App = () => {
                   </div>
                 </div>
 
-                {/* Project & Team */}
+                {/* Project & Team - Compact */}
                 <div>
-                  <h4 className="text-xs font-medium text-gray-700 mb-2 flex items-center">
-                    <Users className="w-3 h-3 mr-1" />
-                    Project & Team
+                  <h4 className="text-xs font-medium text-gray-700 mb-1 flex items-center">
+                    <Users className="w-2 h-2 mr-1" />
+                    Team
                   </h4>
-                  <div className="space-y-2 text-xs">
+                  <div className="space-y-1 text-xs">
                     <div>
-                      <span className="text-gray-500">Project:</span>
-                      <p className="font-medium text-gray-900 mt-0.5">{file.project}</p>
+                      <span className="text-gray-500 text-xs">Project:</span>
+                      <p className="font-medium text-gray-900 mt-0.5 text-xs">{file.project}</p>
                     </div>
                     <div>
-                      <span className="text-gray-500">Created By:</span>
-                      <p className="font-medium text-gray-900 mt-0.5">{file.createdBy}</p>
+                      <span className="text-gray-500 text-xs">Created By:</span>
+                      <p className="font-medium text-gray-900 mt-0.5 text-xs">{file.createdBy}</p>
                     </div>
                     <div>
-                      <span className="text-gray-500">Submitted By:</span>
-                      <p className="font-medium text-gray-900 mt-0.5">{file.submittedBy}</p>
+                      <span className="text-gray-500 text-xs">Submitted By:</span>
+                      <p className="font-medium text-gray-900 mt-0.5 text-xs">{file.submittedBy}</p>
                     </div>
                   </div>
                 </div>
 
-                {/* Technical Details */}
-                <div>
-                  <h4 className="text-xs font-medium text-gray-700 mb-2 flex items-center">
-                    <Settings className="w-3 h-3 mr-1" />
-                    Technical Details
-                  </h4>
-                  <div className="space-y-2 text-xs">
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">Modified:</span>
-                      <span className="font-medium">{file.modified}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">MIME Type:</span>
-                      <span className="font-medium" style={{ fontSize: '10px' }}>{file.mimeType}</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Quick Actions */}
-                <div className="pt-3 space-y-1">
+                {/* Actions - Compact */}
+                <div className="pt-2 space-y-1">
                   <button
                     onClick={() => window.open(file.url, '_blank')}
-                    className="w-full px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center space-x-1 text-xs"
+                    className="w-full px-2 py-1 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center space-x-1 text-xs"
                   >
                     <ExternalLink className="w-3 h-3" />
-                    <span>Open in New Tab</span>
+                    <span>Open</span>
                   </button>
                   <button
                     onClick={() => {/* Add download logic */}}
-                    className="w-full px-3 py-1.5 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors flex items-center justify-center space-x-1 text-xs"
+                    className="w-full px-2 py-1 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors flex items-center justify-center space-x-1 text-xs"
                   >
                     <Download className="w-3 h-3" />
                     <span>Download</span>
@@ -523,39 +536,39 @@ const App = () => {
     );
   };
 
-  // Upload Modal Component
+  // Compact Upload Modal
   const UploadModal = () => {
     if (!showUploadModal) return null;
 
     return (
       <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-        <div className="bg-white rounded-2xl p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto border border-gray-200 shadow-2xl">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Upload Files & Add Metadata</h3>
+        <div className="bg-white rounded-2xl p-4 w-full max-w-3xl max-h-[90vh] overflow-y-auto border border-gray-200 shadow-2xl">
+          <h3 className="text-sm font-semibold text-gray-900 mb-3">Upload Files & Add Metadata</h3>
           
-          <div className="space-y-4">
+          <div className="space-y-3">
             {uploadingFiles.map((fileData, index) => (
-              <div key={index} className="border border-gray-200 rounded-xl p-4">
-                <div className="flex items-center mb-3">
-                  <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-lg flex items-center justify-center mr-3">
+              <div key={index} className="border border-gray-200 rounded-xl p-3">
+                <div className="flex items-center mb-2">
+                  <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-500 rounded-lg flex items-center justify-center mr-2">
                     {getFileIcon(fileData.category.toLowerCase())}
                   </div>
                   <div>
-                    <h4 className="font-semibold text-gray-900 text-sm">{fileData.name}</h4>
-                    <p className="text-xs text-gray-500">{(fileData.file.size / 1024 / 1024).toFixed(1)} MB • Uploading to: {currentFolder?.name}</p>
+                    <h4 className="font-semibold text-gray-900 text-xs">{fileData.name}</h4>
+                    <p className="text-xs text-gray-500">{(fileData.file.size / 1024 / 1024).toFixed(1)} MB → {currentFolder?.name}</p>
                   </div>
                 </div>
                 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-2">
                   <div>
                     <label className="block text-xs font-medium text-gray-700 mb-1">
-                      Title <span className="text-gray-400">(max 120 chars)</span>
+                      Title <span className="text-gray-400">(max 120)</span>
                     </label>
                     <input
                       type="text"
                       value={fileData.title}
-                      onChange={(e) => updateFileData(index, 'title', e.target.value.slice(0, 120))}
-                      className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-xs"
-                      placeholder="Enter a descriptive title..."
+                      onChange={(e) => handleInputChange(index, 'title', e.target.value.slice(0, 120))}
+                      className="w-full px-2 py-1 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-xs"
+                      placeholder="Enter title..."
                       maxLength={120}
                     />
                     <div className="text-xs text-gray-400 mt-0.5">{fileData.title.length}/120</div>
@@ -565,8 +578,8 @@ const App = () => {
                     <label className="block text-xs font-medium text-gray-700 mb-1">Category</label>
                     <select
                       value={fileData.category}
-                      onChange={(e) => updateFileData(index, 'category', e.target.value)}
-                      className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-xs"
+                      onChange={(e) => handleInputChange(index, 'category', e.target.value)}
+                      className="w-full px-2 py-1 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-xs"
                     >
                       <option value="Document">Document</option>
                       <option value="Video">Video</option>
@@ -578,12 +591,12 @@ const App = () => {
                   
                   <div className="col-span-2">
                     <label className="block text-xs font-medium text-gray-700 mb-1">
-                      Description <span className="text-gray-400">(max 3000 chars)</span>
+                      Description <span className="text-gray-400">(max 3000)</span>
                     </label>
                     <textarea
                       value={fileData.description}
-                      onChange={(e) => updateFileData(index, 'description', e.target.value.slice(0, 3000))}
-                      className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-xs"
+                      onChange={(e) => handleInputChange(index, 'description', e.target.value.slice(0, 3000))}
+                      className="w-full px-2 py-1 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-xs"
                       rows="2"
                       placeholder="Describe this file..."
                       maxLength={3000}
@@ -596,8 +609,8 @@ const App = () => {
                     <input
                       type="text"
                       value={fileData.project}
-                      onChange={(e) => updateFileData(index, 'project', e.target.value)}
-                      className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-xs"
+                      onChange={(e) => handleInputChange(index, 'project', e.target.value)}
+                      className="w-full px-2 py-1 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-xs"
                       placeholder="Project name"
                     />
                   </div>
@@ -607,8 +620,8 @@ const App = () => {
                     <input
                       type="text"
                       value={fileData.tags}
-                      onChange={(e) => updateFileData(index, 'tags', e.target.value)}
-                      className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-xs"
+                      onChange={(e) => handleInputChange(index, 'tags', e.target.value)}
+                      className="w-full px-2 py-1 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-xs"
                       placeholder="tag1, tag2, tag3"
                     />
                   </div>
@@ -618,8 +631,8 @@ const App = () => {
                     <input
                       type="text"
                       value={fileData.submittedBy}
-                      onChange={(e) => updateFileData(index, 'submittedBy', e.target.value)}
-                      className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-xs"
+                      onChange={(e) => handleInputChange(index, 'submittedBy', e.target.value)}
+                      className="w-full px-2 py-1 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-xs"
                       placeholder="Your name or team"
                     />
                   </div>
@@ -628,8 +641,8 @@ const App = () => {
                     <label className="block text-xs font-medium text-gray-700 mb-1">Status</label>
                     <select
                       value={fileData.status}
-                      onChange={(e) => updateFileData(index, 'status', e.target.value)}
-                      className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-xs"
+                      onChange={(e) => handleInputChange(index, 'status', e.target.value)}
+                      className="w-full px-2 py-1 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-xs"
                     >
                       <option value="draft">Draft</option>
                       <option value="review">Review</option>
@@ -640,14 +653,14 @@ const App = () => {
                   
                   <div className="col-span-2">
                     <label className="block text-xs font-medium text-gray-700 mb-1">
-                      Notes <span className="text-gray-400">(max 3000 chars)</span>
+                      Notes <span className="text-gray-400">(max 3000)</span>
                     </label>
                     <textarea
                       value={fileData.notes}
-                      onChange={(e) => updateFileData(index, 'notes', e.target.value.slice(0, 3000))}
-                      className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-xs"
+                      onChange={(e) => handleInputChange(index, 'notes', e.target.value.slice(0, 3000))}
+                      className="w-full px-2 py-1 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-xs"
                       rows="2"
-                      placeholder="Additional notes or comments..."
+                      placeholder="Additional notes..."
                       maxLength={3000}
                     />
                     <div className="text-xs text-gray-400 mt-0.5">{fileData.notes.length}/3000</div>
@@ -657,19 +670,19 @@ const App = () => {
             ))}
           </div>
           
-          <div className="flex justify-end space-x-2 mt-4">
+          <div className="flex justify-end space-x-2 mt-3">
             <button
               onClick={() => {
                 setShowUploadModal(false);
                 setUploadingFiles([]);
               }}
-              className="px-4 py-2 text-gray-600 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors text-sm"
+              className="px-3 py-1.5 text-gray-600 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors text-xs"
             >
               Cancel
             </button>
             <button
               onClick={uploadFiles}
-              className="px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-xl hover:from-purple-700 hover:to-blue-700 transition-all font-medium text-sm"
+              className="px-3 py-1.5 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-xl hover:from-purple-700 hover:to-blue-700 transition-all font-medium text-xs"
             >
               Upload {uploadingFiles.length} File{uploadingFiles.length > 1 ? 's' : ''}
             </button>
@@ -679,7 +692,7 @@ const App = () => {
     );
   };
 
-  // Folder tree rendering
+  // Compact Folder Tree with Rename Functionality
   const renderFolderTree = (folderId, level = 0) => {
     const folder = folders.find(f => f.id === folderId);
     if (!folder) return null;
@@ -691,11 +704,11 @@ const App = () => {
     return (
       <div key={folderId}>
         <div 
-          className={`flex items-center px-3 py-2 hover:bg-gray-50 cursor-pointer rounded-lg transition-all ${
+          className={`flex items-center px-2 py-1.5 hover:bg-gray-50 cursor-pointer rounded-lg transition-all ${
             isActive ? 'bg-gradient-to-r from-blue-50 to-purple-50 border-r-2 border-purple-500' : ''
           }`}
-          style={{ paddingLeft: `${12 + level * 20}px` }}
-          onClick={() => setCurrentFolder(folder)}
+          style={{ paddingLeft: `${8 + level * 16}px` }}
+          onClick={() => !folder.isEditing && setCurrentFolder(folder)}
           onDrop={(e) => handleFolderDrop(e, folderId)}
           onDragOver={(e) => e.preventDefault()}
         >
@@ -709,26 +722,47 @@ const App = () => {
                     : [...prev, folderId]
                 );
               }}
-              className="mr-1 p-1 hover:bg-gray-200 rounded"
+              className="mr-1 p-0.5 hover:bg-gray-200 rounded"
             >
               {isExpanded ? (
-                <ChevronDown className="w-3 h-3 text-gray-500" />
+                <ChevronDown className="w-2 h-2 text-gray-500" />
               ) : (
-                <ChevronRight className="w-3 h-3 text-gray-500" />
+                <ChevronRight className="w-2 h-2 text-gray-500" />
               )}
             </button>
           )}
-          {!hasChildren && <div className="w-5" />}
+          {!hasChildren && <div className="w-3" />}
           
           {isExpanded ? (
-            <FolderOpen className="w-4 h-4 text-blue-500 mr-2" />
+            <FolderOpen className="w-3 h-3 text-blue-500 mr-1.5" />
           ) : (
-            <Folder className="w-4 h-4 text-blue-500 mr-2" />
+            <Folder className="w-3 h-3 text-blue-500 mr-1.5" />
           )}
           
-          <span className={`text-sm ${isActive ? 'font-semibold text-gray-900' : 'text-gray-700'}`}>
-            {folder.name}
-          </span>
+          {folder.isEditing ? (
+            <input
+              type="text"
+              defaultValue={folder.name}
+              className="flex-1 text-xs bg-white border border-blue-300 rounded px-1 py-0.5 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              autoFocus
+              onBlur={(e) => saveFolderName(folderId, e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  saveFolderName(folderId, e.target.value);
+                } else if (e.key === 'Escape') {
+                  cancelFolderEdit(folderId);
+                }
+              }}
+              onClick={(e) => e.stopPropagation()}
+            />
+          ) : (
+            <span 
+              className={`text-xs flex-1 ${isActive ? 'font-semibold text-gray-900' : 'text-gray-700'}`}
+              onDoubleClick={() => folderId !== 'all' && startFolderEdit(folderId)}
+            >
+              {folder.name}
+            </span>
+          )}
           
           <span className="ml-auto text-xs text-gray-400">
             {folderId === 'all' ? files.length : files.filter(f => f.folderId === folderId).length}
@@ -746,35 +780,35 @@ const App = () => {
 
   return (
     <div className="h-screen bg-gray-50 flex flex-col">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-4 py-3">
-        <div className="flex items-center justify-between mb-3">
-          <h1 className="text-xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
-            Media File Manager
+      {/* Ultra Compact Header */}
+      <div className="bg-white border-b border-gray-200 px-3 py-2">
+        <div className="flex items-center justify-between mb-2">
+          <h1 className="text-lg font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
+            Media Manager
           </h1>
           
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-1.5">
             <div className="relative">
-              <Search className="w-3 h-3 absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400" />
+              <Search className="w-3 h-3 absolute left-1.5 top-1/2 transform -translate-y-1/2 text-gray-400" />
               <input
                 type="text"
-                placeholder="Search files..."
+                placeholder="Search..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-7 pr-3 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 w-48 text-sm"
+                className="pl-6 pr-2 py-1 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 w-32 text-xs"
               />
             </div>
             
-            <div className="flex items-center space-x-1 border border-gray-300 rounded-lg">
+            <div className="flex items-center border border-gray-300 rounded-lg">
               <button
                 onClick={() => setViewMode('list')}
-                className={`p-1.5 rounded-l-lg transition-colors ${viewMode === 'list' ? 'bg-purple-100 text-purple-600' : 'text-gray-500 hover:bg-gray-100'}`}
+                className={`p-1 rounded-l-lg transition-colors ${viewMode === 'list' ? 'bg-purple-100 text-purple-600' : 'text-gray-500 hover:bg-gray-100'}`}
               >
                 <List className="w-3 h-3" />
               </button>
               <button
                 onClick={() => setViewMode('grid')}
-                className={`p-1.5 rounded-r-lg transition-colors ${viewMode === 'grid' ? 'bg-purple-100 text-purple-600' : 'text-gray-500 hover:bg-gray-100'}`}
+                className={`p-1 rounded-r-lg transition-colors ${viewMode === 'grid' ? 'bg-purple-100 text-purple-600' : 'text-gray-500 hover:bg-gray-100'}`}
               >
                 <Grid className="w-3 h-3" />
               </button>
@@ -782,7 +816,7 @@ const App = () => {
             
             <button
               onClick={handleFileUpload}
-              className="flex items-center space-x-1 px-3 py-1.5 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all font-medium text-sm"
+              className="flex items-center space-x-1 px-2 py-1 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all font-medium text-xs"
             >
               <Upload className="w-3 h-3" />
               <span>Upload</span>
@@ -790,46 +824,46 @@ const App = () => {
           </div>
         </div>
         
-        {/* Breadcrumb */}
+        {/* Compact Breadcrumb */}
         <div className="flex items-center text-xs text-gray-600">
           <span>Files</span>
-          <ChevronRight className="w-3 h-3 mx-1" />
+          <ChevronRight className="w-2 h-2 mx-1" />
           <span className="font-medium text-gray-900">{currentFolder?.name}</span>
         </div>
       </div>
 
       <div className="flex flex-1 overflow-hidden">
-        {/* Sidebar */}
-        <div className="w-48 bg-white border-r border-gray-200 flex flex-col">
-          <div className="p-3">
+        {/* Ultra Compact Sidebar */}
+        <div className="w-40 bg-white border-r border-gray-200 flex flex-col">
+          <div className="p-2">
             <button
               onClick={() => setCurrentFolder(folders[0])}
-              className="w-full flex items-center space-x-2 px-2 py-1.5 text-left hover:bg-gray-50 rounded-lg transition-colors text-sm"
+              className="w-full flex items-center space-x-1 px-1.5 py-1 text-left hover:bg-gray-50 rounded-lg transition-colors text-xs"
             >
               <Plus className="w-3 h-3 text-purple-600" />
               <span className="font-medium text-gray-900">New Folder</span>
             </button>
           </div>
           
-          <div className="flex-1 overflow-y-auto p-3 space-y-1">
+          <div className="flex-1 overflow-y-auto p-2 space-y-0.5">
             {renderFolderTree('all')}
           </div>
         </div>
 
-        {/* Main Content */}
+        {/* Main Content - More Space */}
         <div 
           className="flex-1 flex flex-col overflow-hidden"
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
         >
-          {/* Toolbar */}
-          <div className="bg-white border-b border-gray-200 px-4 py-2">
+          {/* Compact Toolbar */}
+          <div className="bg-white border-b border-gray-200 px-3 py-1.5">
             <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-1.5">
                 <button
                   onClick={selectAllFiles}
-                  className="flex items-center space-x-1 px-2 py-1 text-xs text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                  className="flex items-center space-x-1 px-1.5 py-0.5 text-xs text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
                 >
                   {selectedFiles.size === currentFolderFiles.length && currentFolderFiles.length > 0 ? (
                     <Check className="w-3 h-3" />
@@ -847,21 +881,21 @@ const App = () => {
                     <div className="w-px h-3 bg-gray-300" />
                     <button
                       onClick={() => copySelectedFiles(currentFolder?.id)}
-                      className="flex items-center space-x-1 px-1.5 py-0.5 text-xs text-blue-600 hover:bg-blue-50 rounded"
+                      className="flex items-center space-x-0.5 px-1 py-0.5 text-xs text-blue-600 hover:bg-blue-50 rounded"
                     >
                       <Copy className="w-3 h-3" />
                       <span>Copy</span>
                     </button>
                     <button
                       onClick={() => moveSelectedFiles(currentFolder?.id)}
-                      className="flex items-center space-x-1 px-1.5 py-0.5 text-xs text-orange-600 hover:bg-orange-50 rounded"
+                      className="flex items-center space-x-0.5 px-1 py-0.5 text-xs text-orange-600 hover:bg-orange-50 rounded"
                     >
                       <Move className="w-3 h-3" />
                       <span>Move</span>
                     </button>
                     <button
                       onClick={deleteSelectedFiles}
-                      className="flex items-center space-x-1 px-1.5 py-0.5 text-xs text-red-600 hover:bg-red-50 rounded"
+                      className="flex items-center space-x-0.5 px-1 py-0.5 text-xs text-red-600 hover:bg-red-50 rounded"
                     >
                       <Trash2 className="w-3 h-3" />
                       <span>Delete</span>
@@ -876,35 +910,35 @@ const App = () => {
             </div>
           </div>
 
-          {/* File List */}
+          {/* File List - More Compact */}
           <div className="flex-1 overflow-y-auto">
             {isDragOver && (
               <div className="absolute inset-0 bg-blue-50 border-2 border-dashed border-blue-300 flex items-center justify-center z-10">
                 <div className="text-center">
-                  <Upload className="w-12 h-12 text-blue-500 mx-auto mb-4" />
-                  <p className="text-lg font-medium text-blue-700">Drop files here to upload</p>
-                  <p className="text-sm text-blue-600">to {currentFolder?.name}</p>
+                  <Upload className="w-8 h-8 text-blue-500 mx-auto mb-2" />
+                  <p className="text-sm font-medium text-blue-700">Drop files here to upload</p>
+                  <p className="text-xs text-blue-600">to {currentFolder?.name}</p>
                 </div>
               </div>
             )}
 
-            {/* List Header */}
-            <div className="bg-gray-50 border-b border-gray-200 px-4 py-2 grid grid-cols-12 gap-2 text-xs font-medium text-gray-500 uppercase tracking-wide">
+            {/* Compact List Header */}
+            <div className="bg-gray-50 border-b border-gray-200 px-3 py-1.5 grid grid-cols-12 gap-1 text-xs font-medium text-gray-500 uppercase tracking-wide">
               <div className="col-span-1"></div> {/* Checkbox */}
-              <div className="col-span-4">Name</div>
+              <div className="col-span-5">Name</div>
               <div className="col-span-2">Modified</div>
               <div className="col-span-1">Type</div>
               <div className="col-span-1">Size</div>
-              <div className="col-span-2">Project</div>
+              <div className="col-span-1">Project</div>
               <div className="col-span-1">Actions</div>
             </div>
 
-            {/* File Rows */}
+            {/* Compact File Rows */}
             <div className="divide-y divide-gray-100">
               {currentFolderFiles.map(file => (
                 <div
                   key={file.id}
-                  className={`grid grid-cols-12 gap-2 px-4 py-2 text-xs hover:bg-gray-50 cursor-pointer transition-all ${
+                  className={`grid grid-cols-12 gap-1 px-3 py-1.5 text-xs hover:bg-gray-50 cursor-pointer transition-all ${
                     selectedFiles.has(file.id) ? 'bg-blue-50' : ''
                   }`}
                   draggable
@@ -925,25 +959,20 @@ const App = () => {
                   </div>
 
                   {/* Name & Icon */}
-                  <div className="col-span-4 flex items-center space-x-2">
-                    <div className={`w-6 h-6 rounded-lg flex items-center justify-center ${
+                  <div className="col-span-5 flex items-center space-x-1.5">
+                    <div className={`w-5 h-5 rounded-lg flex items-center justify-center ${
                       file.type === 'image' ? 'bg-gradient-to-br from-green-500 to-emerald-500' :
                       file.type === 'video' ? 'bg-gradient-to-br from-red-500 to-pink-500' :
                       file.type === 'audio' ? 'bg-gradient-to-br from-purple-500 to-indigo-500' :
                       'bg-gradient-to-br from-blue-500 to-cyan-500'
                     }`}>
-                      <div className="w-3 h-3 text-white">
-                        {file.type === 'image' ? <Image className="w-3 h-3" /> :
-                         file.type === 'video' ? <Video className="w-3 h-3" /> :
-                         file.type === 'audio' ? <Music className="w-3 h-3" /> :
-                         <FileText className="w-3 h-3" />}
-                      </div>
+                      {getFileIcon(file.type)}
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="font-medium text-gray-900 truncate text-xs" title={file.name}>
                         {file.name}
                       </p>
-                      <p className="text-xs text-gray-500 truncate" title={file.title} style={{ fontSize: '10px' }}>
+                      <p className="text-gray-500 truncate" title={file.title} style={{ fontSize: '10px' }}>
                         {file.title}
                       </p>
                     </div>
@@ -956,7 +985,7 @@ const App = () => {
 
                   {/* Type */}
                   <div className="col-span-1 flex items-center">
-                    <span className="px-1.5 py-0.5 bg-gray-100 text-gray-700 rounded-full" style={{ fontSize: '10px' }}>
+                    <span className="px-1 py-0.5 bg-gray-100 text-gray-700 rounded-full" style={{ fontSize: '9px' }}>
                       {file.category}
                     </span>
                   </div>
@@ -967,17 +996,17 @@ const App = () => {
                   </div>
 
                   {/* Project */}
-                  <div className="col-span-2 flex items-center">
+                  <div className="col-span-1 flex items-center">
                     <span className="truncate text-gray-700 text-xs" title={file.project}>
                       {file.project}
                     </span>
                   </div>
 
                   {/* Actions */}
-                  <div className="col-span-1 flex items-center space-x-1">
+                  <div className="col-span-1 flex items-center space-x-0.5">
                     <button
                       onClick={() => setPreviewModal(file)}
-                      className="p-1 hover:bg-gray-200 rounded transition-colors"
+                      className="p-0.5 hover:bg-gray-200 rounded transition-colors"
                       title="Preview"
                     >
                       <Eye className="w-3 h-3 text-gray-500" />
@@ -987,7 +1016,7 @@ const App = () => {
                         e.stopPropagation();
                         setContextMenu({ file, x: e.clientX, y: e.clientY });
                       }}
-                      className="p-1 hover:bg-gray-200 rounded transition-colors"
+                      className="p-0.5 hover:bg-gray-200 rounded transition-colors"
                       title="More options"
                     >
                       <MoreVertical className="w-3 h-3 text-gray-500" />
@@ -998,11 +1027,11 @@ const App = () => {
             </div>
 
             {currentFolderFiles.length === 0 && (
-              <div className="flex items-center justify-center h-64">
+              <div className="flex items-center justify-center h-48">
                 <div className="text-center">
-                  <Folder className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                  <p className="text-lg font-medium text-gray-500">No files found</p>
-                  <p className="text-gray-400">Upload files or try adjusting your search</p>
+                  <Folder className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                  <p className="text-sm font-medium text-gray-500">No files found</p>
+                  <p className="text-xs text-gray-400">Upload files or try adjusting your search</p>
                 </div>
               </div>
             )}
@@ -1013,7 +1042,7 @@ const App = () => {
       {/* Context Menu */}
       {contextMenu && (
         <div
-          className="fixed bg-white border border-gray-200 rounded-lg shadow-lg py-2 z-50"
+          className="fixed bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-50"
           style={{ left: contextMenu.x, top: contextMenu.y }}
           onMouseLeave={() => setContextMenu(null)}
         >
@@ -1022,9 +1051,9 @@ const App = () => {
               setPreviewModal(contextMenu.file);
               setContextMenu(null);
             }}
-            className="w-full px-4 py-2 text-left hover:bg-gray-50 flex items-center space-x-2"
+            className="w-full px-3 py-1.5 text-left hover:bg-gray-50 flex items-center space-x-2 text-xs"
           >
-            <Eye className="w-4 h-4" />
+            <Eye className="w-3 h-3" />
             <span>Open</span>
           </button>
           <button
@@ -1036,9 +1065,9 @@ const App = () => {
               }
               setContextMenu(null);
             }}
-            className="w-full px-4 py-2 text-left hover:bg-gray-50 flex items-center space-x-2"
+            className="w-full px-3 py-1.5 text-left hover:bg-gray-50 flex items-center space-x-2 text-xs"
           >
-            <Play className="w-4 h-4" />
+            <Play className="w-3 h-3" />
             <span>Play</span>
           </button>
           <button
@@ -1046,9 +1075,9 @@ const App = () => {
               window.open(contextMenu.file.url, '_blank');
               setContextMenu(null);
             }}
-            className="w-full px-4 py-2 text-left hover:bg-gray-50 flex items-center space-x-2"
+            className="w-full px-3 py-1.5 text-left hover:bg-gray-50 flex items-center space-x-2 text-xs"
           >
-            <Download className="w-4 h-4" />
+            <Download className="w-3 h-3" />
             <span>Download</span>
           </button>
           <hr className="my-1" />
@@ -1057,9 +1086,9 @@ const App = () => {
               copySelectedFiles(currentFolder?.id);
               setContextMenu(null);
             }}
-            className="w-full px-4 py-2 text-left hover:bg-gray-50 flex items-center space-x-2"
+            className="w-full px-3 py-1.5 text-left hover:bg-gray-50 flex items-center space-x-2 text-xs"
           >
-            <Copy className="w-4 h-4" />
+            <Copy className="w-3 h-3" />
             <span>Copy</span>
           </button>
           <button
@@ -1069,9 +1098,9 @@ const App = () => {
               }
               setContextMenu(null);
             }}
-            className="w-full px-4 py-2 text-left hover:bg-gray-50 flex items-center space-x-2 text-red-600"
+            className="w-full px-3 py-1.5 text-left hover:bg-gray-50 flex items-center space-x-2 text-red-600 text-xs"
           >
-            <Trash2 className="w-4 h-4" />
+            <Trash2 className="w-3 h-3" />
             <span>Delete</span>
           </button>
         </div>
