@@ -1485,7 +1485,7 @@ const App = () => {
         </div>
       </div>
 
-      {/* Context Menu */}
+                {/* Context Menu */}
       {contextMenu && (
         <div
           className="fixed bg-white border border-gray-200 rounded-lg shadow-lg py-1 z-50"
@@ -1538,8 +1538,9 @@ const App = () => {
             <span>Copy</span>
           </button>
           <button
-            onClick={() => {
+            onClick={async () => {
               if (window.confirm('Delete this file?')) {
+                await deleteFileFromAirtable(contextMenu.file.id);
                 setFiles(prev => prev.filter(f => f.id !== contextMenu.file.id));
               }
               setContextMenu(null);
