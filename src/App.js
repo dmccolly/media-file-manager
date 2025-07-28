@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { 
   Folder, 
   FolderOpen,
@@ -302,14 +302,19 @@ const App = () => {
     setShowUploadModal(true);
   };
 
-  // Fixed input handling - use callback to prevent re-renders
-  const updateFileField = (index, field, value) => {
-    setUploadingFiles(current => {
-      const updated = [...current];
-      updated[index] = { ...updated[index], [field]: value };
-      return updated;
+  // Fixed input handling with useCallback to prevent re-renders
+  const updateFileField = useCallback((index, field, value) => {
+    setUploadingFiles(prevFiles => {
+      const newFiles = [...prevFiles];
+      if (newFiles[index]) {
+        newFiles[index] = {
+          ...newFiles[index],
+          [field]: value
+        };
+      }
+      return newFiles;
     });
-  };
+  }, []);
 
   const uploadFiles = () => {
     uploadingFiles.forEach(fileData => {
@@ -533,8 +538,8 @@ const App = () => {
     );
   };
 
-  // Compact Upload Modal
-  const UploadModal = () => {
+  // Memoized Upload Modal to prevent re-renders
+  const UploadModal = useCallback(() => {
     if (!showUploadModal) return null;
 
     return (
@@ -544,10 +549,10 @@ const App = () => {
           
           <div className="space-y-4">
             {uploadingFiles.map((fileData, index) => (
-              <div key={index} className="border border-gray-200 rounded-xl p-4">
+              <div key={`${fileData.id}-${index}`} className="border border-gray-200 rounded-xl p-4">
                 <div className="flex items-center mb-3">
                   <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-lg flex items-center justify-center mr-3">
-                    {getFileIcon(fileData.category.toLowerCase())}
+                    {getFileIcon(fileData.category?.toLowerCase() || 'document')}
                   </div>
                   <div>
                     <h4 className="font-semibold text-gray-900 text-sm">{fileData.name}</h4>
@@ -563,7 +568,10 @@ const App = () => {
                     <input
                       type="text"
                       value={fileData.title || ''}
-                      onChange={(e) => updateFileField(index, 'title', e.target.value.slice(0, 120))}
+                      onChange={(e) => {
+                        e.persist();
+                        updateFileField(index, 'title', e.target.value.slice(0, 120));
+                      }}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-sm"
                       placeholder="Enter title..."
                       maxLength={120}
@@ -575,7 +583,10 @@ const App = () => {
                     <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
                     <select
                       value={fileData.category || 'Document'}
-                      onChange={(e) => updateFileField(index, 'category', e.target.value)}
+                      onChange={(e) => {
+                        e.persist();
+                        updateFileField(index, 'category', e.target.value);
+                      }}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-sm"
                     >
                       <option value="Document">Document</option>
@@ -592,7 +603,10 @@ const App = () => {
                     </label>
                     <textarea
                       value={fileData.description || ''}
-                      onChange={(e) => updateFileField(index, 'description', e.target.value.slice(0, 3000))}
+                      onChange={(e) => {
+                        e.persist();
+                        updateFileField(index, 'description', e.target.value.slice(0, 3000));
+                      }}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-sm"
                       rows="3"
                       placeholder="Describe this file..."
@@ -606,7 +620,10 @@ const App = () => {
                     <input
                       type="text"
                       value={fileData.project || ''}
-                      onChange={(e) => updateFileField(index, 'project', e.target.value)}
+                      onChange={(e) => {
+                        e.persist();
+                        updateFileField(index, 'project', e.target.value);
+                      }}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-sm"
                       placeholder="Project name"
                     />
@@ -617,7 +634,10 @@ const App = () => {
                     <input
                       type="text"
                       value={fileData.tags || ''}
-                      onChange={(e) => updateFileField(index, 'tags', e.target.value)}
+                      onChange={(e) => {
+                        e.persist();
+                        updateFileField(index, 'tags', e.target.value);
+                      }}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-sm"
                       placeholder="tag1, tag2, tag3"
                     />
@@ -628,7 +648,10 @@ const App = () => {
                     <input
                       type="text"
                       value={fileData.submittedBy || ''}
-                      onChange={(e) => updateFileField(index, 'submittedBy', e.target.value)}
+                      onChange={(e) => {
+                        e.persist();
+                        updateFileField(index, 'submittedBy', e.target.value);
+                      }}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-sm"
                       placeholder="Your name or team"
                     />
@@ -638,7 +661,10 @@ const App = () => {
                     <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
                     <select
                       value={fileData.status || 'draft'}
-                      onChange={(e) => updateFileField(index, 'status', e.target.value)}
+                      onChange={(e) => {
+                        e.persist();
+                        updateFileField(index, 'status', e.target.value);
+                      }}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-sm"
                     >
                       <option value="draft">Draft</option>
@@ -654,7 +680,10 @@ const App = () => {
                     </label>
                     <textarea
                       value={fileData.notes || ''}
-                      onChange={(e) => handleInputChange(index, 'notes', e.target.value.slice(0, 3000))}
+                      onChange={(e) => {
+                        e.persist();
+                        updateFileField(index, 'notes', e.target.value.slice(0, 3000));
+                      }}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-sm"
                       rows="3"
                       placeholder="Additional notes..."
@@ -687,7 +716,7 @@ const App = () => {
         </div>
       </div>
     );
-  };
+  }, [showUploadModal, uploadingFiles, currentFolder, updateFileField]);
 
   // Compact Folder Tree with Rename Functionality
   const renderFolderTree = (folderId, level = 0) => {
@@ -1113,7 +1142,7 @@ const App = () => {
       />
 
       {/* Modals */}
-      <UploadModal />
+      {UploadModal()}
       {previewModal && <PreviewModal file={previewModal} />}
     </div>
   );
