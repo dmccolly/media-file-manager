@@ -1,149 +1,4 @@
-<div className="bg-white rounded-2xl p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto border border-gray-200 shadow-2xl">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Upload Files & Add Metadata</h3>
-        
-        <div className="space-y-4">
-          {uploadingFiles.map((fileData, index) => (
-            <div key={index} className="border border-gray-200 rounded-xl p-4">
-              <div className="flex items-center mb-3">
-                <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-lg flex items-center justify-center mr-3">
-                  {getFileIcon(fileData.category.toLowerCase())}
-                </div>
-                <div>
-                  <h4 className="font-semibold text-gray-900 text-sm">{fileData.name}</h4>
-                  <p className="text-xs text-gray-500">{(fileData.file.size / 1024 / 1024).toFixed(1)} MB • Uploading to: {currentFolder?.name}</p>
-                </div>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">
-                    Title <span className="text-gray-400">(max 120 chars)</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={fileData.title}
-                    onChange={(e) => updateFileData(index, 'title', e.target.value.slice(0, 120))}
-                    className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-xs"
-                  >
-                    <option value="draft">Draft</option>
-                    <option value="review">Review</option>
-                    <option value="approved">Approved</option>
-                    <option value="published">Published</option>
-                  </select>
-                </div>
-                
-                <div className="col-span-2">
-                  <label className="block text-xs font-medium text-gray-700 mb-1">
-                    Notes <span className="text-gray-400">(max 3000 chars)</span>
-                  </label>
-                  <textarea
-                    value={fileData.notes}
-                    onChange={(e) => updateFileData(index, 'notes', e.target.value.slice(0, 3000))}
-                    className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-xs"
-                    rows="2"
-                    placeholder="Additional notes or comments..."
-                    maxLength={3000}
-                  />
-                  <div className="text-xs text-gray-400 mt-0.5">{fileData.notes.length}/3000</div>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-        
-        <div className="flex justify-end space-x-2 mt-4">
-          <button
-            onClick={() => {
-              setShowUploadModal(false);
-              setUploadingFiles([]);
-            }}
-            className="px-4 py-2 text-gray-600 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors text-sm"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={uploadFiles}
-            className="px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-xl hover:from-purple-700 hover:to-blue-700 transition-all font-medium text-sm"
-          >
-            Upload {uploadingFiles.length} File{uploadingFiles.length > 1 ? 's' : ''}
-          </button>
-        </div>
-      </div> py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-xs"
-                    placeholder="Enter a descriptive title..."
-                    maxLength={120}
-                  />
-                  <div className="text-xs text-gray-400 mt-0.5">{fileData.title.length}/120</div>
-                </div>
-                
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Category</label>
-                  <select
-                    value={fileData.category}
-                    onChange={(e) => updateFileData(index, 'category', e.target.value)}
-                    className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-xs"
-                  >
-                    <option value="Document">Document</option>
-                    <option value="Video">Video</option>
-                    <option value="Audio">Audio</option>
-                    <option value="Graphic">Graphic</option>
-                    <option value="Other">Other</option>
-                  </select>
-                </div>
-                
-                <div className="col-span-2">
-                  <label className="block text-xs font-medium text-gray-700 mb-1">
-                    Description <span className="text-gray-400">(max 3000 chars)</span>
-                  </label>
-                  <textarea
-                    value={fileData.description}
-                    onChange={(e) => updateFileData(index, 'description', e.target.value.slice(0, 3000))}
-                    className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-xs"
-                    rows="2"
-                    placeholder="Describe this file..."
-                    maxLength={3000}
-                  />
-                  <div className="text-xs text-gray-400 mt-0.5">{fileData.description.length}/3000</div>
-                </div>
-                
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Project</label>
-                  <input
-                    type="text"
-                    value={fileData.project}
-                    onChange={(e) => updateFileData(index, 'project', e.target.value)}
-                    className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-xs"
-                    placeholder="Project name"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Tags (comma separated)</label>
-                  <input
-                    type="text"
-                    value={fileData.tags}
-                    onChange={(e) => updateFileData(index, 'tags', e.target.value)}
-                    className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-xs"
-                    placeholder="tag1, tag2, tag3"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Submitted By</label>
-                  <input
-                    type="text"
-                    value={fileData.submittedBy}
-                    onChange={(e) => updateFileData(index, 'submittedBy', e.target.value)}
-                    className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-xs"
-                    placeholder="Your name or team"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Status</label>
-                  <select
-                    value={fileData.status}
-                    onChange={(e) => updateFileData(index, 'status', e.target.value)}
-                    className="w-full px-2import React, { useState, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import { 
   Folder, 
   FolderOpen,
@@ -434,7 +289,7 @@ const App = () => {
         id: fileData.id,
         name: fileData.name,
         title: fileData.title || fileData.name.split('.')[0],
-        folderId: currentFolder?.id === 'all' ? 'marketing' : currentFolder?.id, // Fixed: proper folder assignment
+        folderId: currentFolder?.id === 'all' ? 'marketing' : currentFolder?.id,
         type: fileData.file.type.startsWith('image/') ? 'image' : 
               fileData.file.type.startsWith('video/') ? 'video' : 
               fileData.file.type.startsWith('audio/') ? 'audio' : 'document',
@@ -674,44 +529,44 @@ const App = () => {
 
     return (
       <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-        <div className="bg-white rounded-2xl p-8 w-4xl max-w-6xl max-h-[90vh] overflow-y-auto border border-gray-200 shadow-2xl">
-          <h3 className="text-xl font-semibold text-gray-900 mb-6">Upload Files & Add Metadata</h3>
+        <div className="bg-white rounded-2xl p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto border border-gray-200 shadow-2xl">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Upload Files & Add Metadata</h3>
           
-          <div className="space-y-6">
+          <div className="space-y-4">
             {uploadingFiles.map((fileData, index) => (
-              <div key={index} className="border border-gray-200 rounded-xl p-6">
-                <div className="flex items-center mb-4">
-                  <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-500 rounded-lg flex items-center justify-center mr-4">
+              <div key={index} className="border border-gray-200 rounded-xl p-4">
+                <div className="flex items-center mb-3">
+                  <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-lg flex items-center justify-center mr-3">
                     {getFileIcon(fileData.category.toLowerCase())}
                   </div>
                   <div>
-                    <h4 className="font-semibold text-gray-900">{fileData.name}</h4>
-                    <p className="text-sm text-gray-500">{(fileData.file.size / 1024 / 1024).toFixed(1)} MB • Uploading to: {currentFolder?.name}</p>
+                    <h4 className="font-semibold text-gray-900 text-sm">{fileData.name}</h4>
+                    <p className="text-xs text-gray-500">{(fileData.file.size / 1024 / 1024).toFixed(1)} MB • Uploading to: {currentFolder?.name}</p>
                   </div>
                 </div>
                 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Title <span className="text-gray-400">(10-12 words, max 120 chars)</span>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      Title <span className="text-gray-400">(max 120 chars)</span>
                     </label>
                     <input
                       type="text"
                       value={fileData.title}
                       onChange={(e) => updateFileData(index, 'title', e.target.value.slice(0, 120))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                      className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-xs"
                       placeholder="Enter a descriptive title..."
                       maxLength={120}
                     />
-                    <div className="text-xs text-gray-400 mt-1">{fileData.title.length}/120 characters</div>
+                    <div className="text-xs text-gray-400 mt-0.5">{fileData.title.length}/120</div>
                   </div>
                   
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Category</label>
                     <select
                       value={fileData.category}
                       onChange={(e) => updateFileData(index, 'category', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                      className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-xs"
                     >
                       <option value="Document">Document</option>
                       <option value="Video">Video</option>
@@ -722,59 +577,59 @@ const App = () => {
                   </div>
                   
                   <div className="col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Description <span className="text-gray-400">(up to 500 words, max 3000 chars)</span>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      Description <span className="text-gray-400">(max 3000 chars)</span>
                     </label>
                     <textarea
                       value={fileData.description}
                       onChange={(e) => updateFileData(index, 'description', e.target.value.slice(0, 3000))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
-                      rows="3"
+                      className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-xs"
+                      rows="2"
                       placeholder="Describe this file..."
                       maxLength={3000}
                     />
-                    <div className="text-xs text-gray-400 mt-1">{fileData.description.length}/3000 characters</div>
+                    <div className="text-xs text-gray-400 mt-0.5">{fileData.description.length}/3000</div>
                   </div>
                   
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Project</label>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Project</label>
                     <input
                       type="text"
                       value={fileData.project}
                       onChange={(e) => updateFileData(index, 'project', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                      className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-xs"
                       placeholder="Project name"
                     />
                   </div>
                   
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Tags (comma separated)</label>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Tags (comma separated)</label>
                     <input
                       type="text"
                       value={fileData.tags}
                       onChange={(e) => updateFileData(index, 'tags', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                      className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-xs"
                       placeholder="tag1, tag2, tag3"
                     />
                   </div>
                   
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Submitted By</label>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Submitted By</label>
                     <input
                       type="text"
                       value={fileData.submittedBy}
                       onChange={(e) => updateFileData(index, 'submittedBy', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                      className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-xs"
                       placeholder="Your name or team"
                     />
                   </div>
                   
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Status</label>
                     <select
                       value={fileData.status}
                       onChange={(e) => updateFileData(index, 'status', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                      className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-xs"
                     >
                       <option value="draft">Draft</option>
                       <option value="review">Review</option>
@@ -784,37 +639,37 @@ const App = () => {
                   </div>
                   
                   <div className="col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Notes <span className="text-gray-400">(up to 500 words, max 3000 chars)</span>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      Notes <span className="text-gray-400">(max 3000 chars)</span>
                     </label>
                     <textarea
                       value={fileData.notes}
                       onChange={(e) => updateFileData(index, 'notes', e.target.value.slice(0, 3000))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
-                      rows="3"
+                      className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-xs"
+                      rows="2"
                       placeholder="Additional notes or comments..."
                       maxLength={3000}
                     />
-                    <div className="text-xs text-gray-400 mt-1">{fileData.notes.length}/3000 characters</div>
+                    <div className="text-xs text-gray-400 mt-0.5">{fileData.notes.length}/3000</div>
                   </div>
                 </div>
               </div>
             ))}
           </div>
           
-          <div className="flex justify-end space-x-3 mt-6">
+          <div className="flex justify-end space-x-2 mt-4">
             <button
               onClick={() => {
                 setShowUploadModal(false);
                 setUploadingFiles([]);
               }}
-              className="px-6 py-3 text-gray-600 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors"
+              className="px-4 py-2 text-gray-600 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors text-sm"
             >
               Cancel
             </button>
             <button
               onClick={uploadFiles}
-              className="px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-xl hover:from-purple-700 hover:to-blue-700 transition-all font-medium"
+              className="px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-xl hover:from-purple-700 hover:to-blue-700 transition-all font-medium text-sm"
             >
               Upload {uploadingFiles.length} File{uploadingFiles.length > 1 ? 's' : ''}
             </button>
