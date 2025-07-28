@@ -302,15 +302,15 @@ const App = () => {
     setShowUploadModal(true);
   };
 
-  // Fixed input handling
+  // Fixed input handling - proper state update
   const handleInputChange = (index, field, value) => {
     setUploadingFiles(prevFiles => {
-      const updatedFiles = [...prevFiles];
-      updatedFiles[index] = {
-        ...updatedFiles[index],
+      const newFiles = [...prevFiles];
+      newFiles[index] = {
+        ...newFiles[index],
         [field]: value
       };
-      return updatedFiles;
+      return newFiles;
     });
   };
 
@@ -542,44 +542,44 @@ const App = () => {
 
     return (
       <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-        <div className="bg-white rounded-2xl p-4 w-full max-w-3xl max-h-[90vh] overflow-y-auto border border-gray-200 shadow-2xl">
-          <h3 className="text-sm font-semibold text-gray-900 mb-3">Upload Files & Add Metadata</h3>
+        <div className="bg-white rounded-2xl p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto border border-gray-200 shadow-2xl">
+          <h3 className="text-base font-semibold text-gray-900 mb-4">Upload Files & Add Metadata</h3>
           
-          <div className="space-y-3">
+          <div className="space-y-4">
             {uploadingFiles.map((fileData, index) => (
-              <div key={index} className="border border-gray-200 rounded-xl p-3">
-                <div className="flex items-center mb-2">
-                  <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-500 rounded-lg flex items-center justify-center mr-2">
+              <div key={index} className="border border-gray-200 rounded-xl p-4">
+                <div className="flex items-center mb-3">
+                  <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-lg flex items-center justify-center mr-3">
                     {getFileIcon(fileData.category.toLowerCase())}
                   </div>
                   <div>
-                    <h4 className="font-semibold text-gray-900 text-xs">{fileData.name}</h4>
-                    <p className="text-xs text-gray-500">{(fileData.file.size / 1024 / 1024).toFixed(1)} MB → {currentFolder?.name}</p>
+                    <h4 className="font-semibold text-gray-900 text-sm">{fileData.name}</h4>
+                    <p className="text-sm text-gray-500">{(fileData.file.size / 1024 / 1024).toFixed(1)} MB → {currentFolder?.name}</p>
                   </div>
                 </div>
                 
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
                       Title <span className="text-gray-400">(max 120)</span>
                     </label>
                     <input
                       type="text"
-                      value={fileData.title}
+                      value={fileData.title || ''}
                       onChange={(e) => handleInputChange(index, 'title', e.target.value.slice(0, 120))}
-                      className="w-full px-2 py-1 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-xs"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-sm"
                       placeholder="Enter title..."
                       maxLength={120}
                     />
-                    <div className="text-xs text-gray-400 mt-0.5">{fileData.title.length}/120</div>
+                    <div className="text-xs text-gray-400 mt-1">{(fileData.title || '').length}/120</div>
                   </div>
                   
                   <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Category</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
                     <select
-                      value={fileData.category}
+                      value={fileData.category || 'Document'}
                       onChange={(e) => handleInputChange(index, 'category', e.target.value)}
-                      className="w-full px-2 py-1 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-xs"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-sm"
                     >
                       <option value="Document">Document</option>
                       <option value="Video">Video</option>
@@ -590,59 +590,59 @@ const App = () => {
                   </div>
                   
                   <div className="col-span-2">
-                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
                       Description <span className="text-gray-400">(max 3000)</span>
                     </label>
                     <textarea
-                      value={fileData.description}
+                      value={fileData.description || ''}
                       onChange={(e) => handleInputChange(index, 'description', e.target.value.slice(0, 3000))}
-                      className="w-full px-2 py-1 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-xs"
-                      rows="2"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-sm"
+                      rows="3"
                       placeholder="Describe this file..."
                       maxLength={3000}
                     />
-                    <div className="text-xs text-gray-400 mt-0.5">{fileData.description.length}/3000</div>
+                    <div className="text-xs text-gray-400 mt-1">{(fileData.description || '').length}/3000</div>
                   </div>
                   
                   <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Project</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Project</label>
                     <input
                       type="text"
-                      value={fileData.project}
+                      value={fileData.project || ''}
                       onChange={(e) => handleInputChange(index, 'project', e.target.value)}
-                      className="w-full px-2 py-1 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-xs"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-sm"
                       placeholder="Project name"
                     />
                   </div>
                   
                   <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Tags (comma separated)</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Tags (comma separated)</label>
                     <input
                       type="text"
-                      value={fileData.tags}
+                      value={fileData.tags || ''}
                       onChange={(e) => handleInputChange(index, 'tags', e.target.value)}
-                      className="w-full px-2 py-1 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-xs"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-sm"
                       placeholder="tag1, tag2, tag3"
                     />
                   </div>
                   
                   <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Submitted By</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Submitted By</label>
                     <input
                       type="text"
-                      value={fileData.submittedBy}
+                      value={fileData.submittedBy || ''}
                       onChange={(e) => handleInputChange(index, 'submittedBy', e.target.value)}
-                      className="w-full px-2 py-1 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-xs"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-sm"
                       placeholder="Your name or team"
                     />
                   </div>
                   
                   <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Status</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
                     <select
-                      value={fileData.status}
+                      value={fileData.status || 'draft'}
                       onChange={(e) => handleInputChange(index, 'status', e.target.value)}
-                      className="w-full px-2 py-1 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-xs"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-sm"
                     >
                       <option value="draft">Draft</option>
                       <option value="review">Review</option>
@@ -652,37 +652,37 @@ const App = () => {
                   </div>
                   
                   <div className="col-span-2">
-                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
                       Notes <span className="text-gray-400">(max 3000)</span>
                     </label>
                     <textarea
-                      value={fileData.notes}
+                      value={fileData.notes || ''}
                       onChange={(e) => handleInputChange(index, 'notes', e.target.value.slice(0, 3000))}
-                      className="w-full px-2 py-1 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-xs"
-                      rows="2"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-sm"
+                      rows="3"
                       placeholder="Additional notes..."
                       maxLength={3000}
                     />
-                    <div className="text-xs text-gray-400 mt-0.5">{fileData.notes.length}/3000</div>
+                    <div className="text-xs text-gray-400 mt-1">{(fileData.notes || '').length}/3000</div>
                   </div>
                 </div>
               </div>
             ))}
           </div>
           
-          <div className="flex justify-end space-x-2 mt-3">
+          <div className="flex justify-end space-x-3 mt-5">
             <button
               onClick={() => {
                 setShowUploadModal(false);
                 setUploadingFiles([]);
               }}
-              className="px-3 py-1.5 text-gray-600 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors text-xs"
+              className="px-4 py-2 text-gray-600 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors text-sm"
             >
               Cancel
             </button>
             <button
               onClick={uploadFiles}
-              className="px-3 py-1.5 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-xl hover:from-purple-700 hover:to-blue-700 transition-all font-medium text-xs"
+              className="px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-xl hover:from-purple-700 hover:to-blue-700 transition-all font-medium text-sm"
             >
               Upload {uploadingFiles.length} File{uploadingFiles.length > 1 ? 's' : ''}
             </button>
