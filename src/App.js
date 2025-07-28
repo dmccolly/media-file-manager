@@ -119,10 +119,35 @@ const App = () => {
   const [contextMenu, setContextMenu] = useState(null);
   const [isDragOver, setIsDragOver] = useState(false);
   const [draggedFiles, setDraggedFiles] = useState(new Set());
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
 
   const fileInputRef = useRef(null);
 
   // Folder operations
+  const createNewFolder = () => {
+    const newFolderId = `folder_${Date.now()}`;
+    const newFolder = {
+      id: newFolderId,
+      name: 'New Folder',
+      parent: currentFolder?.id || 'all',
+      children: [],
+      isEditing: true
+    };
+    
+    setFolders(prev => [...prev, newFolder]);
+    
+    // Add to parent's children array
+    if (currentFolder) {
+      setFolders(prev => prev.map(folder =>
+        folder.id === currentFolder.id
+          ? { ...folder, children: [...folder.children, newFolderId] }
+          : folder
+      ));
+      setExpandedFolders(prev => [...prev, currentFolder.id]);
+    }
+  };
+
   const startFolderEdit = (folderId) => {
     setFolders(prev => prev.map(folder => 
       folder.id === folderId ? { ...folder, isEditing: true } : folder
@@ -251,6 +276,7 @@ const App = () => {
         project: '',
         notes: '',
         submittedBy: '',
+        station: '',
         status: 'draft'
       }));
       setUploadingFiles(fileData);
@@ -296,6 +322,7 @@ const App = () => {
       project: '',
       notes: '',
       submittedBy: '',
+      station: '',
       status: 'draft'
     }));
     setUploadingFiles(fileData);
@@ -317,36 +344,57 @@ const App = () => {
   }, []);
 
   const uploadFiles = () => {
-    uploadingFiles.forEach(fileData => {
-      const newFile = {
-        id: fileData.id,
-        name: fileData.name,
-        title: fileData.title || fileData.name.split('.')[0],
-        folderId: currentFolder?.id === 'all' ? 'marketing' : currentFolder?.id,
-        type: fileData.file.type.startsWith('image/') ? 'image' : 
-              fileData.file.type.startsWith('video/') ? 'video' : 
-              fileData.file.type.startsWith('audio/') ? 'audio' : 'document',
-        size: `${(fileData.file.size / 1024 / 1024).toFixed(1)} MB`,
-        url: URL.createObjectURL(fileData.file),
-        modified: new Date().toISOString().split('T')[0],
-        createdBy: 'Current User',
-        submittedBy: fileData.submittedBy || 'Current User',
-        status: fileData.status,
-        category: fileData.category,
-        project: fileData.project,
-        description: fileData.description,
-        notes: fileData.notes,
-        tags: fileData.tags.split(',').map(tag => tag.trim()).filter(Boolean),
-        mimeType: fileData.file.type
-      };
-      setFiles(prev => [...prev, newFile]);
-    });
+    setIsUploading(true);
+    setUploadProgress(0);
     
-    setShowUploadModal(false);
-    setUploadingFiles([]);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
+    const totalFiles = uploadingFiles.length;
+    let processedFiles = 0;
+    
+    uploadingFiles.forEach((fileData, index) => {
+      // Simulate upload progress
+      setTimeout(() => {
+        const newFile = {
+          id: fileData.id,
+          name: fileData.name,
+          title: fileData.title || fileData.name.split('.')[0],
+          folderId: currentFolder?.id === 'all' ? 'marketing' : currentFolder?.id,
+          type: fileData.file.type.startsWith('image/') ? 'image' : 
+                fileData.file.type.startsWith('video/') ? 'video' : 
+                fileData.file.type.startsWith('audio/') ? 'audio' : 'document',
+          size: `${(fileData.file.size / 1024 / 1024).toFixed(1)} MB`,
+          url: URL.createObjectURL(fileData.file),
+          modified: new Date().toISOString().split('T')[0],
+          createdBy: 'Current User',
+          submittedBy: fileData.submittedBy || 'Current User',
+          status: fileData.status,
+          category: fileData.category,
+          project: fileData.project,
+          description: fileData.description,
+          notes: fileData.notes,
+          station: fileData.station,
+          tags: fileData.tags.split(',').map(tag => tag.trim()).filter(Boolean),
+          mimeType: fileData.file.type
+        };
+        
+        setFiles(prev => [...prev, newFile]);
+        processedFiles++;
+        
+        const progress = Math.round((processedFiles / totalFiles) * 100);
+        setUploadProgress(progress);
+        
+        if (processedFiles === totalFiles) {
+          setTimeout(() => {
+            setIsUploading(false);
+            setShowUploadModal(false);
+            setUploadingFiles([]);
+            setUploadProgress(0);
+            if (fileInputRef.current) {
+              fileInputRef.current.value = '';
+            }
+          }, 500);
+        }
+      }, index * 200 + 500); // Stagger uploads
+    });
   };
 
   // UI Components
@@ -658,20 +706,17 @@ const App = () => {
                   </div>
                   
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                    <select
-                      value={fileData.status || 'draft'}
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Station</label>
+                    <input
+                      type="text"
+                      value={fileData.station || ''}
                       onChange={(e) => {
                         e.persist();
-                        updateFileField(index, 'status', e.target.value);
+                        updateFileField(index, 'station', e.target.value);
                       }}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 text-sm"
-                    >
-                      <option value="draft">Draft</option>
-                      <option value="review">Review</option>
-                      <option value="approved">Approved</option>
-                      <option value="published">Published</option>
-                    </select>
+                      placeholder="Station identifier"
+                    />
                   </div>
                   
                   <div className="col-span-2">
@@ -696,21 +741,46 @@ const App = () => {
             ))}
           </div>
           
+          {/* Upload Progress Bar */}
+          {isUploading && (
+            <div className="mb-4">
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-sm font-medium text-gray-700">Uploading files...</span>
+                <span className="text-sm text-gray-500">{uploadProgress}%</span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-2">
+                <div 
+                  className="bg-gradient-to-r from-purple-600 to-blue-600 h-2 rounded-full transition-all duration-300 ease-out"
+                  style={{ width: `${uploadProgress}%` }}
+                ></div>
+              </div>
+            </div>
+          )}
+          
           <div className="flex justify-end space-x-3 mt-5">
             <button
               onClick={() => {
                 setShowUploadModal(false);
                 setUploadingFiles([]);
               }}
-              className="px-4 py-2 text-gray-600 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors text-sm"
+              disabled={isUploading}
+              className="px-4 py-2 text-gray-600 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Cancel
             </button>
             <button
               onClick={uploadFiles}
-              className="px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-xl hover:from-purple-700 hover:to-blue-700 transition-all font-medium text-sm"
+              disabled={isUploading}
+              className="px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-xl hover:from-purple-700 hover:to-blue-700 transition-all font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
             >
-              Upload {uploadingFiles.length} File{uploadingFiles.length > 1 ? 's' : ''}
+              {isUploading ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  <span>Uploading...</span>
+                </>
+              ) : (
+                <span>Upload {uploadingFiles.length} File{uploadingFiles.length > 1 ? 's' : ''}</span>
+              )}
             </button>
           </div>
         </div>
@@ -785,6 +855,7 @@ const App = () => {
             <span 
               className={`text-xs flex-1 ${isActive ? 'font-semibold text-gray-900' : 'text-gray-700'}`}
               onDoubleClick={() => folderId !== 'all' && startFolderEdit(folderId)}
+              title="Double-click to rename"
             >
               {folder.name}
             </span>
@@ -863,7 +934,7 @@ const App = () => {
         <div className="w-40 bg-white border-r border-gray-200 flex flex-col">
           <div className="p-2">
             <button
-              onClick={() => setCurrentFolder(folders[0])}
+              onClick={createNewFolder}
               className="w-full flex items-center space-x-1 px-1.5 py-1 text-left hover:bg-gray-50 rounded-lg transition-colors text-xs"
             >
               <Plus className="w-3 h-3 text-purple-600" />
