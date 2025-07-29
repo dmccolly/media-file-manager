@@ -23,7 +23,7 @@ const App = () => {
   const CLOUDINARY_CLOUD_NAME = process.env.REACT_APP_CLOUDINARY_CLOUD_NAME;
   const CLOUDINARY_UPLOAD_PRESET = process.env.REACT_APP_CLOUDINARY_UPLOAD_PRESET;
 
-  // Airtable API Functions
+  // Database Functions
   const fetchFilesFromAirtable = async () => {
     try {
       const response = await fetch(
@@ -145,7 +145,6 @@ const App = () => {
       );
       
       if (!response.ok) throw new Error('Failed to delete file');
-      
       return true;
     } catch (error) {
       console.error('Error deleting file:', error);
@@ -205,7 +204,6 @@ const App = () => {
       );
       
       if (!response.ok) throw new Error('Failed to update file folder');
-      
       return true;
     } catch (error) {
       console.error('Error updating file folder:', error);
@@ -246,7 +244,8 @@ const App = () => {
       xhr.send(formData);
     });
   };
-// File Handling
+
+  // File Handling
   const handleFileSelect = (e) => {
     const files = Array.from(e.target.files);
     const fileObjects = files.map(file => ({
@@ -468,7 +467,7 @@ const App = () => {
     loadData();
   }, []);
 
-  // File Explorer Tree Component
+  // File Explorer Tree Functions
   const toggleFolder = (folderName) => {
     setExpandedFolders(prev => {
       const newSet = new Set(prev);
@@ -532,7 +531,7 @@ const App = () => {
               {node.name || 'Root'}
             </span>
             <span style={{ marginLeft: 'auto', fontSize: '12px', color: '#666' }}>
-              ({node.files?.length || 0} files)
+              ({node.files?.length || 0})
             </span>
           </div>
         )}
@@ -554,7 +553,7 @@ const App = () => {
             </span>
             <span>Root Directory</span>
             <span style={{ marginLeft: 'auto', fontSize: '12px', color: '#666' }}>
-              ({node.files?.length || 0} files)
+              ({node.files?.length || 0})
             </span>
           </div>
         )}
@@ -625,7 +624,7 @@ const App = () => {
     );
   };
 
-  // Preview Modal Component
+  // Modal Components
   const PreviewModal = ({ file }) => {
     if (!file) return null;
 
@@ -679,7 +678,7 @@ const App = () => {
           <div style={{ marginTop: '20px', fontSize: '14px', color: '#666' }}>
             <p><strong>Size:</strong> {(file.size / 1024 / 1024).toFixed(2)} MB</p>
             <p><strong>Type:</strong> {file.type}</p>
-            {file.yearProduced && <p><strong>Year Produced:</strong> {file.yearProduced}</p>}
+            {file.yearProduced && <p><strong>Year:</strong> {file.yearProduced}</p>}
             {file.station && <p><strong>Station:</strong> {file.station}</p>}
             {file.tags && <p><strong>Tags:</strong> {file.tags}</p>}
           </div>
@@ -794,7 +793,7 @@ const App = () => {
                     <label style={{ display: 'block', marginBottom: '5px' }}>Tags:</label>
                     <input
                       type="text"
-                      placeholder="news, sports, weather (comma separated)"
+                      placeholder="news, sports, weather"
                       value={file.tags || ''}
                       onChange={(e) => updateFileMetadata(index, 'tags', e.target.value)}
                       disabled={uploading}
@@ -816,18 +815,12 @@ const App = () => {
                       backgroundColor: '#4CAF50', transition: 'width 0.3s' 
                     }} />
                   </div>
-                  {uploading && (
-                    <div style={{ fontSize: '12px', color: '#666', marginTop: '5px' }}>
-                      Please wait... Upload in progress
-                    </div>
-                  )}
                 </div>
               )}
 
               <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
                 <button
-                  onClick={handleFileUploa
-onClick={handleFileUpload}
+                  onClick={handleFileUpload}
                   disabled={uploading}
                   style={{
                     padding: '12px 24px', backgroundColor: uploading ? '#ccc' : '#4CAF50',
@@ -1166,4 +1159,5 @@ onClick={handleFileUpload}
   );
 };
 
-export default App;                           
+export default App;
+                >
