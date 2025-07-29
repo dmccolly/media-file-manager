@@ -1,772 +1,977 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { 
-  Folder, 
-  FolderOpen,
-  File, 
-  Upload, 
-  Plus, 
-  Search, 
-  Grid, 
-  List, 
-  ChevronRight,
-  ChevronDown,
-  Image,
-  Video,
-  FileText,
-  Music,
-  X,
-  ExternalLink,
-  Play,
-  Eye,
-  MoreVertical,
-  Copy,
-  Move,
-  Trash2,
-  Download,
-  Users,
-  Settings,
-  Check,
-  Square
-} from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
 
-function App() {
-  const AIRTABLE_BASE_ID = process.env.REACT_APP_AIRTABLE_BASE_ID || 'your_airtable_base_id';
-  const AIRTABLE_API_KEY = process.env.REACT_APP_AIRTABLE_API_KEY || 'your_airtable_api_key';
-  const CLOUDINARY_CLOUD_NAME = process.env.REACT_APP_CLOUDINARY_CLOUD_NAME || 'your_cloudinary_cloud_name';
-  const CLOUDINARY_UPLOAD_PRESET = process.env.REACT_APP_CLOUDINARY_UPLOAD_PRESET || 'your_upload_preset';
-
-  const airtableApi = {
-    baseUrl: `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}`,
-    headers: {
-      'Authorization': `Bearer ${AIRTABLE_API_KEY}`,
-      'Content-Type': 'application/json'
-    }
-  };
-
-  const [folders, setFolders] = useState([
-    { id: 'all', name: 'All Content', parent: null, children: ['marketing', 'product', 'design'], isEditing: false },
-    { id: 'marketing', name: 'Marketing', parent: 'all', children: ['campaigns', 'assets'], isEditing: false },
-    { id: 'campaigns', name: 'Campaigns', parent: 'marketing', children: [], isEditing: false },
-    { id: 'assets', name: 'Assets', parent: 'marketing', children: [], isEditing: false },
-    { id: 'product', name: 'Product', parent: 'all', children: ['docs', 'specs'], isEditing: false },
-    { id: 'docs', name: 'Documentation', parent: 'product', children: [], isEditing: false },
-    { id: 'specs', name: 'Specifications', parent: 'product', children: [], isEditing: false },
-    { id: 'design', name: 'Design', parent: 'all', children: ['ui', 'graphics'], isEditing: false },
-    { id: 'ui', name: 'UI Design', parent: 'design', children: [], isEditing: false },
-    { id: 'graphics', name: 'Graphics', parent: 'design', children: [], isEditing: false },
-  ]);
-
+const App = () => {
+  // State Management
   const [files, setFiles] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [currentFolder, setCurrentFolder] = useState(folders[0]);
-  const [expandedFolders, setExpandedFolders] = useState(['all']);
-  const [viewMode, setViewMode] = useState('list');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedFiles, setSelectedFiles] = useState(new Set());
-  const [showUploadModal, setShowUploadModal] = useState(false);
-  const [uploadingFiles, setUploadingFiles] = useState([]);
-  const [previewModal, setPreviewModal] = useState(null);
-  const [contextMenu, setContextMenu] = useState(null);
-  const [isDragOver, setIsDragOver] = useState(false);
-  const [draggedFiles, setDraggedFiles] = useState(new Set());
-  const [isUploading, setIsUploading] = useState(false);
+  const [folders, setFolders] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [selectedFiles, setSelectedFiles] = useState([]);
+  const [selectedFileIds, setSelectedFileIds] = useState([]);
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [currentFolder, setCurrentFolder] = useState(null);
+  const [viewMode, setViewMode] = useState('grid');
+  const [contextMenu, setContextMenu] = useState(null);
+  const [previewModal, setPreviewModal] = useState(null);
+  const [draggedFiles, setDraggedFiles] = useState([]);
 
-  const fileInputRef = useRef(null);
+  // Configuration
+  const AIRTABLE_BASE_ID = process.env.REACT_APP_AIRTABLE_BASE_ID;
+  const AIRTABLE_API_KEY = process.env.REACT_APP_AIRTABLE_API_KEY;
+  const CLOUDINARY_CLOUD_NAME = process.env.REACT_APP_CLOUDINARY_CLOUD_NAME;
+  const CLOUDINARY_UPLOAD_PRESET = process.env.REACT_APP_CLOUDINARY_UPLOAD_PRESET;
 
-  useEffect(() => {
-    loadFilesFromAirtable();
-    loadFoldersFromAirtable();
-  }, []);
-
-  const loadFilesFromAirtable = async () => {
+  // Airtable API Functions
+  const fetchFilesFromAirtable = async () => {
     try {
-      setIsLoading(true);
-      const response = await fetch(`${airtableApi.baseUrl}/Files`, {
-        headers: airtableApi.headers
-      });
+      const response = await fetch(
+        `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Files`,
+        {
+          headers: {
+            'Authorization': `Bearer ${AIRTABLE_API_KEY}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
       
-      if (response.ok) {
-        const data = await response.json();
-        const loadedFiles = data.records.map(record => ({
-          id: record.id,
-          name: record.fields.Name || '',
-          title: record.fields.Title || '',
-          folderId: record.fields.FolderId || 'marketing',
-          type: record.fields.Type || 'document',
-          size: record.fields.Size || '0 MB',
-          modified: record.fields.Modified || new Date().toISOString().split('T')[0],
-          createdBy: record.fields.CreatedBy || 'Unknown',
-          submittedBy: record.fields.SubmittedBy || 'Unknown',
-          status: record.fields.Status || 'draft',
-          project: record.fields.Project || '',
-          description: record.fields.Description || '',
-          notes: record.fields.Notes || '',
-          station: record.fields.Station || '',
-          yearProduced: record.fields.YearProduced || new Date().getFullYear().toString(),
-          tags: record.fields.Tags ? record.fields.Tags.split(',').map(tag => tag.trim()) : [],
-          category: record.fields.Category || 'Document',
-          url: record.fields.CloudinaryURL || '',
-          mimeType: record.fields.MimeType || 'application/octet-stream'
-        }));
-        setFiles(loadedFiles);
-      } else {
-        console.error('Failed to load files from Airtable');
-      }
+      if (!response.ok) throw new Error('Failed to fetch files');
+      
+      const data = await response.json();
+      const filesData = data.records.map(record => ({
+        id: record.id,
+        name: record.fields.Name || 'Untitled',
+        url: record.fields.URL || '',
+        type: record.fields.Type || '',
+        size: record.fields.Size || 0,
+        folder: record.fields.Folder || '',
+        yearProduced: record.fields.YearProduced || '',
+        station: record.fields.Station || '',
+        tags: record.fields.Tags || '',
+        uploadDate: record.fields.UploadDate || new Date().toISOString()
+      }));
+      
+      setFiles(filesData);
     } catch (error) {
-      console.error('Error loading files:', error);
-    } finally {
-      setIsLoading(false);
+      console.error('Error fetching files:', error);
     }
   };
 
-  const loadFoldersFromAirtable = async () => {
+  const fetchFoldersFromAirtable = async () => {
     try {
-      const response = await fetch(`${airtableApi.baseUrl}/Folders`, {
-        headers: airtableApi.headers
-      });
+      const response = await fetch(
+        `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Folders`,
+        {
+          headers: {
+            'Authorization': `Bearer ${AIRTABLE_API_KEY}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
       
-      if (response.ok) {
-        const data = await response.json();
-        const loadedFolders = data.records.map(record => ({
-          id: record.id,
-          name: record.fields.Name || '',
-          parent: record.fields.Parent || null,
-          children: record.fields.Children ? record.fields.Children.split(',') : [],
-          isEditing: false
-        }));
-        
-        setFolders(prev => {
-          const merged = [...prev];
-          loadedFolders.forEach(dbFolder => {
-            const existingIndex = merged.findIndex(f => f.id === dbFolder.id);
-            if (existingIndex >= 0) {
-              merged[existingIndex] = { ...merged[existingIndex], ...dbFolder };
-            } else {
-              merged.push(dbFolder);
-            }
-          });
-          return merged;
-        });
-      }
+      if (!response.ok) throw new Error('Failed to fetch folders');
+      
+      const data = await response.json();
+      const foldersData = data.records.map(record => ({
+        id: record.id,
+        name: record.fields.Name || 'Untitled Folder',
+        createdDate: record.fields.CreatedDate || new Date().toISOString()
+      }));
+      
+      setFolders(foldersData);
     } catch (error) {
-      console.error('Error loading folders:', error);
+      console.error('Error fetching folders:', error);
     }
   };
-
   const saveFileToAirtable = async (fileData) => {
     try {
-      const airtableData = {
-        fields: {
-          Name: fileData.name,
-          Title: fileData.title,
-          FolderId: fileData.folderId,
-          Type: fileData.type,
-          Size: fileData.size,
-          Modified: fileData.modified,
-          CreatedBy: fileData.createdBy,
-          SubmittedBy: fileData.submittedBy,
-          Status: fileData.status,
-          Project: fileData.project,
-          Description: fileData.description,
-          Notes: fileData.notes,
-          Station: fileData.station,
-          YearProduced: fileData.yearProduced,
-          Tags: fileData.tags.join(','),
-          Category: fileData.category,
-          CloudinaryURL: fileData.url,
-          MimeType: fileData.mimeType
+      const response = await fetch(
+        `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Files`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${AIRTABLE_API_KEY}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            fields: {
+              Name: fileData.name,
+              URL: fileData.url,
+              Type: fileData.type,
+              Size: fileData.size,
+              Folder: fileData.folder || '',
+              YearProduced: fileData.yearProduced || '',
+              Station: fileData.station || '',
+              Tags: fileData.tags || '',
+              UploadDate: new Date().toISOString()
+            }
+          })
         }
+      );
+      
+      if (!response.ok) throw new Error('Failed to save file');
+      
+      const data = await response.json();
+      return {
+        id: data.id,
+        name: data.fields.Name,
+        url: data.fields.URL,
+        type: data.fields.Type,
+        size: data.fields.Size,
+        folder: data.fields.Folder || '',
+        yearProduced: data.fields.YearProduced || '',
+        station: data.fields.Station || '',
+        tags: data.fields.Tags || '',
+        uploadDate: data.fields.UploadDate
       };
-
-      const response = await fetch(`${airtableApi.baseUrl}/Files`, {
-        method: 'POST',
-        headers: airtableApi.headers,
-        body: JSON.stringify(airtableData)
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        return result.id;
-      } else {
-        console.error('Failed to save file to Airtable');
-        return null;
-      }
     } catch (error) {
-      console.error('Error saving file to Airtable:', error);
-      return null;
-    }
-  };
-
-  const updateFileInAirtable = async (fileId, updates) => {
-    try {
-      const response = await fetch(`${airtableApi.baseUrl}/Files/${fileId}`, {
-        method: 'PATCH',
-        headers: airtableApi.headers,
-        body: JSON.stringify({
-          fields: updates
-        })
-      });
-
-      return response.ok;
-    } catch (error) {
-      console.error('Error updating file in Airtable:', error);
-      return false;
+      console.error('Error saving file:', error);
+      throw error;
     }
   };
 
   const deleteFileFromAirtable = async (fileId) => {
     try {
-      const response = await fetch(`${airtableApi.baseUrl}/Files/${fileId}`, {
-        method: 'DELETE',
-        headers: airtableApi.headers
-      });
-
-      return response.ok;
-    } catch (error) {
-      console.error('Error deleting file from Airtable:', error);
-      return false;
-    }
-  };
-
-  const uploadToCloudinary = async (file) => {
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
-
       const response = await fetch(
-        `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/upload`,
+        `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Files/${fileId}`,
         {
-          method: 'POST',
-          body: formData
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${AIRTABLE_API_KEY}`
+          }
         }
       );
-
-      if (response.ok) {
-        const result = await response.json();
-        return {
-          url: result.secure_url,
-          publicId: result.public_id
-        };
-      } else {
-        console.error('Failed to upload to Cloudinary');
-        return null;
-      }
-    } catch (error) {
-      console.error('Error uploading to Cloudinary:', error);
-      return null;
-    }
-  };
-
-  const createNewFolder = async () => {
-    const newFolderId = `folder_${Date.now()}`;
-    const newFolder = {
-      id: newFolderId,
-      name: 'New Folder',
-      parent: currentFolder?.id || 'all',
-      children: [],
-      isEditing: true
-    };
-    
-    setFolders(prev => [...prev, newFolder]);
-    
-    if (currentFolder) {
-      setFolders(prev => prev.map(folder =>
-        folder.id === currentFolder.id
-          ? { ...folder, children: [...folder.children, newFolderId] }
-          : folder
-      ));
-      setExpandedFolders(prev => [...prev, currentFolder.id]);
-    }
-
-    try {
-      await fetch(`${airtableApi.baseUrl}/Folders`, {
-        method: 'POST',
-        headers: airtableApi.headers,
-        body: JSON.stringify({
-          fields: {
-            Name: newFolder.name,
-            Parent: newFolder.parent,
-            Children: newFolder.children.join(',')
-          }
-        })
-      });
-    } catch (error) {
-      console.error('Error creating folder in Airtable:', error);
-    }
-  };
-
-  const startFolderEdit = (folderId) => {
-    setFolders(prev => prev.map(folder => 
-      folder.id === folderId ? { ...folder, isEditing: true } : folder
-    ));
-  };
-
-  const saveFolderName = async (folderId, newName) => {
-    if (newName.trim()) {
-      setFolders(prev => prev.map(folder => 
-        folder.id === folderId 
-          ? { ...folder, name: newName.trim(), isEditing: false }
-          : folder
-      ));
       
-      try {
-        await fetch(`${airtableApi.baseUrl}/Folders/${folderId}`, {
-          method: 'PATCH',
-          headers: airtableApi.headers,
+      if (!response.ok) throw new Error('Failed to delete file');
+      
+      return true;
+    } catch (error) {
+      console.error('Error deleting file:', error);
+      throw error;
+    }
+  };
+
+  const saveFolderToAirtable = async (folderName) => {
+    try {
+      const response = await fetch(
+        `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Folders`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${AIRTABLE_API_KEY}`,
+            'Content-Type': 'application/json'
+          },
           body: JSON.stringify({
             fields: {
-              Name: newName.trim()
+              Name: folderName,
+              CreatedDate: new Date().toISOString()
             }
           })
-        });
-        console.log(`Updated folder ${folderId} to name: ${newName}`);
-      } catch (error) {
-        console.error('Error updating folder in Airtable:', error);
-      }
-    } else {
-      cancelFolderEdit(folderId);
-    }
-  };
-
-  const cancelFolderEdit = (folderId) => {
-    setFolders(prev => prev.map(folder => 
-      folder.id === folderId ? { ...folder, isEditing: false } : folder
-    ));
-  };
-
-  const getCurrentFolderFiles = () => {
-    if (currentFolder?.id === 'all') {
-      return files.filter(file => 
-        file.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        file.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        file.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()))
+        }
       );
+      
+      if (!response.ok) throw new Error('Failed to save folder');
+      
+      const data = await response.json();
+      return {
+        id: data.id,
+        name: data.fields.Name,
+        createdDate: data.fields.CreatedDate
+      };
+    } catch (error) {
+      console.error('Error saving folder:', error);
+      throw error;
     }
-    return files.filter(file => 
-      file.folderId === currentFolder?.id &&
-      (file.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-       file.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-       file.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase())))
+  };
+
+  const updateFileFolder = async (fileId, newFolder) => {
+    try {
+      const response = await fetch(
+        `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Files/${fileId}`,
+        {
+          method: 'PATCH',
+          headers: {
+            'Authorization': `Bearer ${AIRTABLE_API_KEY}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            fields: {
+              Folder: newFolder || ''
+            }
+          })
+        }
+      );
+      
+      if (!response.ok) throw new Error('Failed to update file folder');
+      
+      return true;
+    } catch (error) {
+      console.error('Error updating file folder:', error);
+      throw error;
+    }
+  };
+  // Cloudinary Upload
+  const uploadToCloudinary = async (file, onProgress) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+    
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      
+      xhr.upload.addEventListener('progress', (e) => {
+        if (e.lengthComputable && onProgress) {
+          const percentComplete = (e.loaded / e.total) * 100;
+          onProgress(percentComplete);
+        }
+      });
+      
+      xhr.addEventListener('load', () => {
+        if (xhr.status === 200) {
+          const response = JSON.parse(xhr.responseText);
+          resolve(response);
+        } else {
+          reject(new Error('Upload failed'));
+        }
+      });
+      
+      xhr.addEventListener('error', () => {
+        reject(new Error('Upload failed'));
+      });
+      
+      xhr.open('POST', `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/auto/upload`);
+      xhr.send(formData);
+    });
+  };
+
+  // File Handling
+  const handleFileSelect = (e) => {
+    const files = Array.from(e.target.files);
+    const fileObjects = files.map(file => ({
+      file: file,
+      name: file.name,
+      size: file.size,
+      type: file.type,
+      folder: currentFolder || '',
+      yearProduced: '',
+      station: '',
+      tags: ''
+    }));
+    setSelectedFiles(fileObjects);
+  };
+
+  const updateFileMetadata = (index, field, value) => {
+    setSelectedFiles(prev => 
+      prev.map((file, i) => 
+        i === index ? { ...file, [field]: value } : file
+      )
     );
   };
 
-  const currentFolderFiles = getCurrentFolderFiles();
+  const removeSelectedFile = (index) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+  };
 
+  const handleFileUpload = async () => {
+    if (selectedFiles.length === 0) return;
+    
+    setUploading(true);
+    setUploadProgress(0);
+    
+    try {
+      const totalFiles = selectedFiles.length;
+      let completedFiles = 0;
+      
+      for (const fileObj of selectedFiles) {
+        try {
+          // Upload to Cloudinary
+          const cloudinaryResponse = await uploadToCloudinary(
+            fileObj.file,
+            (progress) => {
+              const overallProgress = ((completedFiles / totalFiles) * 100) + (progress / totalFiles);
+              setUploadProgress(Math.round(overallProgress));
+            }
+          );
+          
+          // Save to Airtable
+          const fileData = {
+            name: fileObj.name,
+            url: cloudinaryResponse.secure_url,
+            type: fileObj.type,
+            size: fileObj.size,
+            folder: fileObj.folder,
+            yearProduced: fileObj.yearProduced,
+            station: fileObj.station,
+            tags: fileObj.tags
+          };
+          
+          const savedFile = await saveFileToAirtable(fileData);
+          setFiles(prev => [...prev, savedFile]);
+          
+          completedFiles++;
+          setUploadProgress(Math.round((completedFiles / totalFiles) * 100));
+          
+        } catch (error) {
+          console.error('Error uploading file:', fileObj.name, error);
+        }
+      }
+      
+      // Reset form
+      setSelectedFiles([]);
+      setShowUploadModal(false);
+      
+    } catch (error) {
+      console.error('Upload error:', error);
+    } finally {
+      setUploading(false);
+      setUploadProgress(0);
+    }
+  };
+  // File Management
   const toggleFileSelection = (fileId) => {
-    const newSelection = new Set(selectedFiles);
-    if (newSelection.has(fileId)) {
-      newSelection.delete(fileId);
-    } else {
-      newSelection.add(fileId);
-    }
-    setSelectedFiles(newSelection);
-  };
-
-  const selectAllFiles = () => {
-    if (selectedFiles.size === currentFolderFiles.length) {
-      setSelectedFiles(new Set());
-    } else {
-      setSelectedFiles(new Set(currentFolderFiles.map(f => f.id)));
-    }
-  };
-
-  const moveSelectedFiles = async (targetFolderId) => {
-    const filesToMove = Array.from(selectedFiles);
-    
-    setFiles(prev => prev.map(file => 
-      selectedFiles.has(file.id) 
-        ? { ...file, folderId: targetFolderId }
-        : file
-    ));
-    
-    for (const fileId of filesToMove) {
-      await updateFileInAirtable(fileId, { FolderId: targetFolderId });
-    }
-    
-    setSelectedFiles(new Set());
+    setSelectedFileIds(prev => 
+      prev.includes(fileId) 
+        ? prev.filter(id => id !== fileId)
+        : [...prev, fileId]
+    );
   };
 
   const deleteSelectedFiles = async () => {
-    if (window.confirm(`Delete ${selectedFiles.size} selected file(s)?`)) {
-      const filesToDelete = Array.from(selectedFiles);
-      
-      for (const fileId of filesToDelete) {
+    if (selectedFileIds.length === 0) return;
+    
+    if (!window.confirm(`Delete ${selectedFileIds.length} file(s)?`)) return;
+    
+    try {
+      for (const fileId of selectedFileIds) {
         await deleteFileFromAirtable(fileId);
+        setFiles(prev => prev.filter(file => file.id !== fileId));
       }
-      
-      setFiles(prev => prev.filter(file => !selectedFiles.has(file.id)));
-      setSelectedFiles(new Set());
+      setSelectedFileIds([]);
+    } catch (error) {
+      console.error('Error deleting files:', error);
+      alert('Error deleting files. Please try again.');
     }
   };
 
-  const copySelectedFiles = async (targetFolderId) => {
-    const filesToCopy = files.filter(file => selectedFiles.has(file.id));
-    const copiedFiles = [];
+  // Folder Management
+  const createNewFolder = async () => {
+    const folderName = prompt('Enter folder name:');
+    if (!folderName || !folderName.trim()) return;
     
-    for (const file of filesToCopy) {
-      const copiedFile = {
-        ...file,
-        id: Date.now().toString() + Math.random().toString(36),
-        name: `Copy of ${file.name}`,
-        title: `Copy of ${file.title}`,
-        folderId: targetFolderId,
-        modified: new Date().toISOString().split('T')[0]
-      };
-      
-      const airtableId = await saveFileToAirtable(copiedFile);
-      if (airtableId) {
-        copiedFile.id = airtableId;
-        copiedFiles.push(copiedFile);
-      }
+    try {
+      const newFolder = await saveFolderToAirtable(folderName.trim());
+      setFolders(prev => [...prev, newFolder]);
+    } catch (error) {
+      console.error('Error creating folder:', error);
+      alert('Error creating folder. Please try again.');
     }
-    
-    setFiles(prev => [...prev, ...copiedFiles]);
-    setSelectedFiles(new Set());
+  };
+
+  // Drag and Drop
+  const handleDragStart = (e, fileIds) => {
+    e.dataTransfer.setData('text/plain', JSON.stringify(fileIds));
+    setDraggedFiles(fileIds);
   };
 
   const handleDragOver = (e) => {
     e.preventDefault();
-    e.stopPropagation();
-    setIsDragOver(true);
   };
 
-  const handleDragLeave = (e) => {
+  const handleDrop = async (e, targetFolder) => {
     e.preventDefault();
-    e.stopPropagation();
-    setIsDragOver(false);
-  };
-
-  const handleDrop = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragOver(false);
-
-    const droppedFiles = Array.from(e.dataTransfer.files);
-    if (droppedFiles.length > 0) {
-      const fileData = droppedFiles.map(file => ({
-        file,
-        id: Date.now().toString() + Math.random(),
-        name: file.name,
-        title: '',
-        description: '',
-        tags: '',
-        category: file.type.startsWith('image/') ? 'Graphic' : 
-                 file.type.startsWith('video/') ? 'Video' : 
-                 file.type.startsWith('audio/') ? 'Audio' : 'Document',
-        project: '',
-        notes: '',
-        submittedBy: '',
-        station: '',
-        yearProduced: new Date().getFullYear().toString(),
-        status: 'draft'
-      }));
-      setUploadingFiles(fileData);
-      setShowUploadModal(true);
-    }
-  };
-
-  const handleFileDragStart = (e, fileId) => {
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', fileId);
-    
-    if (selectedFiles.has(fileId)) {
-      setDraggedFiles(selectedFiles);
-      e.dataTransfer.setData('application/json', JSON.stringify(Array.from(selectedFiles)));
-    } else {
-      setDraggedFiles(new Set([fileId]));
-      e.dataTransfer.setData('application/json', JSON.stringify([fileId]));
-    }
-  };
-
-  const handleFolderDrop = async (e, folderId) => {
-    e.preventDefault();
-    e.stopPropagation();
     
     try {
-      const draggedFileIds = JSON.parse(e.dataTransfer.getData('application/json'));
+      const fileIds = JSON.parse(e.dataTransfer.getData('text/plain'));
       
-      if (draggedFileIds && draggedFileIds.length > 0) {
-        setFiles(prev => prev.map(file => 
-          draggedFileIds.includes(file.id) 
-            ? { ...file, folderId } 
-            : file
-        ));
-        
-        for (const fileId of draggedFileIds) {
-          await updateFileInAirtable(fileId, { FolderId: folderId });
-        }
-        
-        setSelectedFiles(new Set());
-        console.log(`Moved ${draggedFileIds.length} file(s) to folder: ${folderId}`);
+      for (const fileId of fileIds) {
+        await updateFileFolder(fileId, targetFolder);
+        setFiles(prev => 
+          prev.map(file => 
+            file.id === fileId ? { ...file, folder: targetFolder || '' } : file
+          )
+        );
       }
+      
+      setDraggedFiles([]);
     } catch (error) {
       console.error('Error moving files:', error);
+      alert('Error moving files. Please try again.');
     }
-    
-    setDraggedFiles(new Set());
   };
 
-  const handleFolderDragOver = (e) => {
+  // Get current folder contents
+  const getCurrentFolderContents = useCallback(() => {
+    const folderFiles = files.filter(file => 
+      (currentFolder ? file.folder === currentFolder : !file.folder)
+    );
+    
+    const folderFolders = currentFolder ? [] : folders;
+    
+    return {
+      files: folderFiles,
+      folders: folderFolders
+    };
+  }, [files, folders, currentFolder]);
+
+  const currentFolderContents = getCurrentFolderContents();
+
+  // Context Menu
+  const handleRightClick = (e, file) => {
     e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-  };
-
-  const handleFileUpload = () => {
-    fileInputRef.current?.click();
-  };
-
-  const handleFilesSelected = (event) => {
-    const selectedFiles = Array.from(event.target.files);
-    const fileData = selectedFiles.map(file => ({
-      file,
-      id: Date.now().toString() + Math.random(),
-      name: file.name,
-      title: '',
-      description: '',
-      tags: '',
-      category: file.type.startsWith('image/') ? 'Graphic' : 
-               file.type.startsWith('video/') ? 'Video' : 
-               file.type.startsWith('audio/') ? 'Audio' : 'Document',
-      project: '',
-      notes: '',
-      submittedBy: '',
-      station: '',
-      yearProduced: new Date().getFullYear().toString(),
-      status: 'draft'
-    }));
-    setUploadingFiles(fileData);
-    setShowUploadModal(true);
-  };
-
-  const updateFileField = useCallback((index, field, value) => {
-    setUploadingFiles(prevFiles => {
-      const newFiles = [...prevFiles];
-      if (newFiles[index]) {
-        newFiles[index] = {
-          ...newFiles[index],
-          [field]: value
-        };
-      }
-      return newFiles;
+    setContextMenu({
+      x: e.clientX,
+      y: e.clientY,
+      file: file
     });
-  }, []);
+  };
 
-  const uploadFiles = async () => {
-    setIsUploading(true);
-    setUploadProgress(0);
+  const handleContextMenuAction = async (action, file) => {
+    setContextMenu(null);
     
-    const totalFiles = uploadingFiles.length;
-    let processedFiles = 0;
-    
-    for (const fileData of uploadingFiles) {
-      try {
-        const cloudinaryResult = await uploadToCloudinary(fileData.file);
-        
-        if (cloudinaryResult) {
-          const newFile = {
-            name: fileData.name,
-            title: fileData.title || fileData.name.split('.')[0],
-            folderId: currentFolder?.id === 'all' ? 'marketing' : currentFolder?.id,
-            type: fileData.file.type.startsWith('image/') ? 'image' : 
-                  fileData.file.type.startsWith('video/') ? 'video' : 
-                  fileData.file.type.startsWith('audio/') ? 'audio' : 'document',
-            size: `${(fileData.file.size / 1024 / 1024).toFixed(1)} MB`,
-            url: cloudinaryResult.url,
-            modified: new Date().toISOString().split('T')[0],
-            createdBy: 'Current User',
-            submittedBy: fileData.submittedBy || 'Current User',
-            status: fileData.status,
-            category: fileData.category,
-            project: fileData.project,
-            description: fileData.description,
-            notes: fileData.notes,
-            station: fileData.station,
-            yearProduced: fileData.yearProduced,
-            tags: fileData.tags.split(',').map(tag => tag.trim()).filter(Boolean),
-            mimeType: fileData.file.type,
-            cloudinaryPublicId: cloudinaryResult.publicId
-          };
-          
-          const airtableId = await saveFileToAirtable(newFile);
-          
-          if (airtableId) {
-            newFile.id = airtableId;
-            setFiles(prev => [...prev, newFile]);
+    switch (action) {
+      case 'delete':
+        if (window.confirm(`Delete "${file.name}"?`)) {
+          try {
+            await deleteFileFromAirtable(file.id);
+            setFiles(prev => prev.filter(f => f.id !== file.id));
+          } catch (error) {
+            console.error('Error deleting file:', error);
+            alert('Error deleting file. Please try again.');
           }
         }
-        
-        processedFiles++;
-        const progress = Math.round((processedFiles / totalFiles) * 100);
-        setUploadProgress(progress);
-        
+        break;
+      case 'preview':
+        setPreviewModal(file);
+        break;
+      default:
+        break;
+    }
+  };
+
+  // Close context menu when clicking elsewhere
+  useEffect(() => {
+    const handleClick = () => setContextMenu(null);
+    document.addEventListener('click', handleClick);
+    return () => document.removeEventListener('click', handleClick);
+  }, []);
+
+  // Load data on component mount
+  useEffect(() => {
+    const loadData = async () => {
+      setLoading(true);
+      try {
+        await Promise.all([
+          fetchFilesFromAirtable(),
+          fetchFoldersFromAirtable()
+        ]);
       } catch (error) {
-        console.error('Error uploading file:', error);
-        processedFiles++;
+        console.error('Error loading data:', error);
+      } finally {
+        setLoading(false);
       }
-    }
+    };
     
-    setTimeout(() => {
-      setIsUploading(false);
-      setShowUploadModal(false);
-      setUploadingFiles([]);
-      setUploadProgress(0);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
-    }, 500);
-  };
-
-  const getFileIcon = (type) => {
-    const iconClass = "w-3 h-3 text-white";
-    switch (type) {
-      case 'image': return <Image className={iconClass} />;
-      case 'video': return <Video className={iconClass} />;
-      case 'audio': return <Music className={iconClass} />;
-      default: return <FileText className={iconClass} />;
-    }
-  };
-
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'published': return 'bg-green-500';
-      case 'approved': return 'bg-blue-500';
-      case 'review': return 'bg-yellow-500';
-      case 'draft': return 'bg-gray-500';
-      default: return 'bg-gray-400';
-    }
-  };
-
+    loadData();
+  }, []);
+  // Preview Modal Component
   const PreviewModal = ({ file }) => {
+    if (!file) return null;
+
     return (
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-2">
-        <div className="bg-white rounded-lg max-w-4xl w-full max-h-[95vh] overflow-hidden shadow-2xl flex">
-          <div className="flex-1 bg-gray-50 flex items-center justify-center p-4">
-            {file.type === 'image' ? (
-              <img 
-                src={file.url} 
-                alt={file.name}
-                className="max-w-full max-h-full object-contain rounded-lg shadow-lg"
-              />
-            ) : file.type === 'video' ? (
-              <video 
-                src={file.url} 
-                controls 
-                className="max-w-full max-h-full rounded-lg shadow-lg"
-              >
-                Your browser does not support video playback.
-              </video>
-            ) : file.type === 'audio' ? (
-              <div className="text-center">
-                <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center mb-3">
-                  <Music className="w-8 h-8 text-white" />
-                </div>
-                <audio src={file.url} controls className="mb-2">
-                  Your browser does not support audio playback.
-                </audio>
-                <p className="text-gray-600 text-xs">Audio File</p>
-              </div>
-            ) : (
-              <div className="text-center">
-                <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-full flex items-center justify-center mb-3">
-                  <FileText className="w-8 h-8 text-white" />
-                </div>
-                <button
-                  onClick={() => window.open(file.url, '_blank')}
-                  className="px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-1 text-xs"
-                >
-                  <ExternalLink className="w-3 h-3" />
-                  <span>Open Document</span>
-                </button>
-              </div>
-            )}
+      <div style={{
+        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+        backgroundColor: 'rgba(0,0,0,0.8)', display: 'flex',
+        alignItems: 'center', justifyContent: 'center', zIndex: 1001
+      }}>
+        <div style={{
+          backgroundColor: 'white', padding: '20px', borderRadius: '12px',
+          maxWidth: '90%', maxHeight: '90%', overflow: 'auto'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+            <h2 style={{ margin: 0 }}>{file.name}</h2>
+            <button
+              onClick={() => setPreviewModal(null)}
+              style={{
+                background: 'none', border: 'none', fontSize: '24px',
+                cursor: 'pointer', color: '#666'
+              }}
+            >
+              ×
+            </button>
           </div>
-
-          <div className="w-64 bg-white border-l border-gray-200 overflow-y-auto">
-            <div className="p-3">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-xs font-semibold text-gray-900">File Details</h3>
-                <button
-                  onClick={() => setPreviewModal(null)}
-                  className="p-1 hover:bg-gray-100 rounded-full transition-colors"
-                >
-                  <X className="w-3 h-3 text-gray-500" />
-                </button>
-              </div>
-
-              <div className="space-y-3">
-                <div>
-                  <h4 className="text-xs font-medium text-gray-700 mb-1 flex items-center">
-                    <File className="w-2 h-2 mr-1" />
-                    Basic Info
-                  </h4>
-                  <div className="space-y-1 text-xs">
-                    <div>
-                      <span className="text-gray-500 text-xs">Name:</span>
-                      <p className="font-medium text-gray-900 mt-0.5 text-xs leading-tight">{file.name}</p>
-                    </div>
-                    <div>
-                      <span className="text-gray-500 text-xs">Title:</span>
-                      <p className="font-medium text-gray-900 mt-0.5 text-xs leading-tight">{file.title}</p>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-500 text-xs">Type:</span>
-                      <span className="font-medium text-xs">{file.category}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-500 text-xs">Size:</span>
-                      <span className="font-medium text-xs">{file.size}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="pt-2 space-y-1">
-                  <button
-                    onClick={() => window.open(file.url, '_blank')}
-                    className="w-full px-2 py-1 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center space-x-1 text-xs"
-                  >
-                    <ExternalLink className="w-3 h-3" />
-                    <span>Open</span>
-                  </button>
-                </div>
-              </div>
-            </div>
+          
+          {file.type?.startsWith('image/') && (
+            <img
+              src={file.url}
+              alt={file.name}
+              style={{ maxWidth: '100%', maxHeight: '70vh', objectFit: 'contain' }}
+            />
+          )}
+          
+          {file.type?.startsWith('video/') && (
+            <video
+              src={file.url}
+              controls
+              style={{ maxWidth: '100%', maxHeight: '70vh' }}
+            />
+          )}
+          
+          {file.type?.startsWith('audio/') && (
+            <audio
+              src={file.url}
+              controls
+              style={{ width: '100%' }}
+            />
+          )}
+          
+          <div style={{ marginTop: '20px', fontSize: '14px', color: '#666' }}>
+            <p><strong>Size:</strong> {(file.size / 1024 / 1024).toFixed(2)} MB</p>
+            <p><strong>Type:</strong> {file.type}</p>
+            {file.yearProduced && <p><strong>Year Produced:</strong> {file.yearProduced}</p>}
+            {file.station && <p><strong>Station:</strong> {file.station}</p>}
+            {file.tags && <p><strong>Tags:</strong> {file.tags}</p>}
           </div>
         </div>
       </div>
     );
   };
 
-  const UploadModal = useCallback(() => {
+  // Upload Modal Component
+  const UploadModal = () => {
     if (!showUploadModal) return null;
 
     return (
-      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-        <div className="bg-white rounded-2xl p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto border border-gray-200 shadow-2xl">
-          <h3 className="text-base font-semibold text-gray-900 mb-4">Upload Files & Add Metadata</h3>
+      <div style={{
+        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+        backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex',
+        alignItems: 'center', justifyContent: 'center', zIndex: 1000
+      }}>
+        <div style={{
+          backgroundColor: 'white', padding: '30px', borderRadius: '12px',
+          maxWidth: '500px', width: '90%', maxHeight: '80vh', overflow: 'auto'
+        }}>
+          <h2 style={{ marginTop: 0 }}>Upload Files</h2>
           
-          <div className="space-y-4">
-            {uploadingFiles.map((fileData, index) => (
-              <div key={`${fileData.id}-${index}`} className="border border-gray-200 rounded-xl p-4">
-                <div className="flex items-center mb-3">
-                  <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-lg flex items-center justify-center mr-3">
-                    {getFileIcon(fileData.category?.toLowerCase() || 'document')}
+          <input
+            type="file"
+            multiple
+            accept="image/*,video/*,audio/*"
+            onChange={handleFileSelect}
+            style={{ marginBottom: '20px', width: '100%' }}
+          />
+
+          {selectedFiles.length > 0 && (
+            <div style={{ marginBottom: '20px' }}>
+              <h3>Selected Files ({selectedFiles.length}):</h3>
+              {selectedFiles.map((file, index) => (
+                <div key={index} style={{ 
+                  padding: '10px', border: '1px solid #ddd', 
+                  borderRadius: '4px', marginBottom: '10px' 
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span>{file.name}</span>
+                    <button 
+                      onClick={() => removeSelectedFile(index)}
+                      style={{ color: 'red', border: 'none', background: 'none', cursor: 'pointer' }}
+                    >
+                      ×
+                    </button>
                   </div>
-                  <div>
-                    <h4 className="font-semibold text-gray-900 text-sm">{fileData.name}</h4>
-                    <p className="text-sm text-gray-500">{(fileData.file.size / 1024 / 1024).toFixed(1)} MB → {currentFolder?.name}</p>
-                  </div>
-                </div>
-                
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Title <span className="text-gray-400">(max 120)</span>
-                    </label>
+                  
+                  <div style={{ marginTop: '10px' }}>
+                    <label style={{ display: 'block', marginBottom: '5px' }}>Folder:</label>
+                    <select
+                      value={file.folder || ''}
+                      onChange={(e) => updateFileMetadata(index, 'folder', e.target.value)}
+                      style={{ width: '100%', padding: '5px', marginBottom: '10px' }}
+                    >
+                      <option value="">Root</option>
+                      {folders.map(folder => (
+                        <option key={folder.id} value={folder.name}>{folder.name}</option>
+                      ))}
+                    </select>
+
+                    <label style={{ display: 'block', marginBottom: '5px' }}>Year Produced:</label>
+                    <input
+                      type="number"
+                      placeholder="e.g., 2024"
+                      value={file.yearProduced || ''}
+                      onChange={(e) => updateFileMetadata(index, 'yearProduced', e.target.value)}
+                      style={{ width: '100%', padding: '5px', marginBottom: '10px' }}
+                    />
+
+                    <label style={{ display: 'block', marginBottom: '5px' }}>Station:</label>
                     <input
                       type="text"
-                      value={fileData.title || ''}
-                      onChange={(e) => {
-                        e.persist();
-                        updateFileField(index, 'title', e.target.value.
+                      placeholder="e.g., KTVU, ABC7"
+                      value={file.station || ''}
+                      onChange={(e) => updateFileMetadata(index, 'station', e.target.value)}
+                      style={{ width: '100%', padding: '5px', marginBottom: '10px' }}
+                    />
+
+                    <label style={{ display: 'block', marginBottom: '5px' }}>Tags:</label>
+                    <input
+                      type="text"
+                      placeholder="news, sports, weather (comma separated)"
+                      value={file.tags || ''}
+                      onChange={(e) => updateFileMetadata(index, 'tags', e.target.value)}
+                      style={{ width: '100%', padding: '5px' }}
+                    />
+                  </div>
+                </div>
+              ))}
+
+              {uploadProgress > 0 && (
+                <div style={{ marginTop: '20px' }}>
+                  <div style={{ marginBottom: '5px' }}>Upload Progress: {uploadProgress}%</div>
+                  <div style={{ 
+                    width: '100%', height: '10px', backgroundColor: '#f0f0f0', 
+                    borderRadius: '5px', overflow: 'hidden' 
+                  }}>
+                    <div style={{ 
+                      width: `${uploadProgress}%`, height: '100%', 
+                      backgroundColor: '#4CAF50', transition: 'width 0.3s' 
+                    }} />
+                  </div>
+                </div>
+              )}
+
+              <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
+                <button
+                  onClick={handleFileUpload}
+                  disabled={uploading}
+                  style={{
+                    padding: '12px 24px', backgroundColor: uploading ? '#ccc' : '#4CAF50',
+                    color: 'white', border: 'none', borderRadius: '6px',
+                    cursor: uploading ? 'not-allowed' : 'pointer', flex: 1
+                  }}
+                >
+                  {uploading ? 'Uploading...' : 'Upload Files'}
+                </button>
+                <button
+                  onClick={() => setShowUploadModal(false)}
+                  style={{
+                    padding: '12px 24px', backgroundColor: '#f44336',
+                    color: 'white', border: 'none', borderRadius: '6px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+return (
+    <div style={{ padding: '20px', fontFamily: 'Arial, sans-serif', maxWidth: '1200px', margin: '0 auto' }}>
+      <h1>Media File Manager</h1>
+      
+      {/* Toolbar */}
+      <div style={{ 
+        marginBottom: '20px', padding: '15px', backgroundColor: '#f5f5f5', 
+        borderRadius: '8px', display: 'flex', gap: '10px', flexWrap: 'wrap',
+        alignItems: 'center'
+      }}>
+        <button
+          onClick={() => setShowUploadModal(true)}
+          style={{
+            padding: '10px 20px', backgroundColor: '#4CAF50', color: 'white',
+            border: 'none', borderRadius: '6px', cursor: 'pointer'
+          }}
+        >
+          Upload Files
+        </button>
+        
+        <button
+          onClick={createNewFolder}
+          style={{
+            padding: '10px 20px', backgroundColor: '#2196F3', color: 'white',
+            border: 'none', borderRadius: '6px', cursor: 'pointer'
+          }}
+        >
+          New Folder
+        </button>
+        
+        {selectedFileIds.length > 0 && (
+          <>
+            <span style={{ marginLeft: '10px', color: '#666' }}>
+              {selectedFileIds.length} file(s) selected
+            </span>
+            <button
+              onClick={deleteSelectedFiles}
+              style={{
+                padding: '10px 20px', backgroundColor: '#f44336', color: 'white',
+                border: 'none', borderRadius: '6px', cursor: 'pointer'
+              }}
+            >
+              Delete Selected
+            </button>
+          </>
+        )}
+        
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: '10px', alignItems: 'center' }}>
+          <span>View:</span>
+          <select
+            value={viewMode}
+            onChange={(e) => setViewMode(e.target.value)}
+            style={{ padding: '5px' }}
+          >
+            <option value="grid">Grid</option>
+            <option value="list">List</option>
+          </select>
+        </div>
+      </div>
+
+      {/* Breadcrumb */}
+      <div style={{ marginBottom: '20px' }}>
+        <span 
+          onClick={() => setCurrentFolder(null)}
+          style={{ cursor: 'pointer', color: '#2196F3', textDecoration: 'underline' }}
+        >
+          Home
+        </span>
+        {currentFolder && (
+          <>
+            <span style={{ margin: '0 5px' }}>/</span>
+            <span style={{ fontWeight: 'bold' }}>{currentFolder}</span>
+          </>
+        )}
+      </div>
+
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: '40px' }}>
+          Loading files from database...
+        </div>
+      ) : (
+        <>
+          {/* Folders */}
+          {currentFolderContents.folders.length > 0 && (
+            <div style={{ marginBottom: '30px' }}>
+              <h3>Folders</h3>
+              <div style={{ 
+                display: 'grid', 
+                gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', 
+                gap: '15px' 
+              }}>
+                {currentFolderContents.folders.map(folder => (
+                  <div
+                    key={folder.id}
+                    onDoubleClick={() => setCurrentFolder(folder.name)}
+                    onDragOver={handleDragOver}
+                    onDrop={(e) => handleDrop(e, folder.name)}
+                    style={{
+                      padding: '20px', border: '1px solid #ddd', borderRadius: '8px',
+                      backgroundColor: '#f9f9f9', cursor: 'pointer', textAlign: 'center',
+                      transition: 'background-color 0.2s'
+                    }}
+                    onMouseEnter={(e) => e.target.style.backgroundColor = '#e9e9e9'}
+                    onMouseLeave={(e) => e.target.style.backgroundColor = '#f9f9f9'}
+                  >
+                    <div style={{ fontSize: '40px', marginBottom: '10px' }}>📁</div>
+                    <div style={{ fontWeight: 'bold' }}>{folder.name}</div>
+</div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Files */}
+          <div>
+            <h3>Files ({currentFolderContents.files.length})</h3>
+            <div style={{ 
+              display: viewMode === 'grid' ? 'grid' : 'block',
+              gridTemplateColumns: viewMode === 'grid' ? 'repeat(auto-fill, minmax(250px, 1fr))' : 'none',
+              gap: viewMode === 'grid' ? '20px' : '0'
+            }}>
+              {currentFolderContents.files.map(file => (
+                <div
+                  key={file.id}
+                  draggable
+                  onDragStart={(e) => {
+                    const filesToDrag = selectedFileIds.includes(file.id) 
+                      ? selectedFileIds 
+                      : [file.id];
+                    handleDragStart(e, filesToDrag);
+                  }}
+                  onContextMenu={(e) => handleRightClick(e, file)}
+                  onDoubleClick={() => setPreviewModal(file)}
+                  style={{
+                    border: '1px solid #ddd', borderRadius: '8px', padding: '15px',
+                    backgroundColor: selectedFileIds.includes(file.id) ? '#e3f2fd' : '#fff',
+                    cursor: 'pointer', position: 'relative',
+                    marginBottom: viewMode === 'list' ? '10px' : '0',
+                    display: viewMode === 'list' ? 'flex' : 'block',
+                    alignItems: viewMode === 'list' ? 'center' : 'normal',
+                    gap: viewMode === 'list' ? '15px' : '0',
+                    opacity: draggedFiles.includes(file.id) ? 0.5 : 1,
+                    transition: 'background-color 0.2s, opacity 0.2s'
+                  }}
+                  onClick={(e) => {
+                    if (e.ctrlKey || e.metaKey) {
+                      toggleFileSelection(file.id);
+                    } else {
+                      setSelectedFileIds([file.id]);
+                    }
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedFileIds.includes(file.id)}
+                    onChange={() => toggleFileSelection(file.id)}
+                    style={{ position: 'absolute', top: '10px', left: '10px' }}
+                    onClick={(e) => e.stopPropagation()}
+                  />
+
+                  {/* File Preview */}
+                  {viewMode === 'grid' && file.type?.startsWith('image/') && (
+                    <img
+                      src={file.url}
+                      alt={file.name}
+                      style={{ 
+                        width: '100%', height: '150px', objectFit: 'cover', 
+                        borderRadius: '4px', marginBottom: '10px' 
+                      }}
+                    />
+                  )}
+
+                  {viewMode === 'grid' && file.type?.startsWith('video/') && (
+                    <div style={{
+                      width: '100%', height: '150px', backgroundColor: '#f0f0f0',
+                      borderRadius: '4px', marginBottom: '10px', display: 'flex',
+                      alignItems: 'center', justifyContent: 'center', fontSize: '40px'
+                    }}>
+                      🎥
+                    </div>
+                  )}
+
+                  {viewMode === 'grid' && file.type?.startsWith('audio/') && (
+                    <div style={{
+                      width: '100%', height: '150px', backgroundColor: '#f0f0f0',
+                      borderRadius: '4px', marginBottom: '10px', display: 'flex',
+                      alignItems: 'center', justifyContent: 'center', fontSize: '40px'
+                    }}>
+                      🎵
+                    </div>
+                  )}
+
+                  {viewMode === 'list' && (
+                    <div style={{ flexShrink: 0, width: '60px', height: '60px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      {file.type?.startsWith('image/') ? (
+                        <img
+                          src={file.url}
+                          alt={file.name}
+                          style={{ 
+                            width: '60px', height: '60px', objectFit: 'cover', 
+                            borderRadius: '4px' 
+                          }}
+                        />
+                      ) : file.type?.startsWith('video/') ? (
+                        <div style={{ fontSize: '30px' }}>🎥</div>
+                      ) : file.type?.startsWith('audio/') ? (
+                        <div style={{ fontSize: '30px' }}>🎵</div>
+                      ) : (
+                        <div style={{ fontSize: '30px' }}>📄</div>
+                      )}
+                    </div>
+                  )}
+
+                  <div style={{ flex: 1 }}>
+                    <h4 style={{ margin: '0 0 5px 0', fontSize: '14px' }}>{file.name}</h4>
+                    <p style={{ margin: '0', fontSize: '12px', color: '#666' }}>
+                      {(file.size / 1024 / 1024).toFixed(2)} MB
+                    </p>
+                    
+                    {file.yearProduced && (
+                      <p style={{ margin: '5px 0 0 0', fontSize: '12px', color: '#666' }}>
+                        Year: {file.yearProduced}
+                      </p>
+                    )}
+                    
+                    {file.station && (
+                      <p style={{ margin: '5px 0 0 0', fontSize: '12px', color: '#666' }}>
+                        Station: {file.station}
+                      </p>
+                    )}
+                    
+                    {file.tags && (
+                      <p style={{ margin: '5px 0 0 0', fontSize: '12px', color: '#666' }}>
+                        Tags: {file.tags}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {currentFolderContents.files.length === 0 && (
+              <div style={{ 
+                textAlign: 'center', padding: '40px', color: '#666',
+                border: '2px dashed #ddd', borderRadius: '8px' 
+              }}>
+                {currentFolder ? `No files in "${currentFolder}" folder` : 'No files uploaded yet'}
+                <br />
+                <button
+                  onClick={() => setShowUploadModal(true)}
+                  style={{
+                    marginTop: '10px', padding: '10px 20px', backgroundColor: '#4CAF50',
+                    color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer'
+                  }}
+                >
+                  Upload Your First File
+                </button>
+              </div>
+            )}
+          </div>
+        </>
+      )}
+
+      {/* Context Menu */}
+      {contextMenu && (
+        <div
+          style={{
+            position: 'fixed',
+            top: contextMenu.y,
+            left: contextMenu.x,
+            backgroundColor: 'white',
+            border: '1px solid #ddd',
+            borderRadius: '4px',
+            boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
+            zIndex: 1002,
+            minWidth: '120px'
+          }}
+        >
+          <button
+            onClick={() => handleContextMenuAction('preview', contextMenu.file)}
+            style={{
+              display: 'block', width: '100%', padding: '10px 15px',
+              border: 'none', background: 'none', textAlign: 'left',
+              cursor: 'pointer', fontSize: '14px'
+            }}
+          >
+            Preview
+          </button>
+          <button
+            onClick={() => handleContextMenuAction('delete', contextMenu.file)}
+            style={{
+              display: 'block', width: '100%', padding: '10px 15px',
+              border: 'none', background: 'none', textAlign: 'left',
+              cursor: 'pointer', fontSize: '14px', color: '#f44336'
+            }}
+          >
+            Delete
+          </button>
+        </div>
+      )}
+
+      {/* Modals */}
+      <UploadModal />
+      {previewModal && <PreviewModal file={previewModal} />}
+    </div>
+  );
+};
+
+export default App;
+  \
