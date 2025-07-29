@@ -15,6 +15,7 @@ const App = () => {
   const [contextMenu, setContextMenu] = useState(null);
   const [previewModal, setPreviewModal] = useState(null);
   const [draggedFiles, setDraggedFiles] = useState([]);
+  const [expandedFolders, setExpandedFolders] = useState(new Set(['root']));
 
   // Configuration
   const AIRTABLE_BASE_ID = process.env.REACT_APP_AIRTABLE_BASE_ID;
@@ -83,6 +84,7 @@ const App = () => {
       console.error('Error fetching folders:', error);
     }
   };
+
   const saveFileToAirtable = async (fileData) => {
     try {
       const response = await fetch(
@@ -210,6 +212,7 @@ const App = () => {
       throw error;
     }
   };
+
   // Cloudinary Upload
   const uploadToCloudinary = async (file, onProgress) => {
     const formData = new FormData();
@@ -243,8 +246,7 @@ const App = () => {
       xhr.send(formData);
     });
   };
-
-  // File Handling
+// File Handling
   const handleFileSelect = (e) => {
     const files = Array.from(e.target.files);
     const fileObjects = files.map(file => ({
@@ -284,7 +286,6 @@ const App = () => {
       
       for (const fileObj of selectedFiles) {
         try {
-          // Upload to Cloudinary
           const cloudinaryResponse = await uploadToCloudinary(
             fileObj.file,
             (progress) => {
@@ -293,7 +294,6 @@ const App = () => {
             }
           );
           
-          // Save to Airtable
           const fileData = {
             name: fileObj.name,
             url: cloudinaryResponse.secure_url,
@@ -316,7 +316,6 @@ const App = () => {
         }
       }
       
-      // Reset form
       setSelectedFiles([]);
       setShowUploadModal(false);
       
@@ -327,6 +326,7 @@ const App = () => {
       setUploadProgress(0);
     }
   };
+
   // File Management
   const toggleFileSelection = (fileId) => {
     setSelectedFileIds(prev => 
@@ -353,7 +353,6 @@ const App = () => {
     }
   };
 
-  // Folder Management
   const createNewFolder = async () => {
     const folderName = prompt('Enter folder name:');
     if (!folderName || !folderName.trim()) return;
@@ -367,7 +366,6 @@ const App = () => {
     }
   };
 
-  // Drag and Drop
   const handleDragStart = (e, fileIds) => {
     e.dataTransfer.setData('text/plain', JSON.stringify(fileIds));
     setDraggedFiles(fileIds);
@@ -399,7 +397,6 @@ const App = () => {
     }
   };
 
-  // Get current folder contents
   const getCurrentFolderContents = useCallback(() => {
     const folderFiles = files.filter(file => 
       (currentFolder ? file.folder === currentFolder : !file.folder)
@@ -415,7 +412,6 @@ const App = () => {
 
   const currentFolderContents = getCurrentFolderContents();
 
-  // Context Menu
   const handleRightClick = (e, file) => {
     e.preventDefault();
     setContextMenu({
@@ -448,14 +444,12 @@ const App = () => {
     }
   };
 
-  // Close context menu when clicking elsewhere
   useEffect(() => {
     const handleClick = () => setContextMenu(null);
     document.addEventListener('click', handleClick);
     return () => document.removeEventListener('click', handleClick);
   }, []);
 
-  // Load data on component mount
   useEffect(() => {
     const loadData = async () => {
       setLoading(true);
@@ -473,6 +467,164 @@ const App = () => {
     
     loadData();
   }, []);
+
+  // File Explorer Tree Component
+  const toggleFolder = (folderName) => {
+    setExpandedFolders(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(folderName)) {
+        newSet.delete(folderName);
+      } else {
+        newSet.add(folderName);
+      }
+      return newSet;
+    });
+  };
+
+  const getFolderStructure = () => {
+    const structure = { name: 'root', folders: {}, files: [] };
+    
+    files.filter(file => !file.folder).forEach(file => {
+      structure.files.push(file);
+    });
+    
+    folders.forEach(folder => {
+      structure.folders[folder.name] = {
+        name: folder.name,
+        id: folder.id,
+        files: files.filter(file => file.folder === folder.name)
+      };
+    });
+    
+    return structure;
+  };
+
+  const renderTreeNode = (node, path = '', level = 0) => {
+    const isExpanded = expandedFolders.has(path || 'root');
+    const indent = level * 20;
+    
+    return (
+      <div key={path || 'root'}>
+        {level > 0 && (
+          <div
+            style={{
+              display: 'flex', alignItems: 'center', padding: '8px',
+              paddingLeft: `${indent}px`, cursor: 'pointer',
+              backgroundColor: currentFolder === node.name ? '#e3f2fd' : 'transparent',
+              borderRadius: '4px', margin: '2px 0'
+            }}
+            onClick={() => {
+              if (level > 0) {
+                setCurrentFolder(node.name);
+                toggleFolder(path);
+              }
+            }}
+            onDragOver={handleDragOver}
+            onDrop={(e) => handleDrop(e, node.name)}
+          >
+            <span style={{ marginRight: '8px', fontSize: '12px' }}>
+              {isExpanded ? '▼' : '▶'}
+            </span>
+            <span style={{ marginRight: '8px', color: '#FFA726' }}>
+              FOLDER
+            </span>
+            <span style={{ fontWeight: 'bold' }}>
+              {node.name || 'Root'}
+            </span>
+            <span style={{ marginLeft: 'auto', fontSize: '12px', color: '#666' }}>
+              ({node.files?.length || 0} files)
+            </span>
+          </div>
+        )}
+        
+        {level === 0 && (
+          <div
+            style={{
+              display: 'flex', alignItems: 'center', padding: '8px',
+              cursor: 'pointer', backgroundColor: !currentFolder ? '#e3f2fd' : 'transparent',
+              borderRadius: '4px', margin: '2px 0', fontWeight: 'bold'
+            }}
+            onClick={() => {
+              setCurrentFolder(null);
+              toggleFolder('root');
+            }}
+          >
+            <span style={{ marginRight: '8px', fontSize: '12px' }}>
+              {isExpanded ? '▼' : '▶'}
+            </span>
+            <span>Root Directory</span>
+            <span style={{ marginLeft: 'auto', fontSize: '12px', color: '#666' }}>
+              ({node.files?.length || 0} files)
+            </span>
+          </div>
+        )}
+
+        {isExpanded && (
+          <div>
+            {Object.values(node.folders || {}).map(folder => 
+              renderTreeNode(folder, folder.name, level + 1)
+            )}
+            
+            {(node.files || []).map(file => (
+              <div
+                key={file.id}
+                draggable
+                onDragStart={(e) => handleDragStart(e, [file.id])}
+                style={{
+                  display: 'flex', alignItems: 'center', padding: '6px',
+                  paddingLeft: `${indent + 20}px`, cursor: 'pointer',
+                  backgroundColor: selectedFileIds.includes(file.id) ? '#e8f5e8' : 'transparent',
+                  borderRadius: '4px', margin: '1px 0',
+                  opacity: draggedFiles.includes(file.id) ? 0.5 : 1
+                }}
+                onClick={(e) => {
+                  if (e.ctrlKey || e.metaKey) {
+                    toggleFileSelection(file.id);
+                  } else {
+                    setSelectedFileIds([file.id]);
+                  }
+                }}
+                onDoubleClick={() => setPreviewModal(file)}
+                onContextMenu={(e) => handleRightClick(e, file)}
+              >
+                <input
+                  type="checkbox"
+                  checked={selectedFileIds.includes(file.id)}
+                  onChange={() => toggleFileSelection(file.id)}
+                  style={{ marginRight: '8px' }}
+                  onClick={(e) => e.stopPropagation()}
+                />
+                <span style={{ marginRight: '8px', fontSize: '12px' }}>
+                  {file.type?.startsWith('image/') ? 'IMG' :
+                   file.type?.startsWith('video/') ? 'VID' :
+                   file.type?.startsWith('audio/') ? 'AUD' : 'FILE'}
+                </span>
+                <span style={{ flex: 1, fontSize: '14px' }}>{file.name}</span>
+                <span style={{ fontSize: '11px', color: '#666' }}>
+                  {(file.size / 1024 / 1024).toFixed(1)}MB
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const FileExplorerTree = () => {
+    const folderStructure = getFolderStructure();
+    
+    return (
+      <div style={{
+        border: '1px solid #ddd', borderRadius: '8px', padding: '15px',
+        backgroundColor: '#fafafa', maxHeight: '400px', overflowY: 'auto'
+      }}>
+        <h3 style={{ margin: '0 0 15px 0', fontSize: '16px' }}>File Explorer</h3>
+        {renderTreeNode(folderStructure)}
+      </div>
+    );
+  };
+
   // Preview Modal Component
   const PreviewModal = ({ file }) => {
     if (!file) return null;
@@ -536,9 +688,20 @@ const App = () => {
     );
   };
 
-  // Upload Modal Component
   const UploadModal = () => {
     if (!showUploadModal) return null;
+
+    const handleCancel = () => {
+      setSelectedFiles([]);
+      setUploadProgress(0);
+      setUploading(false);
+      setShowUploadModal(false);
+      
+      const fileInput = document.querySelector('input[type="file"]');
+      if (fileInput) {
+        fileInput.value = '';
+      }
+    };
 
     return (
       <div style={{
@@ -550,13 +713,26 @@ const App = () => {
           backgroundColor: 'white', padding: '30px', borderRadius: '12px',
           maxWidth: '500px', width: '90%', maxHeight: '80vh', overflow: 'auto'
         }}>
-          <h2 style={{ marginTop: 0 }}>Upload Files</h2>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+            <h2 style={{ margin: 0 }}>Upload Files</h2>
+            <button
+              onClick={handleCancel}
+              disabled={uploading}
+              style={{
+                background: 'none', border: 'none', fontSize: '24px',
+                cursor: uploading ? 'not-allowed' : 'pointer', color: '#666'
+              }}
+            >
+              ×
+            </button>
+          </div>
           
           <input
             type="file"
             multiple
             accept="image/*,video/*,audio/*"
             onChange={handleFileSelect}
+            disabled={uploading}
             style={{ marginBottom: '20px', width: '100%' }}
           />
 
@@ -566,16 +742,19 @@ const App = () => {
               {selectedFiles.map((file, index) => (
                 <div key={index} style={{ 
                   padding: '10px', border: '1px solid #ddd', 
-                  borderRadius: '4px', marginBottom: '10px' 
+                  borderRadius: '4px', marginBottom: '10px',
+                  backgroundColor: uploading ? '#f9f9f9' : 'white'
                 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span>{file.name}</span>
-                    <button 
-                      onClick={() => removeSelectedFile(index)}
-                      style={{ color: 'red', border: 'none', background: 'none', cursor: 'pointer' }}
-                    >
-                      ×
-                    </button>
+                    {!uploading && (
+                      <button 
+                        onClick={() => removeSelectedFile(index)}
+                        style={{ color: 'red', border: 'none', background: 'none', cursor: 'pointer' }}
+                      >
+                        ×
+                      </button>
+                    )}
                   </div>
                   
                   <div style={{ marginTop: '10px' }}>
@@ -583,6 +762,7 @@ const App = () => {
                     <select
                       value={file.folder || ''}
                       onChange={(e) => updateFileMetadata(index, 'folder', e.target.value)}
+                      disabled={uploading}
                       style={{ width: '100%', padding: '5px', marginBottom: '10px' }}
                     >
                       <option value="">Root</option>
@@ -597,6 +777,7 @@ const App = () => {
                       placeholder="e.g., 2024"
                       value={file.yearProduced || ''}
                       onChange={(e) => updateFileMetadata(index, 'yearProduced', e.target.value)}
+                      disabled={uploading}
                       style={{ width: '100%', padding: '5px', marginBottom: '10px' }}
                     />
 
@@ -606,6 +787,7 @@ const App = () => {
                       placeholder="e.g., KTVU, ABC7"
                       value={file.station || ''}
                       onChange={(e) => updateFileMetadata(index, 'station', e.target.value)}
+                      disabled={uploading}
                       style={{ width: '100%', padding: '5px', marginBottom: '10px' }}
                     />
 
@@ -615,6 +797,7 @@ const App = () => {
                       placeholder="news, sports, weather (comma separated)"
                       value={file.tags || ''}
                       onChange={(e) => updateFileMetadata(index, 'tags', e.target.value)}
+                      disabled={uploading}
                       style={{ width: '100%', padding: '5px' }}
                     />
                   </div>
@@ -633,12 +816,18 @@ const App = () => {
                       backgroundColor: '#4CAF50', transition: 'width 0.3s' 
                     }} />
                   </div>
+                  {uploading && (
+                    <div style={{ fontSize: '12px', color: '#666', marginTop: '5px' }}>
+                      Please wait... Upload in progress
+                    </div>
+                  )}
                 </div>
               )}
 
               <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
                 <button
-                  onClick={handleFileUpload}
+                  onClick={handleFileUploa
+onClick={handleFileUpload}
                   disabled={uploading}
                   style={{
                     padding: '12px 24px', backgroundColor: uploading ? '#ccc' : '#4CAF50',
@@ -649,24 +838,42 @@ const App = () => {
                   {uploading ? 'Uploading...' : 'Upload Files'}
                 </button>
                 <button
-                  onClick={() => setShowUploadModal(false)}
+                  onClick={handleCancel}
+                  disabled={uploading}
                   style={{
-                    padding: '12px 24px', backgroundColor: '#f44336',
+                    padding: '12px 24px', backgroundColor: uploading ? '#ccc' : '#f44336',
                     color: 'white', border: 'none', borderRadius: '6px',
-                    cursor: 'pointer'
+                    cursor: uploading ? 'not-allowed' : 'pointer'
                   }}
                 >
-                  Cancel
+                  {uploading ? 'Cannot Cancel' : 'Cancel'}
                 </button>
               </div>
+            </div>
+          )}
+
+          {selectedFiles.length === 0 && (
+            <div style={{ textAlign: 'center', color: '#666', padding: '20px' }}>
+              Select files to upload
+              <br />
+              <button
+                onClick={handleCancel}
+                style={{
+                  marginTop: '10px', padding: '8px 16px', backgroundColor: '#f44336',
+                  color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer'
+                }}
+              >
+                Close
+              </button>
             </div>
           )}
         </div>
       </div>
     );
   };
-return (
-    <div style={{ padding: '20px', fontFamily: 'Arial, sans-serif', maxWidth: '1200px', margin: '0 auto' }}>
+
+  return (
+    <div style={{ padding: '20px', fontFamily: 'Arial, sans-serif', maxWidth: '1400px', margin: '0 auto' }}>
       <h1>Media File Manager</h1>
       
       {/* Toolbar */}
@@ -725,209 +932,193 @@ return (
         </div>
       </div>
 
-      {/* Breadcrumb */}
-      <div style={{ marginBottom: '20px' }}>
-        <span 
-          onClick={() => setCurrentFolder(null)}
-          style={{ cursor: 'pointer', color: '#2196F3', textDecoration: 'underline' }}
-        >
-          Home
-        </span>
-        {currentFolder && (
-          <>
-            <span style={{ margin: '0 5px' }}>/</span>
-            <span style={{ fontWeight: 'bold' }}>{currentFolder}</span>
-          </>
-        )}
-      </div>
-
       {loading ? (
         <div style={{ textAlign: 'center', padding: '40px' }}>
           Loading files from database...
         </div>
       ) : (
-        <>
-          {/* Folders */}
-          {currentFolderContents.folders.length > 0 && (
-            <div style={{ marginBottom: '30px' }}>
-              <h3>Folders</h3>
-              <div style={{ 
-                display: 'grid', 
-                gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', 
-                gap: '15px' 
-              }}>
-                {currentFolderContents.folders.map(folder => (
-                  <div
-                    key={folder.id}
-                    onDoubleClick={() => setCurrentFolder(folder.name)}
-                    onDragOver={handleDragOver}
-                    onDrop={(e) => handleDrop(e, folder.name)}
-                    style={{
-                      padding: '20px', border: '1px solid #ddd', borderRadius: '8px',
-                      backgroundColor: '#f9f9f9', cursor: 'pointer', textAlign: 'center',
-                      transition: 'background-color 0.2s'
-                    }}
-                    onMouseEnter={(e) => e.target.style.backgroundColor = '#e9e9e9'}
-                    onMouseLeave={(e) => e.target.style.backgroundColor = '#f9f9f9'}
-                  >
-                    <div style={{ fontSize: '40px', marginBottom: '10px', color: '#FFA726' }}>FOLDER</div>
-                    <div style={{ fontWeight: 'bold' }}>{folder.name}</div>
-</div>
-                ))}
-              </div>
+        <div style={{ display: 'flex', gap: '20px' }}>
+          {/* Left Panel - File Explorer Tree */}
+          <div style={{ width: '300px', flexShrink: 0 }}>
+            <FileExplorerTree />
+          </div>
+
+          {/* Right Panel - Content Area */}
+          <div style={{ flex: 1 }}>
+            {/* Breadcrumb */}
+            <div style={{ marginBottom: '20px', padding: '10px', backgroundColor: '#f9f9f9', borderRadius: '4px' }}>
+              <span 
+                onClick={() => setCurrentFolder(null)}
+                style={{ cursor: 'pointer', color: '#2196F3', textDecoration: 'underline' }}
+              >
+                Root
+              </span>
+              {currentFolder && (
+                <>
+                  <span style={{ margin: '0 5px' }}>/</span>
+                  <span style={{ fontWeight: 'bold' }}>{currentFolder}</span>
+                </>
+              )}
             </div>
-          )}
 
-          {/* Files */}
-          <div>
-            <h3>Files ({currentFolderContents.files.length})</h3>
-            <div style={{ 
-              display: viewMode === 'grid' ? 'grid' : 'block',
-              gridTemplateColumns: viewMode === 'grid' ? 'repeat(auto-fill, minmax(250px, 1fr))' : 'none',
-              gap: viewMode === 'grid' ? '20px' : '0'
-            }}>
-              {currentFolderContents.files.map(file => (
-                <div
-                  key={file.id}
-                  draggable
-                  onDragStart={(e) => {
-                    const filesToDrag = selectedFileIds.includes(file.id) 
-                      ? selectedFileIds 
-                      : [file.id];
-                    handleDragStart(e, filesToDrag);
-                  }}
-                  onContextMenu={(e) => handleRightClick(e, file)}
-                  onDoubleClick={() => setPreviewModal(file)}
-                  style={{
-                    border: '1px solid #ddd', borderRadius: '8px', padding: '15px',
-                    backgroundColor: selectedFileIds.includes(file.id) ? '#e3f2fd' : '#fff',
-                    cursor: 'pointer', position: 'relative',
-                    marginBottom: viewMode === 'list' ? '10px' : '0',
-                    display: viewMode === 'list' ? 'flex' : 'block',
-                    alignItems: viewMode === 'list' ? 'center' : 'normal',
-                    gap: viewMode === 'list' ? '15px' : '0',
-                    opacity: draggedFiles.includes(file.id) ? 0.5 : 1,
-                    transition: 'background-color 0.2s, opacity 0.2s'
-                  }}
-                  onClick={(e) => {
-                    if (e.ctrlKey || e.metaKey) {
-                      toggleFileSelection(file.id);
-                    } else {
-                      setSelectedFileIds([file.id]);
-                    }
-                  }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={selectedFileIds.includes(file.id)}
-                    onChange={() => toggleFileSelection(file.id)}
-                    style={{ position: 'absolute', top: '10px', left: '10px' }}
-                    onClick={(e) => e.stopPropagation()}
-                  />
+            {/* Content Area */}
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+                <h3 style={{ margin: 0 }}>
+                  {currentFolder || 'Root Directory'} ({currentFolderContents.files.length} files)
+                </h3>
+              </div>
 
-                  {/* File Preview */}
-                  {viewMode === 'grid' && file.type?.startsWith('image/') && (
-                    <img
-                      src={file.url}
-                      alt={file.name}
-                      style={{ 
-                        width: '100%', height: '150px', objectFit: 'cover', 
-                        borderRadius: '4px', marginBottom: '10px' 
-                      }}
+              {/* Files Grid/List */}
+              <div style={{ 
+                display: viewMode === 'grid' ? 'grid' : 'block',
+                gridTemplateColumns: viewMode === 'grid' ? 'repeat(auto-fill, minmax(250px, 1fr))' : 'none',
+                gap: viewMode === 'grid' ? '20px' : '0'
+              }}>
+                {currentFolderContents.files.map(file => (
+                  <div
+                    key={file.id}
+                    draggable
+                    onDragStart={(e) => {
+                      const filesToDrag = selectedFileIds.includes(file.id) 
+                        ? selectedFileIds 
+                        : [file.id];
+                      handleDragStart(e, filesToDrag);
+                    }}
+                    onContextMenu={(e) => handleRightClick(e, file)}
+                    onDoubleClick={() => setPreviewModal(file)}
+                    style={{
+                      border: '1px solid #ddd', borderRadius: '8px', padding: '15px',
+                      backgroundColor: selectedFileIds.includes(file.id) ? '#e3f2fd' : '#fff',
+                      cursor: 'pointer', position: 'relative',
+                      marginBottom: viewMode === 'list' ? '10px' : '0',
+                      display: viewMode === 'list' ? 'flex' : 'block',
+                      alignItems: viewMode === 'list' ? 'center' : 'normal',
+                      gap: viewMode === 'list' ? '15px' : '0',
+                      opacity: draggedFiles.includes(file.id) ? 0.5 : 1,
+                      transition: 'background-color 0.2s, opacity 0.2s'
+                    }}
+                    onClick={(e) => {
+                      if (e.ctrlKey || e.metaKey) {
+                        toggleFileSelection(file.id);
+                      } else {
+                        setSelectedFileIds([file.id]);
+                      }
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedFileIds.includes(file.id)}
+                      onChange={() => toggleFileSelection(file.id)}
+                      style={{ position: 'absolute', top: '10px', left: '10px' }}
+                      onClick={(e) => e.stopPropagation()}
                     />
-                  )}
 
-                  {viewMode === 'grid' && file.type?.startsWith('video/') && (
-                    <div style={{
-                      width: '100%', height: '150px', backgroundColor: '#f0f0f0',
-                      borderRadius: '4px', marginBottom: '10px', display: 'flex',
-                      alignItems: 'center', justifyContent: 'center', fontSize: '14px',
-                      fontWeight: 'bold', color: '#666'
-                    }}>
-                      VIDEO
-                    </div>
-                  )}
+                    {/* File Preview */}
+                    {viewMode === 'grid' && file.type?.startsWith('image/') && (
+                      <img
+                        src={file.url}
+                        alt={file.name}
+                        style={{ 
+                          width: '100%', height: '150px', objectFit: 'cover', 
+                          borderRadius: '4px', marginBottom: '10px' 
+                        }}
+                      />
+                    )}
 
-                  {viewMode === 'grid' && file.type?.startsWith('audio/') && (
-                    <div style={{
-                      width: '100%', height: '150px', backgroundColor: '#f0f0f0',
-                      borderRadius: '4px', marginBottom: '10px', display: 'flex',
-                      alignItems: 'center', justifyContent: 'center', fontSize: '14px',
-                      fontWeight: 'bold', color: '#666'
-                    }}>
-                      AUDIO
-                    </div>
-                  )}
+                    {viewMode === 'grid' && file.type?.startsWith('video/') && (
+                      <div style={{
+                        width: '100%', height: '150px', backgroundColor: '#f0f0f0',
+                        borderRadius: '4px', marginBottom: '10px', display: 'flex',
+                        alignItems: 'center', justifyContent: 'center', fontSize: '14px',
+                        fontWeight: 'bold', color: '#666'
+                      }}>
+                        VIDEO
+                      </div>
+                    )}
 
-                  {viewMode === 'list' && (
-                    <div style={{ flexShrink: 0, width: '60px', height: '60px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      {file.type?.startsWith('image/') ? (
-                        <img
-                          src={file.url}
-                          alt={file.name}
-                          style={{ 
-                            width: '60px', height: '60px', objectFit: 'cover', 
-                            borderRadius: '4px' 
-                          }}
-                        />
-                      ) : file.type?.startsWith('video/') ? (
-                        <div style={{ fontSize: '10px', fontWeight: 'bold', color: '#666', textAlign: 'center' }}>VIDEO</div>
-                      ) : file.type?.startsWith('audio/') ? (
-                        <div style={{ fontSize: '10px', fontWeight: 'bold', color: '#666', textAlign: 'center' }}>AUDIO</div>
-                      ) : (
-                        <div style={{ fontSize: '10px', fontWeight: 'bold', color: '#666', textAlign: 'center' }}>FILE</div>
+                    {viewMode === 'grid' && file.type?.startsWith('audio/') && (
+                      <div style={{
+                        width: '100%', height: '150px', backgroundColor: '#f0f0f0',
+                        borderRadius: '4px', marginBottom: '10px', display: 'flex',
+                        alignItems: 'center', justifyContent: 'center', fontSize: '14px',
+                        fontWeight: 'bold', color: '#666'
+                      }}>
+                        AUDIO
+                      </div>
+                    )}
+
+                    {viewMode === 'list' && (
+                      <div style={{ flexShrink: 0, width: '60px', height: '60px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        {file.type?.startsWith('image/') ? (
+                          <img
+                            src={file.url}
+                            alt={file.name}
+                            style={{ 
+                              width: '60px', height: '60px', objectFit: 'cover', 
+                              borderRadius: '4px' 
+                            }}
+                          />
+                        ) : file.type?.startsWith('video/') ? (
+                          <div style={{ fontSize: '10px', fontWeight: 'bold', color: '#666', textAlign: 'center' }}>VIDEO</div>
+                        ) : file.type?.startsWith('audio/') ? (
+                          <div style={{ fontSize: '10px', fontWeight: 'bold', color: '#666', textAlign: 'center' }}>AUDIO</div>
+                        ) : (
+                          <div style={{ fontSize: '10px', fontWeight: 'bold', color: '#666', textAlign: 'center' }}>FILE</div>
+                        )}
+                      </div>
+                    )}
+
+                    <div style={{ flex: 1 }}>
+                      <h4 style={{ margin: '0 0 5px 0', fontSize: '14px' }}>{file.name}</h4>
+                      <p style={{ margin: '0', fontSize: '12px', color: '#666' }}>
+                        {(file.size / 1024 / 1024).toFixed(2)} MB
+                      </p>
+                      
+                      {file.yearProduced && (
+                        <p style={{ margin: '5px 0 0 0', fontSize: '12px', color: '#666' }}>
+                          Year: {file.yearProduced}
+                        </p>
+                      )}
+                      
+                      {file.station && (
+                        <p style={{ margin: '5px 0 0 0', fontSize: '12px', color: '#666' }}>
+                          Station: {file.station}
+                        </p>
+                      )}
+                      
+                      {file.tags && (
+                        <p style={{ margin: '5px 0 0 0', fontSize: '12px', color: '#666' }}>
+                          Tags: {file.tags}
+                        </p>
                       )}
                     </div>
-                  )}
-
-                  <div style={{ flex: 1 }}>
-                    <h4 style={{ margin: '0 0 5px 0', fontSize: '14px' }}>{file.name}</h4>
-                    <p style={{ margin: '0', fontSize: '12px', color: '#666' }}>
-                      {(file.size / 1024 / 1024).toFixed(2)} MB
-                    </p>
-                    
-                    {file.yearProduced && (
-                      <p style={{ margin: '5px 0 0 0', fontSize: '12px', color: '#666' }}>
-                        Year: {file.yearProduced}
-                      </p>
-                    )}
-                    
-                    {file.station && (
-                      <p style={{ margin: '5px 0 0 0', fontSize: '12px', color: '#666' }}>
-                        Station: {file.station}
-                      </p>
-                    )}
-                    
-                    {file.tags && (
-                      <p style={{ margin: '5px 0 0 0', fontSize: '12px', color: '#666' }}>
-                        Tags: {file.tags}
-                      </p>
-                    )}
                   </div>
-                </div>
-              ))}
-            </div>
-
-            {currentFolderContents.files.length === 0 && (
-              <div style={{ 
-                textAlign: 'center', padding: '40px', color: '#666',
-                border: '2px dashed #ddd', borderRadius: '8px' 
-              }}>
-                {currentFolder ? `No files in "${currentFolder}" folder` : 'No files uploaded yet'}
-                <br />
-                <button
-                  onClick={() => setShowUploadModal(true)}
-                  style={{
-                    marginTop: '10px', padding: '10px 20px', backgroundColor: '#4CAF50',
-                    color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer'
-                  }}
-                >
-                  Upload Your First File
-                </button>
+                ))}
               </div>
-            )}
+
+              {/* Empty State */}
+              {currentFolderContents.files.length === 0 && (
+                <div style={{ 
+                  textAlign: 'center', padding: '40px', color: '#666',
+                  border: '2px dashed #ddd', borderRadius: '8px' 
+                }}>
+                  {currentFolder ? `No files in "${currentFolder}" folder` : 'No files uploaded yet'}
+                  <br />
+                  <button
+                    onClick={() => setShowUploadModal(true)}
+                    style={{
+                      marginTop: '10px', padding: '10px 20px', backgroundColor: '#4CAF50',
+                      color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer'
+                    }}
+                  >
+                    Upload Your First File
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
-        </>
+        </div>
       )}
 
       {/* Context Menu */}
@@ -975,4 +1166,4 @@ return (
   );
 };
 
-export default App;
+export default App;                           
