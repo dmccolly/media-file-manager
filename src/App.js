@@ -23,9 +23,26 @@ const App = () => {
   const CLOUDINARY_CLOUD_NAME = process.env.REACT_APP_CLOUDINARY_CLOUD_NAME;
   const CLOUDINARY_UPLOAD_PRESET = process.env.REACT_APP_CLOUDINARY_UPLOAD_PRESET;
 
+  // Debug logging
+  console.log('Environment check:', {
+    AIRTABLE_BASE_ID: AIRTABLE_BASE_ID ? 'SET' : 'NOT SET',
+    AIRTABLE_API_KEY: AIRTABLE_API_KEY ? 'SET' : 'NOT SET',
+    CLOUDINARY_CLOUD_NAME: CLOUDINARY_CLOUD_NAME ? 'SET' : 'NOT SET',
+    CLOUDINARY_UPLOAD_PRESET: CLOUDINARY_UPLOAD_PRESET ? 'SET' : 'NOT SET',
+    filesCount: files.length,
+    foldersCount: folders.length,
+    loading: loading
+  });
+
   // Database Functions
   const fetchFilesFromAirtable = async () => {
+    if (!AIRTABLE_BASE_ID || !AIRTABLE_API_KEY) {
+      console.error('Airtable credentials missing');
+      return;
+    }
+
     try {
+      console.log('Fetching files from Airtable...');
       const response = await fetch(
         `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Files`,
         {
@@ -36,9 +53,13 @@ const App = () => {
         }
       );
       
-      if (!response.ok) throw new Error('Failed to fetch files');
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
       
       const data = await response.json();
+      console.log('Raw Airtable response:', data);
+      
       const filesData = data.records.map(record => ({
         id: record.id,
         name: record.fields.Name || 'Untitled',
@@ -52,6 +73,7 @@ const App = () => {
         uploadDate: record.fields.UploadDate || new Date().toISOString()
       }));
       
+      console.log('Processed files:', filesData);
       setFiles(filesData);
     } catch (error) {
       console.error('Error fetching files:', error);
@@ -59,7 +81,13 @@ const App = () => {
   };
 
   const fetchFoldersFromAirtable = async () => {
+    if (!AIRTABLE_BASE_ID || !AIRTABLE_API_KEY) {
+      console.error('Airtable credentials missing');
+      return;
+    }
+
     try {
+      console.log('Fetching folders from Airtable...');
       const response = await fetch(
         `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Folders`,
         {
@@ -70,15 +98,20 @@ const App = () => {
         }
       );
       
-      if (!response.ok) throw new Error('Failed to fetch folders');
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
       
       const data = await response.json();
+      console.log('Raw folders response:', data);
+      
       const foldersData = data.records.map(record => ({
         id: record.id,
         name: record.fields.Name || 'Untitled Folder',
         createdDate: record.fields.CreatedDate || new Date().toISOString()
       }));
       
+      console.log('Processed folders:', foldersData);
       setFolders(foldersData);
     } catch (error) {
       console.error('Error fetching folders:', error);
@@ -326,7 +359,7 @@ const App = () => {
     }
   };
 
-  // File Management
+  // File Management Functions
   const toggleFileSelection = (fileId) => {
     setSelectedFileIds(prev => 
       prev.includes(fileId) 
@@ -443,6 +476,7 @@ const App = () => {
     }
   };
 
+  // Effects
   useEffect(() => {
     const handleClick = () => setContextMenu(null);
     document.addEventListener('click', handleClick);
@@ -451,12 +485,14 @@ const App = () => {
 
   useEffect(() => {
     const loadData = async () => {
+      console.log('Loading data...');
       setLoading(true);
       try {
         await Promise.all([
           fetchFilesFromAirtable(),
           fetchFoldersFromAirtable()
         ]);
+        console.log('Data loading complete');
       } catch (error) {
         console.error('Error loading data:', error);
       } finally {
@@ -481,11 +517,11 @@ const App = () => {
   };
 
   const getFolderStructure = () => {
-    const structure = { name: 'root', folders: {}, files: [] };
-    
-    files.filter(file => !file.folder).forEach(file => {
-      structure.files.push(file);
-    });
+    const structure = { 
+      name: 'root', 
+      folders: {}, 
+      files: files.filter(file => !file.folder || file.folder === '') 
+    };
     
     folders.forEach(folder => {
       structure.folders[folder.name] = {
@@ -503,78 +539,90 @@ const App = () => {
     const indent = level * 20;
     
     return (
-      <div key={path || 'root'}>
+      <div key={path || 'root'} style={{ width: '100%' }}>
+        {/* Folder Header */}
         {level > 0 && (
           <div
             style={{
-              display: 'flex', alignItems: 'center', padding: '8px',
+              display: 'flex', alignItems: 'center', padding: '8px 4px',
               paddingLeft: `${indent}px`, cursor: 'pointer',
               backgroundColor: currentFolder === node.name ? '#e3f2fd' : 'transparent',
-              borderRadius: '4px', margin: '2px 0'
+              borderRadius: '4px', margin: '2px 0',
+              border: draggedFiles.length > 0 ? '2px dashed #ccc' : 'none'
             }}
             onClick={() => {
-              if (level > 0) {
-                setCurrentFolder(node.name);
-                toggleFolder(path);
-              }
+              setCurrentFolder(node.name);
+              toggleFolder(path);
             }}
             onDragOver={handleDragOver}
             onDrop={(e) => handleDrop(e, node.name)}
           >
-            <span style={{ marginRight: '8px', fontSize: '12px' }}>
+            <span style={{ marginRight: '6px', fontSize: '12px', minWidth: '12px' }}>
               {isExpanded ? '▼' : '▶'}
             </span>
-            <span style={{ marginRight: '8px', color: '#FFA726' }}>
-              FOLDER
+            <span style={{ marginRight: '6px', color: '#2196F3', fontSize: '16px' }}>
+              📁
             </span>
-            <span style={{ fontWeight: 'bold' }}>
-              {node.name || 'Root'}
+            <span style={{ fontWeight: 'bold', fontSize: '14px', flex: 1 }}>
+              {node.name}
             </span>
-            <span style={{ marginLeft: 'auto', fontSize: '12px', color: '#666' }}>
+            <span style={{ fontSize: '11px', color: '#666', marginLeft: '4px' }}>
               ({node.files?.length || 0})
             </span>
           </div>
         )}
         
+        {/* Root Header */}
         {level === 0 && (
           <div
             style={{
-              display: 'flex', alignItems: 'center', padding: '8px',
-              cursor: 'pointer', backgroundColor: !currentFolder ? '#e3f2fd' : 'transparent',
-              borderRadius: '4px', margin: '2px 0', fontWeight: 'bold'
+              display: 'flex', alignItems: 'center', padding: '8px 4px',
+              cursor: 'pointer', 
+              backgroundColor: !currentFolder ? '#e3f2fd' : 'transparent',
+              borderRadius: '4px', margin: '2px 0', fontWeight: 'bold',
+              border: draggedFiles.length > 0 ? '2px dashed #ccc' : 'none'
             }}
             onClick={() => {
               setCurrentFolder(null);
               toggleFolder('root');
             }}
+            onDragOver={handleDragOver}
+            onDrop={(e) => handleDrop(e, '')}
           >
-            <span style={{ marginRight: '8px', fontSize: '12px' }}>
+            <span style={{ marginRight: '6px', fontSize: '12px', minWidth: '12px' }}>
               {isExpanded ? '▼' : '▶'}
             </span>
-            <span>Root Directory</span>
-            <span style={{ marginLeft: 'auto', fontSize: '12px', color: '#666' }}>
+            <span style={{ marginRight: '6px', color: '#2196F3', fontSize: '16px' }}>
+              🏠
+            </span>
+            <span style={{ fontSize: '14px', flex: 1 }}>Root Directory</span>
+            <span style={{ fontSize: '11px', color: '#666', marginLeft: '4px' }}>
               ({node.files?.length || 0})
             </span>
           </div>
         )}
 
+        {/* Expanded Content */}
         {isExpanded && (
           <div>
+            {/* Subfolders */}
             {Object.values(node.folders || {}).map(folder => 
               renderTreeNode(folder, folder.name, level + 1)
             )}
             
+            {/* Files in Tree */}
             {(node.files || []).map(file => (
               <div
                 key={file.id}
                 draggable
                 onDragStart={(e) => handleDragStart(e, [file.id])}
                 style={{
-                  display: 'flex', alignItems: 'center', padding: '6px',
-                  paddingLeft: `${indent + 20}px`, cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', padding: '4px',
+                  paddingLeft: `${indent + 24}px`, cursor: 'pointer',
                   backgroundColor: selectedFileIds.includes(file.id) ? '#e8f5e8' : 'transparent',
                   borderRadius: '4px', margin: '1px 0',
-                  opacity: draggedFiles.includes(file.id) ? 0.5 : 1
+                  opacity: draggedFiles.includes(file.id) ? 0.5 : 1,
+                  fontSize: '13px'
                 }}
                 onClick={(e) => {
                   if (e.ctrlKey || e.metaKey) {
@@ -590,16 +638,18 @@ const App = () => {
                   type="checkbox"
                   checked={selectedFileIds.includes(file.id)}
                   onChange={() => toggleFileSelection(file.id)}
-                  style={{ marginRight: '8px' }}
+                  style={{ marginRight: '6px', transform: 'scale(0.8)' }}
                   onClick={(e) => e.stopPropagation()}
                 />
-                <span style={{ marginRight: '8px', fontSize: '12px' }}>
+                <span style={{ marginRight: '6px', fontSize: '11px', minWidth: '30px' }}>
                   {file.type?.startsWith('image/') ? 'IMG' :
                    file.type?.startsWith('video/') ? 'VID' :
                    file.type?.startsWith('audio/') ? 'AUD' : 'FILE'}
                 </span>
-                <span style={{ flex: 1, fontSize: '14px' }}>{file.name}</span>
-                <span style={{ fontSize: '11px', color: '#666' }}>
+                <span style={{ flex: 1, fontSize: '12px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {file.name}
+                </span>
+                <span style={{ fontSize: '10px', color: '#666', marginLeft: '4px', minWidth: '35px' }}>
                   {(file.size / 1024 / 1024).toFixed(1)}MB
                 </span>
               </div>
@@ -610,16 +660,87 @@ const App = () => {
     );
   };
 
+  // FIXED File Explorer Tree Component
   const FileExplorerTree = () => {
     const folderStructure = getFolderStructure();
     
     return (
       <div style={{
-        border: '1px solid #ddd', borderRadius: '8px', padding: '15px',
-        backgroundColor: '#fafafa', maxHeight: '400px', overflowY: 'auto'
+        border: '1px solid #ddd', 
+        borderRadius: '8px', 
+        padding: '15px',
+        backgroundColor: '#fafafa', 
+        height: '600px', 
+        overflowY: 'auto',
+        minWidth: '280px'
       }}>
-        <h3 style={{ margin: '0 0 15px 0', fontSize: '16px' }}>File Explorer</h3>
-        {renderTreeNode(folderStructure)}
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center', 
+          marginBottom: '15px',
+          borderBottom: '1px solid #ddd',
+          paddingBottom: '10px'
+        }}>
+          <h3 style={{ margin: 0, fontSize: '16px', color: '#333' }}>File Explorer</h3>
+          <span style={{ fontSize: '12px', color: '#666' }}>
+            {files.length} files, {folders.length} folders
+          </span>
+        </div>
+        
+        {/* Show loading state */}
+        {loading ? (
+          <div style={{ textAlign: 'center', padding: '20px', color: '#666' }}>
+            Loading files and folders...
+          </div>
+        ) : (
+          <>
+            {/* Show connection status */}
+            {!AIRTABLE_BASE_ID || !AIRTABLE_API_KEY ? (
+              <div style={{ 
+                padding: '10px', 
+                backgroundColor: '#fff3cd', 
+                border: '1px solid #ffeaa7',
+                borderRadius: '4px',
+                marginBottom: '10px',
+                fontSize: '12px'
+              }}>
+                ⚠️ Airtable credentials missing. Check environment variables.
+              </div>
+            ) : null}
+            
+            {/* Render the tree */}
+            {renderTreeNode(folderStructure)}
+            
+            {/* Show empty state */}
+            {files.length === 0 && folders.length === 0 && !loading && (
+              <div style={{ 
+                textAlign: 'center', 
+                padding: '20px', 
+                color: '#666',
+                fontSize: '14px'
+              }}>
+                No files or folders found.
+                <br />
+                <button
+                  onClick={() => setShowUploadModal(true)}
+                  style={{
+                    marginTop: '10px',
+                    padding: '6px 12px',
+                    backgroundColor: '#4CAF50',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontSize: '12px'
+                  }}
+                >
+                  Upload Files
+                </button>
+              </div>
+            )}
+          </>
+        )}
       </div>
     );
   };
@@ -869,6 +990,26 @@ const App = () => {
     <div style={{ padding: '20px', fontFamily: 'Arial, sans-serif', maxWidth: '1400px', margin: '0 auto' }}>
       <h1>Media File Manager</h1>
       
+      {/* Debug Info */}
+      {(!AIRTABLE_BASE_ID || !AIRTABLE_API_KEY) && (
+        <div style={{ 
+          padding: '15px', 
+          backgroundColor: '#fff3cd', 
+          border: '1px solid #ffeaa7', 
+          borderRadius: '8px', 
+          marginBottom: '20px' 
+        }}>
+          <strong>⚠️ Configuration Issue:</strong>
+          <ul style={{ margin: '10px 0' }}>
+            {!AIRTABLE_BASE_ID && <li>REACT_APP_AIRTABLE_BASE_ID is missing</li>}
+            {!AIRTABLE_API_KEY && <li>REACT_APP_AIRTABLE_API_KEY is missing</li>}
+            {!CLOUDINARY_CLOUD_NAME && <li>REACT_APP_CLOUDINARY_CLOUD_NAME is missing</li>}
+            {!CLOUDINARY_UPLOAD_PRESET && <li>REACT_APP_CLOUDINARY_UPLOAD_PRESET is missing</li>}
+          </ul>
+          Please check your environment variables in Heroku.
+        </div>
+      )}
+      
       {/* Toolbar */}
       <div style={{ 
         marginBottom: '20px', padding: '15px', backgroundColor: '#f5f5f5', 
@@ -927,12 +1068,13 @@ const App = () => {
 
       {loading ? (
         <div style={{ textAlign: 'center', padding: '40px' }}>
-          Loading files from database...
+          <div style={{ fontSize: '18px', marginBottom: '10px' }}>Loading files from database...</div>
+          <div style={{ fontSize: '14px', color: '#666' }}>Connecting to Airtable...</div>
         </div>
       ) : (
         <div style={{ display: 'flex', gap: '20px' }}>
           {/* Left Panel - File Explorer Tree */}
-          <div style={{ width: '300px', flexShrink: 0 }}>
+          <div style={{ flexShrink: 0 }}>
             <FileExplorerTree />
           </div>
 
@@ -1091,7 +1233,7 @@ const App = () => {
               </div>
 
               {/* Empty State */}
-              {currentFolderContents.files.length === 0 && (
+              {currentFolderContents.files.length === 0 && !loading && (
                 <div style={{ 
                   textAlign: 'center', padding: '40px', color: '#666',
                   border: '2px dashed #ddd', borderRadius: '8px' 
@@ -1160,4 +1302,3 @@ const App = () => {
 };
 
 export default App;
-                >
