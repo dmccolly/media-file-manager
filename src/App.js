@@ -621,10 +621,10 @@ function App() {
   const getFileIcon = (type) => {
     const iconClass = "w-3 h-3 text-white";
     switch (type) {
-      case 'image': return React.createElement(Image, { className: iconClass });
-      case 'video': return React.createElement(Video, { className: iconClass });
-      case 'audio': return React.createElement(Music, { className: iconClass });
-      default: return React.createElement(FileText, { className: iconClass });
+      case 'image': return <Image className={iconClass} />;
+      case 'video': return <Video className={iconClass} />;
+      case 'audio': return <Music className={iconClass} />;
+      default: return <FileText className={iconClass} />;
     }
   };
 
@@ -638,51 +638,135 @@ function App() {
     }
   };
 
-  return React.createElement('div', { className: "h-screen bg-gray-50 flex flex-col" },
-    React.createElement('div', { className: "bg-white border-b border-gray-200 px-3 py-2" },
-      React.createElement('div', { className: "flex items-center justify-between mb-2" },
-        React.createElement('h1', { className: "text-lg font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent" }, 
-          "Media Manager"
-        ),
-        React.createElement('div', { className: "flex items-center space-x-1.5" },
-          React.createElement('button', {
-            onClick: handleFileUpload,
-            className: "flex items-center space-x-1 px-2 py-1 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all font-medium text-xs"
-          },
-            React.createElement(Upload, { className: "w-3 h-3" }),
-            React.createElement('span', null, "Upload")
-          )
-        )
-      )
-    ),
-    React.createElement('div', { className: "flex flex-1 overflow-hidden" },
-      React.createElement('div', { className: "flex-1 overflow-y-auto p-4" },
-        isLoading ? React.createElement('div', { className: "text-center py-8" },
-          React.createElement('p', null, "Loading files from database...")
-        ) : React.createElement('div', null,
-          React.createElement('h2', { className: "text-xl mb-4" }, `Files (${files.length})`),
-          files.length === 0 ? React.createElement('p', null, "No files found") :
-          React.createElement('div', { className: "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" },
-            files.map(file => React.createElement('div', { 
-              key: file.id, 
-              className: "border rounded-lg p-4 hover:shadow-md transition-shadow" 
-            },
-              React.createElement('h3', { className: "font-semibold truncate" }, file.name),
-              React.createElement('p', { className: "text-sm text-gray-600" }, file.title),
-              React.createElement('p', { className: "text-xs text-gray-500" }, `${file.size} • ${file.category}`)
-            ))
-          )
-        )
-      )
-    ),
-    React.createElement('input', {
-      ref: fileInputRef,
-      type: "file",
-      multiple: true,
-      onChange: handleFilesSelected,
-      className: "hidden"
-    })
-  );
-}
+  const PreviewModal = ({ file }) => {
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-2">
+        <div className="bg-white rounded-lg max-w-4xl w-full max-h-[95vh] overflow-hidden shadow-2xl flex">
+          <div className="flex-1 bg-gray-50 flex items-center justify-center p-4">
+            {file.type === 'image' ? (
+              <img 
+                src={file.url} 
+                alt={file.name}
+                className="max-w-full max-h-full object-contain rounded-lg shadow-lg"
+              />
+            ) : file.type === 'video' ? (
+              <video 
+                src={file.url} 
+                controls 
+                className="max-w-full max-h-full rounded-lg shadow-lg"
+              >
+                Your browser does not support video playback.
+              </video>
+            ) : file.type === 'audio' ? (
+              <div className="text-center">
+                <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center mb-3">
+                  <Music className="w-8 h-8 text-white" />
+                </div>
+                <audio src={file.url} controls className="mb-2">
+                  Your browser does not support audio playback.
+                </audio>
+                <p className="text-gray-600 text-xs">Audio File</p>
+              </div>
+            ) : (
+              <div className="text-center">
+                <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-full flex items-center justify-center mb-3">
+                  <FileText className="w-8 h-8 text-white" />
+                </div>
+                <button
+                  onClick={() => window.open(file.url, '_blank')}
+                  className="px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-1 text-xs"
+                >
+                  <ExternalLink className="w-3 h-3" />
+                  <span>Open Document</span>
+                </button>
+              </div>
+            )}
+          </div>
 
-export default App;
+          <div className="w-64 bg-white border-l border-gray-200 overflow-y-auto">
+            <div className="p-3">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-xs font-semibold text-gray-900">File Details</h3>
+                <button
+                  onClick={() => setPreviewModal(null)}
+                  className="p-1 hover:bg-gray-100 rounded-full transition-colors"
+                >
+                  <X className="w-3 h-3 text-gray-500" />
+                </button>
+              </div>
+
+              <div className="space-y-3">
+                <div>
+                  <h4 className="text-xs font-medium text-gray-700 mb-1 flex items-center">
+                    <File className="w-2 h-2 mr-1" />
+                    Basic Info
+                  </h4>
+                  <div className="space-y-1 text-xs">
+                    <div>
+                      <span className="text-gray-500 text-xs">Name:</span>
+                      <p className="font-medium text-gray-900 mt-0.5 text-xs leading-tight">{file.name}</p>
+                    </div>
+                    <div>
+                      <span className="text-gray-500 text-xs">Title:</span>
+                      <p className="font-medium text-gray-900 mt-0.5 text-xs leading-tight">{file.title}</p>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-500 text-xs">Type:</span>
+                      <span className="font-medium text-xs">{file.category}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-500 text-xs">Size:</span>
+                      <span className="font-medium text-xs">{file.size}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-2 space-y-1">
+                  <button
+                    onClick={() => window.open(file.url, '_blank')}
+                    className="w-full px-2 py-1 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center space-x-1 text-xs"
+                  >
+                    <ExternalLink className="w-3 h-3" />
+                    <span>Open</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const UploadModal = useCallback(() => {
+    if (!showUploadModal) return null;
+
+    return (
+      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+        <div className="bg-white rounded-2xl p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto border border-gray-200 shadow-2xl">
+          <h3 className="text-base font-semibold text-gray-900 mb-4">Upload Files & Add Metadata</h3>
+          
+          <div className="space-y-4">
+            {uploadingFiles.map((fileData, index) => (
+              <div key={`${fileData.id}-${index}`} className="border border-gray-200 rounded-xl p-4">
+                <div className="flex items-center mb-3">
+                  <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-lg flex items-center justify-center mr-3">
+                    {getFileIcon(fileData.category?.toLowerCase() || 'document')}
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-gray-900 text-sm">{fileData.name}</h4>
+                    <p className="text-sm text-gray-500">{(fileData.file.size / 1024 / 1024).toFixed(1)} MB → {currentFolder?.name}</p>
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Title <span className="text-gray-400">(max 120)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={fileData.title || ''}
+                      onChange={(e) => {
+                        e.persist();
+                        updateFileField(index, 'title', e.target.value.
