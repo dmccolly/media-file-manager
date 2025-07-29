@@ -770,7 +770,7 @@ return (
                     onMouseEnter={(e) => e.target.style.backgroundColor = '#e9e9e9'}
                     onMouseLeave={(e) => e.target.style.backgroundColor = '#f9f9f9'}
                   >
-                    <div style={{ fontSize: '40px', marginBottom: '10px' }}>📁</div>
+                    <div style={{ fontSize: '40px', marginBottom: '10px', color: '#FFA726' }}>FOLDER</div>
                     <div style={{ fontWeight: 'bold' }}>{folder.name}</div>
 </div>
                 ))}
@@ -841,9 +841,10 @@ return (
                     <div style={{
                       width: '100%', height: '150px', backgroundColor: '#f0f0f0',
                       borderRadius: '4px', marginBottom: '10px', display: 'flex',
-                      alignItems: 'center', justifyContent: 'center', fontSize: '40px'
+                      alignItems: 'center', justifyContent: 'center', fontSize: '14px',
+                      fontWeight: 'bold', color: '#666'
                     }}>
-                      🎥
+                      VIDEO
                     </div>
                   )}
 
@@ -851,9 +852,10 @@ return (
                     <div style={{
                       width: '100%', height: '150px', backgroundColor: '#f0f0f0',
                       borderRadius: '4px', marginBottom: '10px', display: 'flex',
-                      alignItems: 'center', justifyContent: 'center', fontSize: '40px'
+                      alignItems: 'center', justifyContent: 'center', fontSize: '14px',
+                      fontWeight: 'bold', color: '#666'
                     }}>
-                      🎵
+                      AUDIO
                     </div>
                   )}
 
@@ -869,11 +871,11 @@ return (
                           }}
                         />
                       ) : file.type?.startsWith('video/') ? (
-                        <div style={{ fontSize: '30px' }}>🎥</div>
+                        <div style={{ fontSize: '10px', fontWeight: 'bold', color: '#666', textAlign: 'center' }}>VIDEO</div>
                       ) : file.type?.startsWith('audio/') ? (
-                        <div style={{ fontSize: '30px' }}>🎵</div>
+                        <div style={{ fontSize: '10px', fontWeight: 'bold', color: '#666', textAlign: 'center' }}>AUDIO</div>
                       ) : (
-                        <div style={{ fontSize: '30px' }}>📄</div>
+                        <div style={{ fontSize: '10px', fontWeight: 'bold', color: '#666', textAlign: 'center' }}>FILE</div>
                       )}
                     </div>
                   )}
@@ -974,4 +976,3 @@ return (
 };
 
 export default App;
-  \
