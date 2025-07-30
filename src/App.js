@@ -33,7 +33,7 @@ const App = () => {
     try {
       console.log('Fetching files from Airtable...');
       const response = await fetch(
-        `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Files`,
+        `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Media%20Assets`,
         {
           headers: {
             'Authorization': `Bearer ${AIRTABLE_API_KEY}`,
@@ -78,7 +78,7 @@ const App = () => {
     try {
       console.log('Fetching folders from Airtable...');
       const response = await fetch(
-        `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Folders`,
+        `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Folder%20Structure`,
         {
           headers: {
             'Authorization': `Bearer ${AIRTABLE_API_KEY}`,
@@ -110,7 +110,7 @@ const App = () => {
   const saveFileToAirtable = async (fileData) => {
     try {
       const response = await fetch(
-        `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Files`,
+        `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Media%20Assets`,
         {
           method: 'POST',
           headers: {
@@ -119,15 +119,20 @@ const App = () => {
           },
           body: JSON.stringify({
             fields: {
-              Name: fileData.name,
-              URL: fileData.url,
-              Type: fileData.type,
-              Size: fileData.size,
-              Folder: fileData.folder || '',
-              YearProduced: fileData.yearProduced || '',
-              Station: fileData.station || '',
-              Tags: fileData.tags || '',
-              UploadDate: new Date().toISOString()
+              'Asset Name': fileData.name,
+              'Cloudinary Public URL': fileData.url,
+              'Asset Type': fileData.type,
+              'Size': fileData.size,
+              'Category': fileData.folder || '',
+              'Title': fileData.title || '',
+              'Description': fileData.description || '',
+              'Station': fileData.station || '',
+              'Submitted by': fileData.submittedBy || '',
+              'Notes': fileData.notes || '',
+              'Tags': fileData.tags || '',
+              'Upload Date': new Date().toISOString(),
+              'Other1': fileData.other1 || '',
+              'Other2': fileData.other2 || ''
             }
           })
         }
@@ -138,15 +143,20 @@ const App = () => {
       const data = await response.json();
       return {
         id: data.id,
-        name: data.fields.Name,
-        url: data.fields.URL,
-        type: data.fields.Type,
+        name: data.fields['Asset Name'],
+        url: data.fields['Cloudinary Public URL'],
+        type: data.fields['Asset Type'],
         size: data.fields.Size,
-        folder: data.fields.Folder || '',
-        yearProduced: data.fields.YearProduced || '',
+        folder: data.fields.Category || '',
+        title: data.fields.Title || '',
+        description: data.fields.Description || '',
         station: data.fields.Station || '',
+        submittedBy: data.fields['Submitted by'] || '',
+        notes: data.fields.Notes || '',
         tags: data.fields.Tags || '',
-        uploadDate: data.fields.UploadDate
+        dateSubmitted: data.fields['Upload Date'],
+        other1: data.fields.Other1 || '',
+        other2: data.fields.Other2 || ''
       };
     } catch (error) {
       console.error('Error saving file:', error);
@@ -157,7 +167,7 @@ const App = () => {
   const deleteFileFromAirtable = async (fileId) => {
     try {
       const response = await fetch(
-        `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Files/${fileId}`,
+        `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Media%20Assets/${fileId}`,
         {
           method: 'DELETE',
           headers: {
@@ -177,7 +187,7 @@ const App = () => {
   const saveFolderToAirtable = async (folderName) => {
     try {
       const response = await fetch(
-        `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Folders`,
+        `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Folder%20Structure`,
         {
           method: 'POST',
           headers: {
@@ -210,7 +220,7 @@ const App = () => {
   const updateFileFolder = async (fileId, newFolder) => {
     try {
       const response = await fetch(
-        `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Files/${fileId}`,
+        `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Media%20Assets/${fileId}`,
         {
           method: 'PATCH',
           headers: {
@@ -219,7 +229,7 @@ const App = () => {
           },
           body: JSON.stringify({
             fields: {
-              Folder: newFolder || ''
+              'Category': newFolder || ''
             }
           })
         }
@@ -276,9 +286,14 @@ const App = () => {
       size: file.size,
       type: file.type,
       folder: currentFolder || '',
-      yearProduced: '',
+      title: '',
+      description: '',
       station: '',
-      tags: ''
+      submittedBy: '',
+      notes: '',
+      tags: '',
+      other1: '',
+      other2: ''
     }));
     setSelectedFiles(fileObjects);
   };
@@ -321,9 +336,14 @@ const App = () => {
             type: fileObj.type,
             size: fileObj.size,
             folder: fileObj.folder,
-            yearProduced: fileObj.yearProduced,
+            title: fileObj.title,
+            description: fileObj.description,
             station: fileObj.station,
-            tags: fileObj.tags
+            submittedBy: fileObj.submittedBy,
+            notes: fileObj.notes,
+            tags: fileObj.tags,
+            other1: fileObj.other1,
+            other2: fileObj.other2
           };
           
           const savedFile = await saveFileToAirtable(fileData);
@@ -418,18 +438,18 @@ const App = () => {
     }
   };
 
-  const getCurrentFolderContents = useCallback(() => {
-    const folderFiles = files.filter(file => 
-      (currentFolder ? file.folder === currentFolder : !file.folder)
-    );
-    
-    const folderFolders = currentFolder ? [] : folders;
-    
-    return {
-      files: folderFiles,
-      folders: folderFolders
-    };
-  }, [files, folders, currentFolder]);
+    const getCurrentFolderContents = useCallback(() => {
+      const folderFiles = files.filter(file => 
+        (currentFolder ? file.folder === currentFolder : !file.folder)
+      );
+      
+      const folderFolders = currentFolder ? [] : folders;
+      
+      return {
+        files: folderFiles,
+        folders: folderFolders
+      };
+    }, [files, folders, currentFolder]);
 
   const currentFolderContents = getCurrentFolderContents();
 
@@ -757,9 +777,14 @@ const App = () => {
           <div style={{ marginTop: '20px', fontSize: '14px', color: '#666' }}>
             <p><strong>Size:</strong> {(file.size / 1024 / 1024).toFixed(2)} MB</p>
             <p><strong>Type:</strong> {file.type}</p>
-            {file.yearProduced && <p><strong>Year:</strong> {file.yearProduced}</p>}
+            {file.title && <p><strong>Title:</strong> {file.title}</p>}
+            {file.description && <p><strong>Description:</strong> {file.description}</p>}
             {file.station && <p><strong>Station:</strong> {file.station}</p>}
+            {file.submittedBy && <p><strong>Submitted by:</strong> {file.submittedBy}</p>}
+            {file.notes && <p><strong>Notes:</strong> {file.notes}</p>}
             {file.tags && <p><strong>Tags:</strong> {file.tags}</p>}
+            {file.other1 && <p><strong>Other1:</strong> {file.other1}</p>}
+            {file.other2 && <p><strong>Other2:</strong> {file.other2}</p>}
           </div>
         </div>
       </div>
@@ -836,7 +861,7 @@ const App = () => {
                   </div>
                   
                   <div style={{ marginTop: '10px' }}>
-                    <label style={{ display: 'block', marginBottom: '5px' }}>Folder:</label>
+                    <label style={{ display: 'block', marginBottom: '5px' }}>Category:</label>
                     <select
                       value={file.folder || ''}
                       onChange={(e) => updateFileMetadata(index, 'folder', e.target.value)}
@@ -849,14 +874,23 @@ const App = () => {
                       ))}
                     </select>
 
-                    <label style={{ display: 'block', marginBottom: '5px' }}>Year Produced:</label>
+                    <label style={{ display: 'block', marginBottom: '5px' }}>Title:</label>
                     <input
-                      type="number"
-                      placeholder="e.g., 2024"
-                      value={file.yearProduced || ''}
-                      onChange={(e) => updateFileMetadata(index, 'yearProduced', e.target.value)}
+                      type="text"
+                      placeholder="Title"
+                      value={file.title || ''}
+                      onChange={(e) => updateFileMetadata(index, 'title', e.target.value)}
                       disabled={uploading}
                       style={{ width: '100%', padding: '5px', marginBottom: '10px' }}
+                    />
+
+                    <label style={{ display: 'block', marginBottom: '5px' }}>Description:</label>
+                    <textarea
+                      placeholder="Description"
+                      value={file.description || ''}
+                      onChange={(e) => updateFileMetadata(index, 'description', e.target.value)}
+                      disabled={uploading}
+                      style={{ width: '100%', padding: '5px', marginBottom: '10px', height: '60px' }}
                     />
 
                     <label style={{ display: 'block', marginBottom: '5px' }}>Station:</label>
@@ -869,12 +903,51 @@ const App = () => {
                       style={{ width: '100%', padding: '5px', marginBottom: '10px' }}
                     />
 
+                    <label style={{ display: 'block', marginBottom: '5px' }}>Submitted by:</label>
+                    <input
+                      type="text"
+                      placeholder="Submitted by"
+                      value={file.submittedBy || ''}
+                      onChange={(e) => updateFileMetadata(index, 'submittedBy', e.target.value)}
+                      disabled={uploading}
+                      style={{ width: '100%', padding: '5px', marginBottom: '10px' }}
+                    />
+
+                    <label style={{ display: 'block', marginBottom: '5px' }}>Notes:</label>
+                    <textarea
+                      placeholder="Notes"
+                      value={file.notes || ''}
+                      onChange={(e) => updateFileMetadata(index, 'notes', e.target.value)}
+                      disabled={uploading}
+                      style={{ width: '100%', padding: '5px', marginBottom: '10px', height: '60px' }}
+                    />
+
                     <label style={{ display: 'block', marginBottom: '5px' }}>Tags:</label>
                     <input
                       type="text"
                       placeholder="news, sports, weather"
                       value={file.tags || ''}
                       onChange={(e) => updateFileMetadata(index, 'tags', e.target.value)}
+                      disabled={uploading}
+                      style={{ width: '100%', padding: '5px', marginBottom: '10px' }}
+                    />
+
+                    <label style={{ display: 'block', marginBottom: '5px' }}>Other1:</label>
+                    <input
+                      type="text"
+                      placeholder="Other1"
+                      value={file.other1 || ''}
+                      onChange={(e) => updateFileMetadata(index, 'other1', e.target.value)}
+                      disabled={uploading}
+                      style={{ width: '100%', padding: '5px', marginBottom: '10px' }}
+                    />
+
+                    <label style={{ display: 'block', marginBottom: '5px' }}>Other2:</label>
+                    <input
+                      type="text"
+                      placeholder="Other2"
+                      value={file.other2 || ''}
+                      onChange={(e) => updateFileMetadata(index, 'other2', e.target.value)}
                       disabled={uploading}
                       style={{ width: '100%', padding: '5px' }}
                     />
@@ -1164,15 +1237,19 @@ const App = () => {
 
                     <div style={{ flex: 1 }}>
                       <h4 style={{ margin: '0 0 5px 0', fontSize: '14px' }}>{file.name}</h4>
+                      {file.title && (
+                        <p style={{ margin: '2px 0', fontSize: '13px', fontWeight: 'bold', color: '#333' }}>
+                          {file.title}
+                        </p>
+                      )}
+                      {file.description && (
+                        <p style={{ margin: '5px 0', fontSize: '12px', color: '#666' }}>
+                          {file.description}
+                        </p>
+                      )}
                       <p style={{ margin: '0', fontSize: '12px', color: '#666' }}>
                         {file.size > 0 ? (file.size / 1024 / 1024).toFixed(2) + ' MB' : 'Size unknown'}
                       </p>
-                      
-                      {file.yearProduced && (
-                        <p style={{ margin: '5px 0 0 0', fontSize: '12px', color: '#666' }}>
-                          Year: {file.yearProduced}
-                        </p>
-                      )}
                       
                       {file.station && (
                         <p style={{ margin: '5px 0 0 0', fontSize: '12px', color: '#666' }}>
@@ -1180,9 +1257,21 @@ const App = () => {
                         </p>
                       )}
                       
+                      {file.submittedBy && (
+                        <p style={{ margin: '5px 0 0 0', fontSize: '12px', color: '#666' }}>
+                          Submitted by: {file.submittedBy}
+                        </p>
+                      )}
+                      
                       {file.tags && (
                         <p style={{ margin: '5px 0 0 0', fontSize: '12px', color: '#666' }}>
                           Tags: {file.tags}
+                        </p>
+                      )}
+
+                      {file.notes && (
+                        <p style={{ margin: '5px 0 0 0', fontSize: '12px', color: '#666' }}>
+                          Notes: {file.notes}
                         </p>
                       )}
                     </div>
