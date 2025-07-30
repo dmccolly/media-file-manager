@@ -14,7 +14,7 @@ const App = () => {
   const [expandedFolders, setExpandedFolders] = useState(new Set(['']));
 
   // Configuration - Replace with your actual values
-  const AIRTABLE_BASE_ID = 'your_airtable_base_id_here';
+  const AIRTABLE_BASE_ID = 'appTK2fgCwe039t5J';
   const AIRTABLE_API_KEY = 'your_airtable_api_key_here';
   const CLOUDINARY_CLOUD_NAME = 'your_cloudinary_cloud_name_here';
   const CLOUDINARY_UPLOAD_PRESET = 'your_cloudinary_upload_preset_here';
