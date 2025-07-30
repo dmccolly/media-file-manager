@@ -13,11 +13,11 @@ const App = () => {
   const [previewFile, setPreviewFile] = useState(null);
   const [expandedFolders, setExpandedFolders] = useState(new Set(['']));
 
-  // Configuration - Replace with your actual values
+  // Configuration - Your actual credentials
   const AIRTABLE_BASE_ID = 'appTK2fgCwe039t5J';
-  const AIRTABLE_API_KEY = 'your_airtable_api_key_here';
-  const CLOUDINARY_CLOUD_NAME = 'your_cloudinary_cloud_name_here';
-  const CLOUDINARY_UPLOAD_PRESET = 'your_cloudinary_upload_preset_here';
+  const AIRTABLE_API_KEY = 'pat2NTSIC1qBChb6w.24e7b79b10ab89949b70d4dc6f919bdf517a64aeb53dc371930ccb39103f749b';
+  const CLOUDINARY_CLOUD_NAME = 'dzrw8nopf';
+  const CLOUDINARY_UPLOAD_PRESET = 'ml_default'; // Default unsigned preset
 
   // Database Functions
   const fetchFilesFromAirtable = useCallback(async () => {
