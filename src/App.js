@@ -407,6 +407,95 @@ const App = () => {
     }
   };
 
+  const renameFolder = async (folderId, oldName) => {
+    const newName = prompt('Enter new folder name:', oldName);
+    if (!newName || !newName.trim() || newName === oldName) return;
+    
+    try {
+      const response = await fetch(
+        `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Folder%20Structure/${folderId}`,
+        {
+          method: 'PATCH',
+          headers: {
+            'Authorization': `Bearer ${AIRTABLE_API_KEY}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            fields: {
+              Name: newName.trim()
+            }
+          })
+        }
+      );
+      
+      if (!response.ok) throw new Error('Failed to rename folder');
+      
+      // Update local state
+      setFolders(prev => 
+        prev.map(folder => 
+          folder.id === folderId ? { ...folder, name: newName.trim() } : folder
+        )
+      );
+      
+      // Update files that were in the old folder
+      setFiles(prev =>
+        prev.map(file =>
+          file.folder === oldName ? { ...file, folder: newName.trim() } : file
+        )
+      );
+      
+    } catch (error) {
+      console.error('Error renaming folder:', error);
+      alert('Error renaming folder. Please try again.');
+    }
+  };
+
+  const deleteFolder = async (folderId, folderName) => {
+    const filesInFolder = files.filter(file => file.folder === folderName);
+    
+    if (filesInFolder.length > 0) {
+      if (!window.confirm(`Folder "${folderName}" contains ${filesInFolder.length} file(s). Delete anyway? Files will be moved to Root.`)) {
+        return;
+      }
+      
+      // Move files to root
+      for (const file of filesInFolder) {
+        try {
+          await updateFileFolder(file.id, '');
+        } catch (error) {
+          console.error('Error moving file:', error);
+        }
+      }
+      
+      // Update local state
+      setFiles(prev =>
+        prev.map(file =>
+          file.folder === folderName ? { ...file, folder: '' } : file
+        )
+      );
+    }
+    
+    try {
+      const response = await fetch(
+        `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Folder%20Structure/${folderId}`,
+        {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${AIRTABLE_API_KEY}`
+          }
+        }
+      );
+      
+      if (!response.ok) throw new Error('Failed to delete folder');
+      
+      setFolders(prev => prev.filter(folder => folder.id !== folderId));
+      
+    } catch (error) {
+      console.error('Error deleting folder:', error);
+      alert('Error deleting folder. Please try again.');
+    }
+  };
+
   const handleDragStart = (e, fileIds) => {
     e.dataTransfer.setData('text/plain', JSON.stringify(fileIds));
     setDraggedFiles(fileIds);
@@ -462,26 +551,44 @@ const App = () => {
     });
   };
 
-  const handleContextMenuAction = async (action, file) => {
+  const handleContextMenuAction = async (action, item) => {
     setContextMenu(null);
     
-    switch (action) {
-      case 'delete':
-        if (window.confirm(`Delete "${file.name}"?`)) {
-          try {
-            await deleteFileFromAirtable(file.id);
-            setFiles(prev => prev.filter(f => f.id !== file.id));
-          } catch (error) {
-            console.error('Error deleting file:', error);
-            alert('Error deleting file. Please try again.');
+    if (item.type === 'folder') {
+      const folder = item.folder;
+      switch (action) {
+        case 'rename':
+          await renameFolder(folder.id, folder.name);
+          break;
+        case 'delete':
+          if (window.confirm(`Delete folder "${folder.name}"?`)) {
+            await deleteFolder(folder.id, folder.name);
           }
-        }
-        break;
-      case 'preview':
-        setPreviewModal(file);
-        break;
-      default:
-        break;
+          break;
+        default:
+          break;
+      }
+    } else {
+      // File actions
+      const file = item.file;
+      switch (action) {
+        case 'delete':
+          if (window.confirm(`Delete "${file.name}"?`)) {
+            try {
+              await deleteFileFromAirtable(file.id);
+              setFiles(prev => prev.filter(f => f.id !== file.id));
+            } catch (error) {
+              console.error('Error deleting file:', error);
+              alert('Error deleting file. Please try again.');
+            }
+          }
+          break;
+        case 'preview':
+          setPreviewModal(file);
+          break;
+        default:
+          break;
+      }
     }
   };
 
@@ -561,6 +668,15 @@ const App = () => {
               setCurrentFolder(node.name);
               toggleFolder(path);
             }}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              setContextMenu({
+                x: e.clientX,
+                y: e.clientY,
+                type: 'folder',
+                folder: node
+              });
+            }}
             onDragOver={handleDragOver}
             onDrop={(e) => handleDrop(e, node.name)}
           >
@@ -630,7 +746,15 @@ const App = () => {
                   }
                 }}
                 onDoubleClick={() => setPreviewModal(file)}
-                onContextMenu={(e) => handleRightClick(e, file)}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  setContextMenu({
+                    x: e.clientX,
+                    y: e.clientY,
+                    type: 'file',
+                    file: file
+                  });
+                }}
               >
                 <input
                   type="checkbox"
@@ -1151,7 +1275,15 @@ const App = () => {
                         : [file.id];
                       handleDragStart(e, filesToDrag);
                     }}
-                    onContextMenu={(e) => handleRightClick(e, file)}
+                    onContextMenu={(e) => {
+                  e.preventDefault();
+                  setContextMenu({
+                    x: e.clientX,
+                    y: e.clientY,
+                    type: 'file',
+                    file: file
+                  });
+                }}
                     onDoubleClick={() => setPreviewModal(file)}
                     style={{
                       border: '1px solid #ddd', borderRadius: '8px', padding: '15px',
@@ -1318,26 +1450,55 @@ const App = () => {
             minWidth: '120px'
           }}
         >
-          <button
-            onClick={() => handleContextMenuAction('preview', contextMenu.file)}
-            style={{
-              display: 'block', width: '100%', padding: '10px 15px',
-              border: 'none', background: 'none', textAlign: 'left',
-              cursor: 'pointer', fontSize: '14px'
-            }}
-          >
-            Preview
-          </button>
-          <button
-            onClick={() => handleContextMenuAction('delete', contextMenu.file)}
-            style={{
-              display: 'block', width: '100%', padding: '10px 15px',
-              border: 'none', background: 'none', textAlign: 'left',
-              cursor: 'pointer', fontSize: '14px', color: '#f44336'
-            }}
-          >
-            Delete
-          </button>
+          {contextMenu.type === 'folder' ? (
+            // Folder context menu
+            <>
+              <button
+                onClick={() => handleContextMenuAction('rename', contextMenu)}
+                style={{
+                  display: 'block', width: '100%', padding: '10px 15px',
+                  border: 'none', background: 'none', textAlign: 'left',
+                  cursor: 'pointer', fontSize: '14px'
+                }}
+              >
+                Rename Folder
+              </button>
+              <button
+                onClick={() => handleContextMenuAction('delete', contextMenu)}
+                style={{
+                  display: 'block', width: '100%', padding: '10px 15px',
+                  border: 'none', background: 'none', textAlign: 'left',
+                  cursor: 'pointer', fontSize: '14px', color: '#f44336'
+                }}
+              >
+                Delete Folder
+              </button>
+            </>
+          ) : (
+            // File context menu
+            <>
+              <button
+                onClick={() => handleContextMenuAction('preview', contextMenu)}
+                style={{
+                  display: 'block', width: '100%', padding: '10px 15px',
+                  border: 'none', background: 'none', textAlign: 'left',
+                  cursor: 'pointer', fontSize: '14px'
+                }}
+              >
+                Preview
+              </button>
+              <button
+                onClick={() => handleContextMenuAction('delete', contextMenu)}
+                style={{
+                  display: 'block', width: '100%', padding: '10px 15px',
+                  border: 'none', background: 'none', textAlign: 'left',
+                  cursor: 'pointer', fontSize: '14px', color: '#f44336'
+                }}
+              >
+                Delete
+              </button>
+            </>
+          )}
         </div>
       )}
 
