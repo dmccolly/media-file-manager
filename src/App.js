@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 
 const App = () => {
   // State Management
@@ -23,18 +23,7 @@ const App = () => {
   const CLOUDINARY_CLOUD_NAME = process.env.REACT_APP_CLOUDINARY_CLOUD_NAME;
   const CLOUDINARY_UPLOAD_PRESET = process.env.REACT_APP_CLOUDINARY_UPLOAD_PRESET;
 
-  // Debug logging
-  console.log('Environment check:', {
-    AIRTABLE_BASE_ID: AIRTABLE_BASE_ID ? 'SET' : 'NOT SET',
-    AIRTABLE_API_KEY: AIRTABLE_API_KEY ? 'SET' : 'NOT SET',
-    CLOUDINARY_CLOUD_NAME: CLOUDINARY_CLOUD_NAME ? 'SET' : 'NOT SET',
-    CLOUDINARY_UPLOAD_PRESET: CLOUDINARY_UPLOAD_PRESET ? 'SET' : 'NOT SET',
-    filesCount: files.length,
-    foldersCount: folders.length,
-    loading: loading
-  });
-
-  // Database Functions - UPDATED FIELD MAPPING
+  // Database Functions - ORIGINAL FIELD NAMES
   const fetchFilesFromAirtable = async () => {
     if (!AIRTABLE_BASE_ID || !AIRTABLE_API_KEY) {
       console.error('Airtable credentials missing');
@@ -60,18 +49,17 @@ const App = () => {
       const data = await response.json();
       console.log('Raw Airtable response:', data);
       
-      // FIXED FIELD MAPPING to match your Airtable columns
       const filesData = data.records.map(record => ({
         id: record.id,
-        name: record.fields['Asset Name'] || 'Untitled',
-        url: record.fields['Cloudinary Public URL'] || record.fields['Cloudinary URL'] || '',
-        type: record.fields['Asset Type'] || '',
+        name: record.fields.Name || 'Untitled',
+        url: record.fields.URL || '',
+        type: record.fields.Type || '',
         size: record.fields.Size || 0,
-        folder: record.fields.Category || '',
+        folder: record.fields.Folder || '',
         yearProduced: record.fields.YearProduced || '',
         station: record.fields.Station || '',
         tags: record.fields.Tags || '',
-        uploadDate: record.fields['Upload Date'] || new Date().toISOString()
+        uploadDate: record.fields.UploadDate || new Date().toISOString()
       }));
       
       console.log('Processed files:', filesData);
@@ -119,7 +107,6 @@ const App = () => {
     }
   };
 
-  // UPDATED SAVE FUNCTION to use correct field names
   const saveFileToAirtable = async (fileData) => {
     try {
       const response = await fetch(
@@ -132,15 +119,15 @@ const App = () => {
           },
           body: JSON.stringify({
             fields: {
-              'Asset Name': fileData.name,
-              'Cloudinary Public URL': fileData.url,
-              'Asset Type': fileData.type,
-              'Size': fileData.size,
-              'Category': fileData.folder || '',
-              'YearProduced': fileData.yearProduced || '',
-              'Station': fileData.station || '',
-              'Tags': fileData.tags || '',
-              'Upload Date': new Date().toISOString()
+              Name: fileData.name,
+              URL: fileData.url,
+              Type: fileData.type,
+              Size: fileData.size,
+              Folder: fileData.folder || '',
+              YearProduced: fileData.yearProduced || '',
+              Station: fileData.station || '',
+              Tags: fileData.tags || '',
+              UploadDate: new Date().toISOString()
             }
           })
         }
@@ -151,15 +138,15 @@ const App = () => {
       const data = await response.json();
       return {
         id: data.id,
-        name: data.fields['Asset Name'],
-        url: data.fields['Cloudinary Public URL'],
-        type: data.fields['Asset Type'],
+        name: data.fields.Name,
+        url: data.fields.URL,
+        type: data.fields.Type,
         size: data.fields.Size,
-        folder: data.fields.Category || '',
+        folder: data.fields.Folder || '',
         yearProduced: data.fields.YearProduced || '',
         station: data.fields.Station || '',
         tags: data.fields.Tags || '',
-        uploadDate: data.fields['Upload Date']
+        uploadDate: data.fields.UploadDate
       };
     } catch (error) {
       console.error('Error saving file:', error);
@@ -220,7 +207,6 @@ const App = () => {
     }
   };
 
-  // UPDATED UPDATE FUNCTION to use correct field name
   const updateFileFolder = async (fileId, newFolder) => {
     try {
       const response = await fetch(
@@ -233,7 +219,7 @@ const App = () => {
           },
           body: JSON.stringify({
             fields: {
-              'Category': newFolder || ''
+              Folder: newFolder || ''
             }
           })
         }
@@ -543,15 +529,13 @@ const App = () => {
     
     return (
       <div key={path || 'root'} style={{ width: '100%' }}>
-        {/* Folder Header */}
         {level > 0 && (
           <div
             style={{
               display: 'flex', alignItems: 'center', padding: '8px 4px',
               paddingLeft: `${indent}px`, cursor: 'pointer',
               backgroundColor: currentFolder === node.name ? '#e3f2fd' : 'transparent',
-              borderRadius: '4px', margin: '2px 0',
-              border: draggedFiles.length > 0 ? '2px dashed #ccc' : 'none'
+              borderRadius: '4px', margin: '2px 0'
             }}
             onClick={() => {
               setCurrentFolder(node.name);
@@ -560,30 +544,26 @@ const App = () => {
             onDragOver={handleDragOver}
             onDrop={(e) => handleDrop(e, node.name)}
           >
-            <span style={{ marginRight: '6px', fontSize: '12px', minWidth: '12px' }}>
+            <span style={{ marginRight: '6px', fontSize: '12px' }}>
               {isExpanded ? '▼' : '▶'}
             </span>
-            <span style={{ marginRight: '6px', color: '#2196F3', fontSize: '16px' }}>
-              📁
-            </span>
+            <span style={{ marginRight: '6px' }}>📁</span>
             <span style={{ fontWeight: 'bold', fontSize: '14px', flex: 1 }}>
               {node.name}
             </span>
-            <span style={{ fontSize: '11px', color: '#666', marginLeft: '4px' }}>
+            <span style={{ fontSize: '11px', color: '#666' }}>
               ({node.files?.length || 0})
             </span>
           </div>
         )}
         
-        {/* Root Header */}
         {level === 0 && (
           <div
             style={{
               display: 'flex', alignItems: 'center', padding: '8px 4px',
               cursor: 'pointer', 
               backgroundColor: !currentFolder ? '#e3f2fd' : 'transparent',
-              borderRadius: '4px', margin: '2px 0', fontWeight: 'bold',
-              border: draggedFiles.length > 0 ? '2px dashed #ccc' : 'none'
+              borderRadius: '4px', margin: '2px 0', fontWeight: 'bold'
             }}
             onClick={() => {
               setCurrentFolder(null);
@@ -592,28 +572,23 @@ const App = () => {
             onDragOver={handleDragOver}
             onDrop={(e) => handleDrop(e, '')}
           >
-            <span style={{ marginRight: '6px', fontSize: '12px', minWidth: '12px' }}>
+            <span style={{ marginRight: '6px', fontSize: '12px' }}>
               {isExpanded ? '▼' : '▶'}
             </span>
-            <span style={{ marginRight: '6px', color: '#2196F3', fontSize: '16px' }}>
-              🏠
-            </span>
+            <span style={{ marginRight: '6px' }}>🏠</span>
             <span style={{ fontSize: '14px', flex: 1 }}>Root Directory</span>
-            <span style={{ fontSize: '11px', color: '#666', marginLeft: '4px' }}>
+            <span style={{ fontSize: '11px', color: '#666' }}>
               ({node.files?.length || 0})
             </span>
           </div>
         )}
 
-        {/* Expanded Content */}
         {isExpanded && (
           <div>
-            {/* Subfolders */}
             {Object.values(node.folders || {}).map(folder => 
               renderTreeNode(folder, folder.name, level + 1)
             )}
             
-            {/* Files in Tree */}
             {(node.files || []).map(file => (
               <div
                 key={file.id}
@@ -644,15 +619,13 @@ const App = () => {
                   style={{ marginRight: '6px', transform: 'scale(0.8)' }}
                   onClick={(e) => e.stopPropagation()}
                 />
-                <span style={{ marginRight: '6px', fontSize: '11px', minWidth: '30px' }}>
+                <span style={{ marginRight: '6px', fontSize: '11px' }}>
                   {file.type?.startsWith('image/') ? 'IMG' :
                    file.type?.startsWith('video/') ? 'VID' :
                    file.type?.startsWith('audio/') ? 'AUD' : 'FILE'}
                 </span>
-                <span style={{ flex: 1, fontSize: '12px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {file.name}
-                </span>
-                <span style={{ fontSize: '10px', color: '#666', marginLeft: '4px', minWidth: '35px' }}>
+                <span style={{ flex: 1, fontSize: '12px' }}>{file.name}</span>
+                <span style={{ fontSize: '10px', color: '#666' }}>
                   {(file.size / 1024 / 1024).toFixed(1)}MB
                 </span>
               </div>
@@ -663,7 +636,6 @@ const App = () => {
     );
   };
 
-  // FIXED File Explorer Tree Component
   const FileExplorerTree = () => {
     const folderStructure = getFolderStructure();
     
@@ -691,31 +663,14 @@ const App = () => {
           </span>
         </div>
         
-        {/* Show loading state */}
         {loading ? (
           <div style={{ textAlign: 'center', padding: '20px', color: '#666' }}>
             Loading files and folders...
           </div>
         ) : (
           <>
-            {/* Show connection status */}
-            {!AIRTABLE_BASE_ID || !AIRTABLE_API_KEY ? (
-              <div style={{ 
-                padding: '10px', 
-                backgroundColor: '#fff3cd', 
-                border: '1px solid #ffeaa7',
-                borderRadius: '4px',
-                marginBottom: '10px',
-                fontSize: '12px'
-              }}>
-                ⚠️ Airtable credentials missing. Check environment variables.
-              </div>
-            ) : null}
-            
-            {/* Render the tree */}
             {renderTreeNode(folderStructure)}
             
-            {/* Show empty state */}
             {files.length === 0 && folders.length === 0 && !loading && (
               <div style={{ 
                 textAlign: 'center', 
@@ -881,7 +836,7 @@ const App = () => {
                   </div>
                   
                   <div style={{ marginTop: '10px' }}>
-                    <label style={{ display: 'block', marginBottom: '5px' }}>Category:</label>
+                    <label style={{ display: 'block', marginBottom: '5px' }}>Folder:</label>
                     <select
                       value={file.folder || ''}
                       onChange={(e) => updateFileMetadata(index, 'folder', e.target.value)}
