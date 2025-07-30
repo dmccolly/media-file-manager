@@ -44,7 +44,7 @@ const App = () => {
     try {
       console.log('Fetching files from Airtable...');
       const response = await fetch(
-        `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Files`,
+        `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Media Assets`,
         {
           headers: {
             'Authorization': `Bearer ${AIRTABLE_API_KEY}`,
@@ -89,7 +89,7 @@ const App = () => {
     try {
       console.log('Fetching folders from Airtable...');
       const response = await fetch(
-        `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Folders`,
+        `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Folder Structure`,
         {
           headers: {
             'Authorization': `Bearer ${AIRTABLE_API_KEY}`,
@@ -121,7 +121,7 @@ const App = () => {
   const saveFileToAirtable = async (fileData) => {
     try {
       const response = await fetch(
-        `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Files`,
+        `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Media Assets`,
         {
           method: 'POST',
           headers: {
@@ -188,7 +188,7 @@ const App = () => {
   const saveFolderToAirtable = async (folderName) => {
     try {
       const response = await fetch(
-        `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Folders`,
+        `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Folder Structure`,
         {
           method: 'POST',
           headers: {
