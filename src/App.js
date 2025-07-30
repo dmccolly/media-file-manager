@@ -34,7 +34,7 @@ const App = () => {
     loading: loading
   });
 
-  // Database Functions
+  // Database Functions - UPDATED FIELD MAPPING
   const fetchFilesFromAirtable = async () => {
     if (!AIRTABLE_BASE_ID || !AIRTABLE_API_KEY) {
       console.error('Airtable credentials missing');
@@ -44,7 +44,7 @@ const App = () => {
     try {
       console.log('Fetching files from Airtable...');
       const response = await fetch(
-        `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Media Assets`,
+        `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Files`,
         {
           headers: {
             'Authorization': `Bearer ${AIRTABLE_API_KEY}`,
@@ -60,17 +60,18 @@ const App = () => {
       const data = await response.json();
       console.log('Raw Airtable response:', data);
       
+      // FIXED FIELD MAPPING to match your Airtable columns
       const filesData = data.records.map(record => ({
         id: record.id,
-        name: record.fields.Name || 'Untitled',
-        url: record.fields.URL || '',
-        type: record.fields.Type || '',
+        name: record.fields['Asset Name'] || 'Untitled',
+        url: record.fields['Cloudinary Public URL'] || record.fields['Cloudinary URL'] || '',
+        type: record.fields['Asset Type'] || '',
         size: record.fields.Size || 0,
-        folder: record.fields.Folder || '',
+        folder: record.fields.Category || '',
         yearProduced: record.fields.YearProduced || '',
         station: record.fields.Station || '',
         tags: record.fields.Tags || '',
-        uploadDate: record.fields.UploadDate || new Date().toISOString()
+        uploadDate: record.fields['Upload Date'] || new Date().toISOString()
       }));
       
       console.log('Processed files:', filesData);
@@ -89,7 +90,7 @@ const App = () => {
     try {
       console.log('Fetching folders from Airtable...');
       const response = await fetch(
-        `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Folder Structure`,
+        `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Folders`,
         {
           headers: {
             'Authorization': `Bearer ${AIRTABLE_API_KEY}`,
@@ -118,10 +119,11 @@ const App = () => {
     }
   };
 
+  // UPDATED SAVE FUNCTION to use correct field names
   const saveFileToAirtable = async (fileData) => {
     try {
       const response = await fetch(
-        `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Media Assets`,
+        `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Files`,
         {
           method: 'POST',
           headers: {
@@ -130,15 +132,15 @@ const App = () => {
           },
           body: JSON.stringify({
             fields: {
-              Name: fileData.name,
-              URL: fileData.url,
-              Type: fileData.type,
-              Size: fileData.size,
-              Folder: fileData.folder || '',
-              YearProduced: fileData.yearProduced || '',
-              Station: fileData.station || '',
-              Tags: fileData.tags || '',
-              UploadDate: new Date().toISOString()
+              'Asset Name': fileData.name,
+              'Cloudinary Public URL': fileData.url,
+              'Asset Type': fileData.type,
+              'Size': fileData.size,
+              'Category': fileData.folder || '',
+              'YearProduced': fileData.yearProduced || '',
+              'Station': fileData.station || '',
+              'Tags': fileData.tags || '',
+              'Upload Date': new Date().toISOString()
             }
           })
         }
@@ -149,15 +151,15 @@ const App = () => {
       const data = await response.json();
       return {
         id: data.id,
-        name: data.fields.Name,
-        url: data.fields.URL,
-        type: data.fields.Type,
+        name: data.fields['Asset Name'],
+        url: data.fields['Cloudinary Public URL'],
+        type: data.fields['Asset Type'],
         size: data.fields.Size,
-        folder: data.fields.Folder || '',
+        folder: data.fields.Category || '',
         yearProduced: data.fields.YearProduced || '',
         station: data.fields.Station || '',
         tags: data.fields.Tags || '',
-        uploadDate: data.fields.UploadDate
+        uploadDate: data.fields['Upload Date']
       };
     } catch (error) {
       console.error('Error saving file:', error);
@@ -168,7 +170,7 @@ const App = () => {
   const deleteFileFromAirtable = async (fileId) => {
     try {
       const response = await fetch(
-        `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Media Assets/${fileId}`,
+        `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Files/${fileId}`,
         {
           method: 'DELETE',
           headers: {
@@ -188,7 +190,7 @@ const App = () => {
   const saveFolderToAirtable = async (folderName) => {
     try {
       const response = await fetch(
-        `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Folder Structure`,
+        `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Folders`,
         {
           method: 'POST',
           headers: {
@@ -218,10 +220,11 @@ const App = () => {
     }
   };
 
+  // UPDATED UPDATE FUNCTION to use correct field name
   const updateFileFolder = async (fileId, newFolder) => {
     try {
       const response = await fetch(
-        `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/MediaAssets/${fileId}`,
+        `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Files/${fileId}`,
         {
           method: 'PATCH',
           headers: {
@@ -230,7 +233,7 @@ const App = () => {
           },
           body: JSON.stringify({
             fields: {
-              Folder: newFolder || ''
+              'Category': newFolder || ''
             }
           })
         }
@@ -878,7 +881,7 @@ const App = () => {
                   </div>
                   
                   <div style={{ marginTop: '10px' }}>
-                    <label style={{ display: 'block', marginBottom: '5px' }}>Folder:</label>
+                    <label style={{ display: 'block', marginBottom: '5px' }}>Category:</label>
                     <select
                       value={file.folder || ''}
                       onChange={(e) => updateFileMetadata(index, 'folder', e.target.value)}
@@ -1150,7 +1153,7 @@ const App = () => {
                     />
 
                     {/* File Preview */}
-                    {viewMode === 'grid' && file.type?.startsWith('image/') && (
+                    {viewMode === 'grid' && file.type?.startsWith('image/') && file.url && (
                       <img
                         src={file.url}
                         alt={file.name}
@@ -1185,7 +1188,7 @@ const App = () => {
 
                     {viewMode === 'list' && (
                       <div style={{ flexShrink: 0, width: '60px', height: '60px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        {file.type?.startsWith('image/') ? (
+                        {file.type?.startsWith('image/') && file.url ? (
                           <img
                             src={file.url}
                             alt={file.name}
@@ -1207,7 +1210,7 @@ const App = () => {
                     <div style={{ flex: 1 }}>
                       <h4 style={{ margin: '0 0 5px 0', fontSize: '14px' }}>{file.name}</h4>
                       <p style={{ margin: '0', fontSize: '12px', color: '#666' }}>
-                        {(file.size / 1024 / 1024).toFixed(2)} MB
+                        {file.size > 0 ? (file.size / 1024 / 1024).toFixed(2) + ' MB' : 'Size unknown'}
                       </p>
                       
                       {file.yearProduced && (
