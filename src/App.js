@@ -168,7 +168,7 @@ const App = () => {
   const deleteFileFromAirtable = async (fileId) => {
     try {
       const response = await fetch(
-        `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Files/${fileId}`,
+        `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Media Assets/${fileId}`,
         {
           method: 'DELETE',
           headers: {
@@ -221,7 +221,7 @@ const App = () => {
   const updateFileFolder = async (fileId, newFolder) => {
     try {
       const response = await fetch(
-        `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Files/${fileId}`,
+        `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/MediaAssets/${fileId}`,
         {
           method: 'PATCH',
           headers: {
