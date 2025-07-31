@@ -418,15 +418,64 @@ const App = () => {
 
   // Upload handling
   const [uploadFiles, setUploadFiles] = useState([]);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+
+  // Auto-categorize files based on type
+  const getAutoCategory = (fileType, fileName) => {
+    const extension = fileName.toLowerCase().split('.').pop();
+    
+    // Image files
+    if (fileType.startsWith('image/')) {
+      return 'Images';
+    }
+    
+    // Video files
+    if (fileType.startsWith('video/') || ['mp4', 'mov', 'avi', 'mkv', 'webm'].includes(extension)) {
+      return 'Video';
+    }
+    
+    // Audio files
+    if (fileType.startsWith('audio/') || ['mp3', 'wav', 'aac', 'flac', 'm4a'].includes(extension)) {
+      return 'Audio';
+    }
+    
+    // Document files
+    if (['pdf'].includes(extension)) {
+      return 'PDF';
+    }
+    
+    if (['doc', 'docx', 'txt', 'rtf'].includes(extension)) {
+      return 'Documents';
+    }
+    
+    if (['csv', 'xlsx', 'xls'].includes(extension)) {
+      return 'Spreadsheets';
+    }
+    
+    // Default category
+    return 'Other';
+  };
 
   const handleFileSelect = (e) => {
     const selectedFiles = Array.from(e.target.files);
+    processSelectedFiles(selectedFiles);
+  };
+
+  const processSelectedFiles = (selectedFiles) => {
+    if (selectedFiles.length > 1) {
+      const confirmed = window.confirm(
+        `You're uploading ${selectedFiles.length} files. All files will share the same metadata (title, description, station, etc.) except for the filename and auto-assigned category. Continue?`
+      );
+      if (!confirmed) return;
+    }
+
     const fileObjects = selectedFiles.map(file => ({
       file: file,
       name: file.name,
       size: file.size,
       type: file.type,
-      folder: currentFolder || '',
+      folder: getAutoCategory(file.type, file.name), // Auto-assign category
       title: '',
       description: '',
       station: '',
@@ -437,6 +486,36 @@ const App = () => {
       other2: ''
     }));
     setUploadFiles(fileObjects);
+  };
+
+  // Drag and drop handlers
+  const handleDragEnter = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    // Only set dragging to false if we're leaving the drop zone entirely
+    if (!e.currentTarget.contains(e.relatedTarget)) {
+      setIsDragging(false);
+    }
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    
+    const droppedFiles = Array.from(e.dataTransfer.files);
+    processSelectedFiles(droppedFiles);
   };
 
   const updateFileMetadata = (index, field, value) => {
@@ -469,10 +548,18 @@ const App = () => {
     if (uploadFiles.length === 0) return;
 
     setUploading(true);
+    setUploadProgress(0);
+    
     try {
       const uploadedFiles = [];
+      const totalFiles = uploadFiles.length;
 
-      for (const fileObj of uploadFiles) {
+      for (let i = 0; i < uploadFiles.length; i++) {
+        const fileObj = uploadFiles[i];
+        
+        // Update progress
+        setUploadProgress(Math.round((i / totalFiles) * 100));
+        
         const cloudinaryResponse = await uploadToCloudinary(fileObj.file);
         
         const fileData = {
@@ -493,14 +580,19 @@ const App = () => {
 
         const savedFile = await saveFileToAirtable(fileData);
         uploadedFiles.push(savedFile);
+        
+        // Update progress after each successful upload
+        setUploadProgress(Math.round(((i + 1) / totalFiles) * 100));
       }
 
       setFiles(prev => [...prev, ...uploadedFiles]);
       setUploadFiles([]);
+      setUploadProgress(0);
       alert(`${uploadedFiles.length} files uploaded successfully!`);
     } catch (error) {
       console.error('Upload error:', error);
       alert('Upload failed: ' + error.message);
+      setUploadProgress(0);
     } finally {
       setUploading(false);
     }
@@ -707,22 +799,58 @@ const App = () => {
           </div>
           
           <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-            <label style={{
-              padding: '8px 16px',
-              backgroundColor: '#28a745',
-              color: 'white',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              fontSize: '14px'
-            }}>
-              Upload Files
-              <input 
-                type="file" 
-                multiple 
-                onChange={handleFileSelect}
-                style={{ display: 'none' }}
-              />
-            </label>
+            {/* Drag & Drop Upload Area */}
+            <div
+              style={{
+                position: 'relative',
+                display: 'inline-block'
+              }}
+              onDragEnter={handleDragEnter}
+              onDragLeave={handleDragLeave}
+              onDragOver={handleDragOver}
+              onDrop={handleDrop}
+            >
+              <label style={{
+                padding: '8px 16px',
+                backgroundColor: isDragging ? '#28a745' : '#007bff',
+                color: 'white',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontSize: '14px',
+                border: isDragging ? '2px dashed #fff' : 'none',
+                transition: 'all 0.3s ease'
+              }}>
+                {isDragging ? 'Drop Files Here' : 'Upload Files'}
+                <input 
+                  type="file" 
+                  multiple 
+                  onChange={handleFileSelect}
+                  style={{ display: 'none' }}
+                />
+              </label>
+              
+              {/* Drop overlay */}
+              {isDragging && (
+                <div style={{
+                  position: 'fixed',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  backgroundColor: 'rgba(40, 167, 69, 0.1)',
+                  border: '3px dashed #28a745',
+                  zIndex: 1000,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '24px',
+                  color: '#28a745',
+                  fontWeight: 'bold'
+                }}>
+                  Drop Files Anywhere
+                </div>
+              )}
+            </div>
             
             <button
               onClick={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')}
@@ -750,95 +878,183 @@ const App = () => {
             marginBottom: '20px' 
           }}>
             <h3>Upload Files ({uploadFiles.length})</h3>
+            
+            {uploadFiles.length > 1 && (
+              <div style={{ 
+                backgroundColor: '#fff3cd', 
+                border: '1px solid #ffeaa7', 
+                borderRadius: '4px', 
+                padding: '10px', 
+                marginBottom: '15px',
+                fontSize: '14px',
+                color: '#856404'
+              }}>
+                <strong>Batch Upload:</strong> All files will share the same metadata below. 
+                Categories have been auto-assigned but can be changed individually.
+              </div>
+            )}
+            
+            {/* Global metadata for all files */}
+            <div style={{ 
+              backgroundColor: 'white', 
+              padding: '15px', 
+              marginBottom: '15px', 
+              borderRadius: '4px',
+              border: '2px solid #007bff'
+            }}>
+              <h4 style={{ margin: '0 0 15px 0', color: '#007bff' }}>Shared Metadata (applies to all files)</h4>
+              
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Title:</label>
+                  <input
+                    type="text"
+                    value={uploadFiles[0]?.title || ''}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setUploadFiles(prev => prev.map(file => ({ ...file, title: value })));
+                    }}
+                    placeholder="Title for all files"
+                    style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
+                  />
+                </div>
+                
+                <div>
+                  <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Station:</label>
+                  <input
+                    type="text"
+                    placeholder="e.g., KTVU, ABC7"
+                    value={uploadFiles[0]?.station || ''}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setUploadFiles(prev => prev.map(file => ({ ...file, station: value })));
+                    }}
+                    style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
+                  />
+                </div>
+                
+                <div>
+                  <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Submitted By:</label>
+                  <input
+                    type="text"
+                    value={uploadFiles[0]?.submittedBy || ''}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setUploadFiles(prev => prev.map(file => ({ ...file, submittedBy: value })));
+                    }}
+                    style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
+                  />
+                </div>
+                
+                <div>
+                  <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Tags:</label>
+                  <input
+                    type="text"
+                    placeholder="comma, separated, tags"
+                    value={uploadFiles[0]?.tags || ''}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setUploadFiles(prev => prev.map(file => ({ ...file, tags: value })));
+                    }}
+                    style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
+                  />
+                </div>
+                
+                <div style={{ gridColumn: 'span 2' }}>
+                  <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Description:</label>
+                  <textarea
+                    value={uploadFiles[0]?.description || ''}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setUploadFiles(prev => prev.map(file => ({ ...file, description: value })));
+                    }}
+                    placeholder="Description for all files"
+                    style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px', minHeight: '60px' }}
+                  />
+                </div>
+                
+                <div style={{ gridColumn: 'span 2' }}>
+                  <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Notes:</label>
+                  <textarea
+                    value={uploadFiles[0]?.notes || ''}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setUploadFiles(prev => prev.map(file => ({ ...file, notes: value })));
+                    }}
+                    placeholder="Notes for all files"
+                    style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px', minHeight: '60px' }}
+                  />
+                </div>
+              </div>
+            </div>
+            
+            {/* Individual file list */}
             <div style={{ maxHeight: '300px', overflow: 'auto' }}>
+              <h4>Files to Upload:</h4>
               {uploadFiles.map((file, index) => (
                 <div key={index} style={{ 
                   backgroundColor: 'white', 
-                  padding: '15px', 
-                  marginBottom: '10px', 
+                  padding: '10px', 
+                  marginBottom: '8px', 
                   borderRadius: '4px',
-                  border: '1px solid #ddd'
+                  border: '1px solid #ddd',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between'
                 }}>
-                  <div style={{ fontWeight: 'bold', marginBottom: '10px' }}>{file.name}</div>
-                  
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                    <div>
-                      <label style={{ display: 'block', marginBottom: '5px' }}>Title:</label>
-                      <input
-                        type="text"
-                        value={file.title}
-                        onChange={(e) => updateFileMetadata(index, 'title', e.target.value)}
-                        style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
-                      />
-                    </div>
-                    
-                    <div>
-                      <label style={{ display: 'block', marginBottom: '5px' }}>Station:</label>
-                      <input
-                        type="text"
-                        placeholder="e.g., KTVU, ABC7"
-                        value={file.station}
-                        onChange={(e) => updateFileMetadata(index, 'station', e.target.value)}
-                        style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
-                      />
-                    </div>
-                    
-                    <div>
-                      <label style={{ display: 'block', marginBottom: '5px' }}>Submitted By:</label>
-                      <input
-                        type="text"
-                        value={file.submittedBy}
-                        onChange={(e) => updateFileMetadata(index, 'submittedBy', e.target.value)}
-                        style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
-                      />
-                    </div>
-                    
-                    <div>
-                      <label style={{ display: 'block', marginBottom: '5px' }}>Tags:</label>
-                      <input
-                        type="text"
-                        placeholder="comma, separated, tags"
-                        value={file.tags}
-                        onChange={(e) => updateFileMetadata(index, 'tags', e.target.value)}
-                        style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
-                      />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 'bold', fontSize: '14px' }}>{file.name}</div>
+                    <div style={{ fontSize: '12px', color: '#666' }}>
+                      {file.type} • {(file.size / 1024 / 1024).toFixed(2)} MB
                     </div>
                   </div>
                   
-                  <div style={{ marginTop: '10px' }}>
-                    <label style={{ display: 'block', marginBottom: '5px' }}>Category:</label>
+                  <div style={{ minWidth: '150px' }}>
+                    <label style={{ display: 'block', marginBottom: '3px', fontSize: '12px' }}>Category:</label>
                     <select
                       value={file.folder || ''}
                       onChange={(e) => updateFileMetadata(index, 'folder', e.target.value)}
-                      style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
+                      style={{ width: '100%', padding: '4px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '12px' }}
                     >
-                      <option value="">Root</option>
+                      <option value="Images">Images</option>
+                      <option value="Video">Video</option>
+                      <option value="Audio">Audio</option>
+                      <option value="PDF">PDF</option>
+                      <option value="Documents">Documents</option>
+                      <option value="Spreadsheets">Spreadsheets</option>
+                      <option value="Other">Other</option>
                       {folders.map(folder => (
                         <option key={folder.id} value={folder.name}>{folder.name}</option>
                       ))}
                     </select>
                   </div>
-                  
-                  <div style={{ marginTop: '10px' }}>
-                    <label style={{ display: 'block', marginBottom: '5px' }}>Description:</label>
-                    <textarea
-                      value={file.description}
-                      onChange={(e) => updateFileMetadata(index, 'description', e.target.value)}
-                      style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px', minHeight: '60px' }}
-                    />
-                  </div>
-                  
-                  <div style={{ marginTop: '10px' }}>
-                    <label style={{ display: 'block', marginBottom: '5px' }}>Notes:</label>
-                    <textarea
-                      value={file.notes}
-                      onChange={(e) => updateFileMetadata(index, 'notes', e.target.value)}
-                      style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px', minHeight: '60px' }}
-                    />
-                  </div>
                 </div>
               ))}
             </div>
+            
+            {/* Progress Bar */}
+            {uploading && (
+              <div style={{ margin: '15px 0' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
+                  <span>Uploading files...</span>
+                  <span>{uploadProgress}%</span>
+                </div>
+                <div style={{ 
+                  width: '100%', 
+                  height: '8px', 
+                  backgroundColor: '#e9ecef', 
+                  borderRadius: '4px',
+                  overflow: 'hidden'
+                }}>
+                  <div style={{ 
+                    width: `${uploadProgress}%`, 
+                    height: '100%', 
+                    backgroundColor: '#28a745',
+                    transition: 'width 0.3s ease'
+                  }}></div>
+                </div>
+              </div>
+            )}
             
             <div style={{ marginTop: '15px', display: 'flex', gap: '10px' }}>
               <button
