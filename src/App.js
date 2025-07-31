@@ -121,7 +121,7 @@ const App = () => {
               'Submitted by': fileData.submittedBy || '',
               'Notes': fileData.notes || '',
               'Tags': fileData.tags || '',
-              'Upload Date': new Date().toISOString(),
+              'Upload Date': new Date().toISOString().split('T')[0], // Date format YYYY-MM-DD
               'Other1': fileData.other1 || '',
               'Other2': fileData.other2 || ''
             }
