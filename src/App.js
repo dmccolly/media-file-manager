@@ -109,7 +109,8 @@ const App = () => {
 
       // Add optional fields only if they have values
       if (fileData.assetType) fields['Asset Type'] = fileData.assetType;
-      if (fileData.folder) fields['Category'] = fileData.folder;
+      // Skip Category for now until we add the options to Airtable
+      // if (fileData.folder) fields['Category'] = fileData.folder;
       if (fileData.title) fields['Title'] = fileData.title;
       if (fileData.description) fields['Description'] = fileData.description;
       if (fileData.station) fields['Station'] = fileData.station;
