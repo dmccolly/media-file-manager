@@ -101,6 +101,29 @@ const App = () => {
 
   const saveFileToAirtable = useCallback(async (fileData) => {
     try {
+      // Start with minimal required fields only
+      const fields = {
+        'Asset Name': fileData.name,
+        'Cloudinary Public URL': fileData.url
+      };
+
+      // Add optional fields only if they have values
+      if (fileData.type) fields['Asset Type'] = fileData.type;
+      if (fileData.folder) fields['Category'] = fileData.folder;
+      if (fileData.title) fields['Title'] = fileData.title;
+      if (fileData.description) fields['Description'] = fileData.description;
+      if (fileData.station) fields['Station'] = fileData.station;
+      if (fileData.submittedBy) fields['Submitted by'] = fileData.submittedBy;
+      if (fileData.notes) fields['Notes'] = fileData.notes;
+      if (fileData.tags) fields['Tags'] = fileData.tags;
+      if (fileData.other1) fields['Other1'] = fileData.other1;
+      if (fileData.other2) fields['Other2'] = fileData.other2;
+      
+      // Add upload date
+      fields['Upload Date'] = new Date().toISOString().split('T')[0];
+
+      console.log('Sending to Airtable:', fields);
+
       const response = await fetch(
         `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Media%20Assets`,
         {
@@ -109,28 +132,14 @@ const App = () => {
             'Authorization': `Bearer ${AIRTABLE_API_KEY}`,
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({
-            fields: {
-              'Asset Name': fileData.name,
-              'Cloudinary Public URL': fileData.url,
-              'Asset Type': fileData.type,
-              'Category': fileData.folder || '',
-              'Title': fileData.title || '',
-              'Description': fileData.description || '',
-              'Station': fileData.station || '',
-              'Submitted by': fileData.submittedBy || '',
-              'Notes': fileData.notes || '',
-              'Tags': fileData.tags || '',
-              'Upload Date': new Date().toISOString().split('T')[0], // Date format YYYY-MM-DD
-              'Other1': fileData.other1 || '',
-              'Other2': fileData.other2 || ''
-            }
-          })
+          body: JSON.stringify({ fields })
         }
       );
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        const errorData = await response.text();
+        console.error('Airtable error response:', errorData);
+        throw new Error(`HTTP error! status: ${response.status} - ${errorData}`);
       }
 
       const data = await response.json();
@@ -138,7 +147,7 @@ const App = () => {
         id: data.id,
         name: data.fields['Asset Name'],
         url: data.fields['Cloudinary Public URL'],
-        type: data.fields['Asset Type'],
+        type: data.fields['Asset Type'] || '',
         size: 0,
         folder: data.fields.Category || '',
         title: data.fields.Title || '',
