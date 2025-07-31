@@ -115,7 +115,15 @@ const App = () => {
       if (fileData.station) fields['Station'] = fileData.station;
       if (fileData.submittedBy) fields['Submitted by'] = fileData.submittedBy;
       if (fileData.notes) fields['Notes'] = fileData.notes;
-      if (fileData.tags) fields['Tags'] = fileData.tags;
+      
+      // Handle Tags field - convert comma-separated string to array
+      if (fileData.tags) {
+        const tagsArray = fileData.tags.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0);
+        if (tagsArray.length > 0) {
+          fields['Tags'] = tagsArray;
+        }
+      }
+      
       if (fileData.other1) fields['Other1'] = fileData.other1;
       if (fileData.other2) fields['Other2'] = fileData.other2;
       
