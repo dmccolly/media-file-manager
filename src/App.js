@@ -108,7 +108,7 @@ const App = () => {
       };
 
       // Add optional fields only if they have values
-      if (fileData.type) fields['Asset Type'] = fileData.type;
+      if (fileData.assetType) fields['Asset Type'] = fileData.assetType;
       if (fileData.folder) fields['Category'] = fileData.folder;
       if (fileData.title) fields['Title'] = fileData.title;
       if (fileData.description) fields['Description'] = fileData.description;
@@ -466,6 +466,37 @@ const App = () => {
     return 'Other';
   };
 
+  // Convert file MIME type to Airtable-friendly asset type
+  const getAssetType = (fileType, fileName) => {
+    const extension = fileName.toLowerCase().split('.').pop();
+    
+    if (fileType.startsWith('image/')) {
+      return 'Image';
+    }
+    
+    if (fileType.startsWith('video/') || ['mp4', 'mov', 'avi', 'mkv', 'webm'].includes(extension)) {
+      return 'Video';
+    }
+    
+    if (fileType.startsWith('audio/') || ['mp3', 'wav', 'aac', 'flac', 'm4a'].includes(extension)) {
+      return 'Audio';
+    }
+    
+    if (['pdf'].includes(extension)) {
+      return 'PDF';
+    }
+    
+    if (['doc', 'docx', 'txt', 'rtf'].includes(extension)) {
+      return 'Document';
+    }
+    
+    if (['csv', 'xlsx', 'xls'].includes(extension)) {
+      return 'Spreadsheet';
+    }
+    
+    return 'Other';
+  };
+
   const handleFileSelect = (e) => {
     const selectedFiles = Array.from(e.target.files);
     processSelectedFiles(selectedFiles);
@@ -484,6 +515,7 @@ const App = () => {
       name: file.name,
       size: file.size,
       type: file.type,
+      assetType: getAssetType(file.type, file.name), // Use simplified asset type
       folder: getAutoCategory(file.type, file.name), // Auto-assign category
       title: '',
       description: '',
@@ -575,6 +607,7 @@ const App = () => {
           name: fileObj.name,
           url: cloudinaryResponse.secure_url,
           type: fileObj.type,
+          assetType: fileObj.assetType, // Use simplified asset type
           size: fileObj.size,
           folder: fileObj.folder,
           title: fileObj.title,
