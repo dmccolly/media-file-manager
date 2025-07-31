@@ -17,7 +17,7 @@ const App = () => {
   const AIRTABLE_BASE_ID = 'appTK2fgCwe039t5J';
   const AIRTABLE_API_KEY = 'pat2NTSIC1qBChb6w.24e7b79b10ab89949b70d4dc6f919bdf517a64aeb53dc371930ccb39103f749b';
   const CLOUDINARY_CLOUD_NAME = 'dzrw8nopf';
-  const CLOUDINARY_UPLOAD_PRESET = 'ml_default'; // Default unsigned preset
+  const CLOUDINARY_UPLOAD_PRESET = 'hibf_uploads';
 
   // Database Functions
   const fetchFilesFromAirtable = useCallback(async () => {
