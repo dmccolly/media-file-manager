@@ -12,6 +12,19 @@ class AirtableService {
       'Authorization': `Bearer ${this.apiKey}`,
       'Content-Type': 'application/json'
     };
+
+    // NEW: Flexible field mapping
+    this.airtableFields = {
+        title: ['Title', 'Name'],
+        url: ['URL', 'File URL'],
+        attachment: ['Attachments', 'File'],
+        category: ['Category'],
+        station: ['Station'],
+        description: ['Description'],
+        notes: ['Notes'],
+        tags: ['Tags'],
+        uploadDate: ['Upload Date', 'Created'],
+    };
   }
 
   // Fetch all files from Airtable with pagination
@@ -59,6 +72,16 @@ class AirtableService {
       throw error;
     }
   }
+  
+  // Utility to get a value from a list of possible field names
+  getFieldValue(fields, fieldNames) {
+    for (const name of fieldNames) {
+        if (fields[name]) {
+            return fields[name];
+        }
+    }
+    return null;
+  }
 
   // FIXED - Process raw Airtable records into app format
   processRecords(records) {
@@ -68,34 +91,34 @@ class AirtableService {
       const fields = record.fields || {};
       
       // NEW: Prioritize Airtable's own thumbnails for file attachments
-      const attachmentField = fields['Attachments'] || fields['File'] || null;
+      const attachmentField = this.getFieldValue(fields, this.airtableFields.attachment);
       const airtableThumbnailUrl = attachmentField && attachmentField[0]?.thumbnails?.small?.url;
       console.log(`🔍 Airtable thumbnail found: ${airtableThumbnailUrl}`);
       
-      const url = fields['URL'] || fields['File URL'] || (attachmentField && attachmentField[0]?.url) || '';
+      const url = this.getFieldValue(fields, this.airtableFields.url) || (attachmentField && attachmentField[0]?.url) || '';
       
       // Better file type detection
       const detectedType = this.detectFileTypeFromUrl(url);
-      console.log(`🔍 File type detection for ${fields['Title']}: ${detectedType} from URL: ${url}`);
+      console.log(`🔍 File type detection for ${this.getFieldValue(fields, this.airtableFields.title)}: ${detectedType} from URL: ${url}`);
       
       // Generate thumbnail with better logic
       const thumbnail = airtableThumbnailUrl || this.generateThumbnailFromUrl(url, detectedType);
-      console.log(`🖼️ Final thumbnail URL for ${fields['Title']}: ${thumbnail}`);
+      console.log(`🖼️ Final thumbnail URL for ${this.getFieldValue(fields, this.airtableFields.title)}: ${thumbnail}`);
       
       const processedFile = {
         id: record.id,
-        title: fields['Title'] || fields['Name'] || 'Untitled',
+        title: this.getFieldValue(fields, this.airtableFields.title) || 'Untitled',
         url: url,
-        category: fields['Category'] || 'uncategorized', 
+        category: this.getFieldValue(fields, this.airtableFields.category) || 'uncategorized', 
         type: detectedType,
-        station: fields['Station'] || '',
-        description: fields['Description'] || '',
-        notes: fields['Notes'] || '',
-        tags: fields['Tags'] || '',
-        uploadDate: fields['Upload Date'] || fields['Created'] || new Date().toISOString(),
+        station: this.getFieldValue(fields, this.airtableFields.station) || '',
+        description: this.getFieldValue(fields, this.airtableFields.description) || '',
+        notes: this.getFieldValue(fields, this.airtableFields.notes) || '',
+        tags: this.getFieldValue(fields, this.airtableFields.tags) || '',
+        uploadDate: this.getFieldValue(fields, this.airtableFields.uploadDate) || new Date().toISOString(),
         thumbnail: thumbnail,
-        fileSize: fields['File Size'] || 0,
-        duration: fields['Duration'] || '',
+        fileSize: this.getFieldValue(fields, ['File Size']) || 0,
+        duration: this.getFieldValue(fields, ['Duration']) || '',
         originalRecord: record
       };
       
@@ -178,7 +201,7 @@ class AirtableService {
         
         if (fileType === 'video') {
           const thumbnail = url.replace('/upload/', '/upload/w_150,h_150,c_fill,f_auto,q_auto,so_0/')
-                              .replace(/\.(mp4|avi|mov|wmv|flv|webm|mkv|3gp|m4v)$/i, '.jpg');
+                              .replace(/\.[^.]+$/, '.jpg');
           console.log(`✅ Video thumbnail: ${thumbnail}`);
           return thumbnail;
         }
@@ -1418,7 +1441,7 @@ const ContextMenu = ({ contextMenu, onClose, onAction }) => {
               className="w-full px-4 py-2 text-left hover:bg-gray-100 text-sm flex items-center gap-2"
               onClick={() => handleAction('rename')}
             >
-              ✏️ Rename
+                ✏️ Rename
             </button>
             <button
               className="w-full px-4 py-2 text-left hover:bg-gray-100 text-sm flex items-center gap-2"
