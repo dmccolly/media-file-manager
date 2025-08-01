@@ -947,7 +947,7 @@ const FileGrid = ({ 
                   </div>
                 );
               })()}
-            </div>
+          </div>
 
             {/* File info */}
             <div className="text-sm">
@@ -1250,7 +1250,6 @@ const FileDetailsModal = ({ file, isOpen, onClose, onUpdate, onDelete }) => {
                           >
                             {tag.trim()}
                           </span>
-                        ))}
                       </div>
                     </div>
                   )}
@@ -1386,6 +1385,7 @@ const BatchOperationsPanel = ({ selectedFiles, onClose, onBatchUpdate, onBatchDe
             >
               Move {selectedFiles.length} Files
             </button>
+          </div>
         )}
 
         {batchAction === 'delete' && (
