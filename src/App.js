@@ -90,8 +90,15 @@ class AirtableService {
     const processedFiles = records.map(record => {
       const fields = record.fields || {};
       
-      // NEW: Prioritize Airtable's own thumbnails for file attachments
-      const attachmentField = this.getFieldValue(fields, this.airtableFields.attachment);
+      // NEW: Iterate through all fields to find a file attachment
+      let attachmentField = null;
+      for (const fieldName in fields) {
+        if (Array.isArray(fields[fieldName]) && fields[fieldName][0]?.thumbnails) {
+          attachmentField = fields[fieldName];
+          break;
+        }
+      }
+
       const airtableThumbnailUrl = attachmentField && attachmentField[0]?.thumbnails?.small?.url;
       console.log(`🔍 Airtable thumbnail found: ${airtableThumbnailUrl}`);
       
@@ -191,27 +198,31 @@ class AirtableService {
     try {
       // If it's a Cloudinary URL, generate proper thumbnail
       if (url.includes('cloudinary.com')) {
-        console.log('📸 Cloudinary URL detected, generating thumbnail...');
-        
+        const uploadIndex = url.indexOf('/upload/');
+        if (uploadIndex === -1) {
+          return url; // Not a standard Cloudinary URL
+        }
+
+        const baseUrl = url.substring(0, uploadIndex + 8); // Include '/upload/'
+        const path = url.substring(uploadIndex + 8);
+
+        // Add transformations after the upload folder
+        const transform = 'w_150,h_150,c_fill,f_auto,q_auto';
+
         if (fileType === 'image') {
-          const thumbnail = url.replace('/upload/', '/upload/w_150,h_150,c_fill,f_auto,q_auto/');
-          console.log(`✅ Image thumbnail: ${thumbnail}`);
-          return thumbnail;
+          return `${baseUrl}${transform}/${path}`;
         }
         
         if (fileType === 'video') {
-          const thumbnail = url.replace('/upload/', '/upload/w_150,h_150,c_fill,f_auto,q_auto,so_0/')
-                              .replace(/\.[^.]+$/, '.jpg');
-          console.log(`✅ Video thumbnail: ${thumbnail}`);
-          return thumbnail;
+          // Add specific video transformations for a thumbnail
+          return `${baseUrl}${transform},so_0/${path.replace(/\.[^.]+$/, '.jpg')}`;
         }
         
-        // NEW: Handle documents and PDFs
+        // For documents and other non-image/non-video files
         if (['document', 'spreadsheet', 'presentation'].includes(fileType)) {
-          // Cloudinary can convert documents to images with this transformation
-          const thumbnail = url.replace('/upload/', '/upload/w_150,h_150,c_fill,f_jpg,pg_1/');
-          console.log(`✅ Document thumbnail: ${thumbnail}`);
-          return thumbnail;
+          // Try to get the first page as a JPG thumbnail
+          // This conversion works for many document types like PDF
+          return `${baseUrl}${transform},f_jpg,pg_1/${path}`;
         }
       }
       
@@ -563,17 +574,17 @@ class CloudinaryService {
         // Add transformations after the upload folder
         const transform = 'w_150,h_150,c_fill,f_auto,q_auto';
 
-        if (resourceType === 'image') {
+        if (fileType === 'image') {
           return `${baseUrl}${transform}/${path}`;
         }
         
-        if (resourceType === 'video') {
+        if (fileType === 'video') {
           // Add specific video transformations for a thumbnail
           return `${baseUrl}${transform},so_0/${path.replace(/\.[^.]+$/, '.jpg')}`;
         }
         
         // For documents and other non-image/non-video files
-        if (['document', 'spreadsheet', 'presentation'].includes(resourceType)) {
+        if (['document', 'spreadsheet', 'presentation'].includes(fileType)) {
           // Try to get the first page as a JPG thumbnail
           // This conversion works for many document types like PDF
           return `${baseUrl}${transform},f_jpg,pg_1/${path}`;
@@ -582,6 +593,7 @@ class CloudinaryService {
       
       // For non-Cloudinary URLs or files without a resource type
       if (fileType === 'image') {
+        console.log(`✅ Direct image URL: ${url}`);
         return url;
       }
      
@@ -1441,7 +1453,7 @@ const ContextMenu = ({ contextMenu, onClose, onAction }) => {
               className="w-full px-4 py-2 text-left hover:bg-gray-100 text-sm flex items-center gap-2"
               onClick={() => handleAction('rename')}
             >
-                ✏️ Rename
+              ✏️ Rename
             </button>
             <button
               className="w-full px-4 py-2 text-left hover:bg-gray-100 text-sm flex items-center gap-2"
