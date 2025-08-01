@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 
 // =============================================
-// AIRTABLE SERVICE CLASS - FIXED
+// AIRTABLE SERVICE CLASS - FINAL FIX
 // =============================================
 class AirtableService {
   constructor() {
@@ -91,26 +91,20 @@ class AirtableService {
       const fields = record.fields || {};
       
       // NEW: Iterate through all fields to find a file attachment
-      let attachmentField = null;
+      let fileAttachment = null;
       for (const fieldName in fields) {
-        if (Array.isArray(fields[fieldName]) && fields[fieldName][0]?.thumbnails) {
-          attachmentField = fields[fieldName];
+        if (Array.isArray(fields[fieldName]) && fields[fieldName].length > 0 && fields[fieldName][0]?.url) {
+          fileAttachment = fields[fieldName][0];
           break;
         }
       }
+     
+      const url = fileAttachment?.url || this.getFieldValue(fields, this.airtableFields.url) || '';
+      const thumbnail = fileAttachment?.thumbnails?.small?.url || url;
+      console.log(`🖼️ Final thumbnail URL for ${this.getFieldValue(fields, this.airtableFields.title)}: ${thumbnail}`);
 
-      const airtableThumbnailUrl = attachmentField && attachmentField[0]?.thumbnails?.small?.url;
-      console.log(`🔍 Airtable thumbnail found: ${airtableThumbnailUrl}`);
-      
-      const url = this.getFieldValue(fields, this.airtableFields.url) || (attachmentField && attachmentField[0]?.url) || '';
-      
-      // Better file type detection
       const detectedType = this.detectFileTypeFromUrl(url);
       console.log(`🔍 File type detection for ${this.getFieldValue(fields, this.airtableFields.title)}: ${detectedType} from URL: ${url}`);
-      
-      // Generate thumbnail with better logic
-      const thumbnail = airtableThumbnailUrl || this.generateThumbnailFromUrl(url, detectedType);
-      console.log(`🖼️ Final thumbnail URL for ${this.getFieldValue(fields, this.airtableFields.title)}: ${thumbnail}`);
       
       const processedFile = {
         id: record.id,
@@ -124,7 +118,7 @@ class AirtableService {
         tags: this.getFieldValue(fields, this.airtableFields.tags) || '',
         uploadDate: this.getFieldValue(fields, this.airtableFields.uploadDate) || new Date().toISOString(),
         thumbnail: thumbnail,
-        fileSize: this.getFieldValue(fields, ['File Size']) || 0,
+        fileSize: fileAttachment?.size || 0,
         duration: this.getFieldValue(fields, ['Duration']) || '',
         originalRecord: record
       };
@@ -926,9 +920,9 @@ const FileGrid = ({ 
             {/* FIXED - File thumbnail/icon with enhanced logic */}
             <div className="aspect-square mb-2 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden">
               {(() => {
-                const hasThumbnail = file.thumbnail;
-
-                if (hasThumbnail) {
+                  const hasThumbnail = file.thumbnail && file.thumbnail !== file.url;
+                  
+                  if (hasThumbnail) {
                   return (
                     <img
                       src={file.thumbnail}
@@ -1392,7 +1386,6 @@ const BatchOperationsPanel = ({ selectedFiles, onClose, onBatchUpdate, onBatchDe
             >
               Move {selectedFiles.length} Files
             </button>
-          </div>
         )}
 
         {batchAction === 'delete' && (
