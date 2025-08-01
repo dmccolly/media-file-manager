@@ -581,7 +581,8 @@ const formatDate = (dateString) => {
     return 'Invalid Date';
   }
 };
-<span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+<td className="px-4 py-3 text-sm text-gray-600 capitalize">
+                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
                       {file.type}
                     </span>
                   </td>
@@ -598,6 +599,755 @@ const formatDate = (dateString) => {
         </div>
       </div>
     );
+  }
+
+  return (
+    <div className="flex-1 p-4 overflow-auto">
+      <SelectionControls />
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4">
+        {files.map((file) => (
+          <div
+            key={file.id}
+            className={`relative bg-white border-2 rounded-lg p-3 hover:shadow-lg cursor-pointer transition-all duration-200 group ${
+              isSelected(file) 
+                ? 'border-blue-500 bg-blue-50 shadow-md' 
+                : 'border-gray-200 hover:border-gray-300'
+            }`}
+            onContextMenu={(e) => onFileRightClick(e, file)}
+            onClick={() => handleFileClick(file)}
+          >
+            {/* Selection checkbox */}
+            <div className="absolute top-2 left-2 z-10">
+              <input
+                type="checkbox"
+                checked={isSelected(file)}
+                onChange={(e) => handleFileSelectToggle(file, e)}
+                className="rounded shadow-sm"
+              />
+            </div>
+
+            {/* FIXED - File thumbnail/icon with enhanced logic */}
+            <div className="aspect-square mb-2 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden">
+              {(() => {
+                console.log(`🎨 Rendering file: ${file.title}, type: ${file.type}, thumbnail: ${file.thumbnail}, url: ${file.url}`);
+                
+                // For images, try to show thumbnail first
+                if (file.type === 'image') {
+                  const imageUrl = file.thumbnail || file.url;
+                  
+                  if (imageUrl && !imageErrors.has(file.id)) {
+                    return (
+                      <img
+                        src={imageUrl}
+                        alt={file.title}
+                        className="w-full h-full object-cover rounded-lg"
+                        onError={() => {
+                          console.log(`❌ Image failed to load: ${imageUrl}`);
+                          handleImageError(file.id);
+                        }}
+                        onLoad={() => {
+                          console.log(`✅ Image loaded successfully: ${imageUrl}`);
+                        }}
+                        loading="lazy"
+                      />
+                    );
+                  }
+                }
+                
+                // For videos with thumbnails
+                if (file.type === 'video' && file.thumbnail && !imageErrors.has(file.id)) {
+                  return (
+                    <img
+                      src={file.thumbnail}
+                      alt={file.title}
+                      className="w-full h-full object-cover rounded-lg"
+                      onError={() => {
+                        console.log(`❌ Video thumbnail failed to load: ${file.thumbnail}`);
+                        handleImageError(file.id);
+                      }}
+                      onLoad={() => {
+                        console.log(`✅ Video thumbnail loaded successfully: ${file.thumbnail}`);
+                      }}
+                      loading="lazy"
+                    />
+                  );
+                }
+                
+                // Fallback to file type icon
+                return (
+                  <div className="flex flex-col items-center justify-center h-full">
+                    {getFileIcon(file.type, 'text-3xl')}
+                    <span className="text-xs text-gray-500 mt-1 uppercase font-medium">
+                      {file.type || 'unknown'}
+                    </span>
+                  </div>
+                );
+              })()}
+            </div>
+
+            {/* File info */}
+            <div className="text-sm">
+              <p className="font-medium truncate text-gray-900" title={file.title}>
+                {file.title}
+              </p>
+              <p className="text-xs text-gray-500 truncate">
+                {formatFileSize(file.fileSize)}
+              </p>
+              {file.tags && (
+                <p className="text-xs text-blue-600 truncate mt-1">
+                  {file.tags}
+                </p>
+              )}
+            </div>
+
+            {/* Hover overlay with quick actions */}
+            <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 rounded-lg transition-all duration-200 flex items-center justify-center opacity-0 group-hover:opacity-100">
+              <div className="flex gap-2">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onFileRightClick(e, file);
+                  }}
+                  className="bg-white bg-opacity-90 hover:bg-opacity-100 p-2 rounded-full shadow-sm"
+                  title="More options"
+                >
+                  ⋯
+                </button>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// Enhanced File Details Modal
+const FileDetailsModal = ({ file, isOpen, onClose, onUpdate, onDelete }) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editData, setEditData] = useState({});
+
+  useEffect(() => {
+    if (file) {
+      setEditData({
+        title: file.title || '',
+        description: file.description || '',
+        notes: file.notes || '',
+        tags: file.tags || '',
+        station: file.station || '',
+        category: file.category || ''
+      });
+    }
+  }, [file]);
+
+  const handleSave = () => {
+    onUpdate(file.id, {
+      'Title': editData.title,
+      'Description': editData.description,
+      'Notes': editData.notes,
+      'Tags': editData.tags,
+      'Station': editData.station,
+      'Category': editData.category
+    });
+    setIsEditing(false);
+  };
+
+  const handleCancel = () => {
+    if (file) {
+      setEditData({
+        title: file.title || '',
+        description: file.description || '',
+        notes: file.notes || '',
+        tags: file.tags || '',
+        station: file.station || '',
+        category: file.category || ''
+      });
+    }
+    setIsEditing(false);
+  };
+
+  if (!isOpen || !file) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-hidden shadow-2xl">
+        {/* Header */}
+        <div className="flex items-center justify-between p-6 border-b bg-gray-50">
+          <div className="flex items-center gap-3">
+            {getFileIcon(file.type, 'text-2xl')}
+            <div>
+              <h2 className="text-xl font-semibold text-gray-900">{file.title}</h2>
+              <p className="text-sm text-gray-500">{file.category} • {formatFileSize(file.fileSize)}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setIsEditing(!isEditing)}
+              className="px-3 py-1 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              {isEditing ? 'Cancel' : '✏️ Edit'}
+            </button>
+            <button
+              onClick={onClose}
+              className="p-2 hover:bg-gray-200 rounded-lg transition-colors"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+        
+        <div className="flex h-[calc(90vh-120px)]">
+          {/* Preview Section */}
+          <div className="flex-1 p-6 bg-gray-50 flex items-center justify-center">
+            {file.type === 'image' && file.url && (
+              <img
+                src={file.url}
+                alt={file.title}
+                className="max-w-full max-h-full object-contain rounded-lg shadow-sm"
+              />
+            )}
+            
+            {file.type === 'video' && file.url && (
+              <video
+                src={file.url}
+                controls
+                className="max-w-full max-h-full rounded-lg shadow-sm"
+              >
+                Your browser does not support video playback.
+              </video>
+            )}
+            
+            {file.type === 'audio' && file.url && (
+              <div className="text-center">
+                <div className="text-6xl mb-4">🎵</div>
+                <audio
+                  src={file.url}
+                  controls
+                  className="w-full max-w-md"
+                >
+                  Your browser does not support audio playback.
+                </audio>
+              </div>
+            )}
+            
+            {!['image', 'video', 'audio'].includes(file.type) && (
+              <div className="text-center">
+                <div className="text-6xl mb-4">{getFileIcon(file.type, 'text-6xl')}</div>
+                <p className="text-gray-600 mb-4">Preview not available for this file type</p>
+                {file.url && (
+                  <a
+                    href={file.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-block px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    📄 Open File
+                  </a>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Details Section */}
+          <div className="w-96 p-6 overflow-y-auto border-l bg-white">
+            <h3 className="text-lg font-semibold mb-4 text-gray-900">File Details</h3>
+
+            {isEditing ? (
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
+                  <input
+                    type="text"
+                    value={editData.title}
+                    onChange={(e) => setEditData({...editData, title: e.target.value})}
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                  <select
+                    value={editData.category}
+                    onChange={(e) => setEditData({...editData, category: e.target.value})}
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="Images">Images</option>
+                    <option value="Video">Video</option>
+                    <option value="Audio">Audio</option>
+                    <option value="Documents">Documents</option>
+                    <option value="Files">Files</option>
+                    <option value="product">Product</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Station</label>
+                  <input
+                    type="text"
+                    value={editData.station}
+                    onChange={(e) => setEditData({...editData, station: e.target.value})}
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                  <textarea
+                    value={editData.description}
+                    onChange={(e) => setEditData({...editData, description: e.target.value})}
+                    rows={3}
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+                  <textarea
+                    value={editData.notes}
+                    onChange={(e) => setEditData({...editData, notes: e.target.value})}
+                    rows={2}
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Tags</label>
+                  <input
+                    type="text"
+                    value={editData.tags}
+                    onChange={(e) => setEditData({...editData, tags: e.target.value})}
+                    placeholder="tag1, tag2, tag3"
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div className="flex gap-2 pt-4">
+                  <button
+                    onClick={handleSave}
+                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    💾 Save Changes
+                  </button>
+                  <button
+                    onClick={handleCancel}
+                    className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 gap-4">
+                  <div className="bg-gray-50 p-3 rounded-lg">
+                    <span className="text-sm font-medium text-gray-700 block mb-1">File Type</span>
+                    <span className="text-sm text-gray-900 capitalize">{file.type}</span>
+                  </div>
+
+                  <div className="bg-gray-50 p-3 rounded-lg">
+                    <span className="text-sm font-medium text-gray-700 block mb-1">Size</span>
+                    <span className="text-sm text-gray-900">{formatFileSize(file.fileSize)}</span>
+                  </div>
+
+                  <div className="bg-gray-50 p-3 rounded-lg">
+                    <span className="text-sm font-medium text-gray-700 block mb-1">Upload Date</span>
+                    <span className="text-sm text-gray-900">{formatDate(file.uploadDate)}</span>
+                  </div>
+
+                  {file.station && (
+                    <div className="bg-gray-50 p-3 rounded-lg">
+                      <span className="text-sm font-medium text-gray-700 block mb-1">Station</span>
+                      <span className="text-sm text-gray-900">{file.station}</span>
+                    </div>
+                  )}
+
+                  {file.description && (
+                    <div className="bg-gray-50 p-3 rounded-lg">
+                      <span className="text-sm font-medium text-gray-700 block mb-1">Description</span>
+                      <span className="text-sm text-gray-900">{file.description}</span>
+                    </div>
+                  )}
+
+                  {file.notes && (
+                    <div className="bg-gray-50 p-3 rounded-lg">
+                      <span className="text-sm font-medium text-gray-700 block mb-1">Notes</span>
+                      <span className="text-sm text-gray-900">{file.notes}</span>
+                    </div>
+                  )}
+
+                  {file.tags && (
+                    <div className="bg-gray-50 p-3 rounded-lg">
+                      <span className="text-sm font-medium text-gray-700 block mb-1">Tags</span>
+                      <div className="flex flex-wrap gap-1">
+                        {file.tags.split(',').map((tag, index) => (
+                          <span
+                            key={index}
+                            className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full"
+                          >
+                            {tag.trim()}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {file.url && (
+                    <div className="bg-gray-50 p-3 rounded-lg">
+                      <span className="text-sm font-medium text-gray-700 block mb-1">File URL</span>
+                      <a
+                        href={file.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm text-blue-600 hover:text-blue-800 break-all"
+                      >
+                        {file.url}
+                      </a>
+                    </div>
+                  )}
+                </div>
+
+                <div className="pt-4 border-t">
+                  <button
+                    onClick={() => onDelete(file)}
+                    className="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                  >
+                    🗑️ Delete File
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Other components (BatchOperationsPanel, ContextMenu, etc.) and main App component
+const BatchOperationsPanel = ({ selectedFiles, onClose, onBatchUpdate, onBatchDelete, onBatchMove }) => {
+  const [batchAction, setBatchAction] = useState('');
+  const [batchData, setBatchData] = useState({
+    category: '',
+    tags: '',
+    station: '',
+    description: '',
+    notes: ''
+  });
+
+  const handleBatchUpdate = () => {
+    const updates = selectedFiles.map(file => ({
+      id: file.id,
+      fields: {
+        ...(batchData.category && { 'Category': batchData.category }),
+        ...(batchData.tags && { 'Tags': batchData.tags }),
+        ...(batchData.station && { 'Station': batchData.station }),
+        ...(batchData.description && { 'Description': batchData.description }),
+        ...(batchData.notes && { 'Notes': batchData.notes })
+      }
+    }));
+    onBatchUpdate(updates);
+  };
+
+  if (selectedFiles.length === 0) return null;
+
+  return (
+    <div className="fixed bottom-4 right-4 bg-white border border-gray-300 rounded-lg shadow-xl p-4 w-80 z-40">
+      <div className="flex items-center justify-between mb-3">
+        <h4 className="font-medium text-gray-800">
+          Batch Operations ({selectedFiles.length} files)
+        </h4>
+        <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
+          ✕
+        </button>
+      </div>
+
+      <div className="space-y-3">
+        <div className="flex gap-2">
+          <select
+            value={batchAction}
+            onChange={(e) => setBatchAction(e.target.value)}
+            className="flex-1 p-2 border border-gray-300 rounded text-sm"
+          >
+            <option value="">Choose Action</option>
+            <option value="update">Update Fields</option>
+            <option value="move">Move to Category</option>
+            <option value="delete">Delete Files</option>
+          </select>
+        </div>
+
+        {batchAction === 'update' && (
+          <div className="space-y-2">
+            <select
+              value={batchData.category}
+              onChange={(e) => setBatchData({...batchData, category: e.target.value})}
+              className="w-full p-2 border border-gray-300 rounded text-sm"
+            >
+              <option value="">Category (no change)</option>
+              <option value="Images">Images</option>
+              <option value="Video">Video</option>
+              <option value="Audio">Audio</option>
+              <option value="Documents">Documents</option>
+              <option value="Files">Files</option>
+            </select>
+
+            <input
+              type="text"
+              placeholder="Tags (append/replace)"
+              value={batchData.tags}
+              onChange={(e) => setBatchData({...batchData, tags: e.target.value})}
+              className="w-full p-2 border border-gray-300 rounded text-sm"
+            />
+
+            <input
+              type="text"
+              placeholder="Station"
+              value={batchData.station}
+              onChange={(e) => setBatchData({...batchData, station: e.target.value})}
+              className="w-full p-2 border border-gray-300 rounded text-sm"
+            />
+
+            <button
+              onClick={handleBatchUpdate}
+              className="w-full px-3 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
+            >
+              Update {selectedFiles.length} Files
+            </button>
+          </div>
+        )}
+
+        {batchAction === 'move' && (
+          <div className="space-y-2">
+            <select
+              value={batchData.category}
+              onChange={(e) => setBatchData({...batchData, category: e.target.value})}
+              className="w-full p-2 border border-gray-300 rounded text-sm"
+            >
+              <option value="">Select Destination</option>
+              <option value="Images">Images</option>
+              <option value="Video">Video</option>
+              <option value="Audio">Audio</option>
+              <option value="Documents">Documents</option>
+              <option value="Files">Files</option>
+            </select>
+
+            <button
+              onClick={() => onBatchMove(selectedFiles, batchData.category)}
+              disabled={!batchData.category}
+              className="w-full px-3 py-2 bg-green-600 text-white rounded text-sm hover:bg-green-700 disabled:bg-gray-400"
+            >
+              Move {selectedFiles.length} Files
+            </button>
+          </div>
+        )}
+
+        {batchAction === 'delete' && (
+          <div className="space-y-2">
+            <p className="text-sm text-red-600">
+              This will permanently delete {selectedFiles.length} files.
+            </p>
+            <button
+              onClick={() => onBatchDelete(selectedFiles)}
+              className="w-full px-3 py-2 bg-red-600 text-white rounded text-sm hover:bg-red-700"
+            >
+              🗑️ Delete {selectedFiles.length} Files
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// Context Menu Component
+const ContextMenu = ({ contextMenu, onClose, onAction }) => {
+  if (!contextMenu.show) return null;
+
+  const handleAction = (action) => {
+    onAction(action, contextMenu.target);
+    onClose();
+  };
+
+  return (
+    <>
+      <div className="fixed inset-0 z-40" onClick={onClose} />
+      <div
+        className="fixed bg-white border border-gray-300 rounded-lg shadow-xl py-2 z-50 min-w-48"
+        style={{ left: contextMenu.x, top: contextMenu.y }}
+      >
+        {contextMenu.type === 'file' && (
+          <>
+            <button
+              className="w-full px-4 py-2 text-left hover:bg-gray-100 text-sm flex items-center gap-2"
+              onClick={() => handleAction('view')}
+            >
+              👁️ View Details
+            </button>
+            <button
+              className="w-full px-4 py-2 text-left hover:bg-gray-100 text-sm flex items-center gap-2"
+              onClick={() => handleAction('download')}
+            >
+              💾 Download
+            </button>
+            <button
+              className="w-full px-4 py-2 text-left hover:bg-gray-100 text-sm flex items-center gap-2"
+              onClick={() => handleAction('rename')}
+            >
+              ✏️ Rename
+            </button>
+            <button
+              className="w-full px-4 py-2 text-left hover:bg-gray-100 text-sm flex items-center gap-2"
+              onClick={() => handleAction('move')}
+            >
+              📁 Move to Category
+            </button>
+            <hr className="my-1" />
+            <button
+              className="w-full px-4 py-2 text-left hover:bg-red-50 text-sm text-red-600 flex items-center gap-2"
+              onClick={() => handleAction('delete')}
+            >
+              🗑️ Delete
+            </button>
+          </>
+        )}
+        
+        {contextMenu.type === 'folder' && (
+          <>
+            <button
+              className="w-full px-4 py-2 text-left hover:bg-gray-100 text-sm flex items-center gap-2"
+              onClick={() => handleAction('rename')}
+            >
+              ✏️ Rename Folder
+            </button>
+            <button
+              className="w-full px-4 py-2 text-left hover:bg-red-50 text-sm text-red-600 flex items-center gap-2"
+              onClick={() => handleAction('delete')}
+            >
+              🗑️ Delete Folder
+            </button>
+          </>
+        )}
+      </div>
+    </>
+  );
+};
+
+// Upload Metadata Form Component
+const UploadMetadataForm = ({ isOpen, onClose, onSubmit, initialData = {} }) => {
+  const [formData, setFormData] = useState({
+    category: initialData.category || 'Images',
+    station: initialData.station || '',
+    description: initialData.description || '',
+    notes: initialData.notes || '',
+    tags: initialData.tags || '',
+    ...initialData
+  });
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    onSubmit(formData);
+  };
+
+  const handleChange = (field, value) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-2xl">
+        <h3 className="text-xl font-semibold mb-4 text-gray-900">Upload Settings</h3>
+        
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Category
+            </label>
+            <select
+              value={formData.category}
+              onChange={(e) => handleChange('category', e.target.value)}
+              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="Images">Images</option>
+              <option value="Video">Video</option>
+              <option value="Audio">Audio</option>
+              <option value="Documents">Documents</option>
+              <option value="Files">Files</option>
+              <option value="product">Product</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Station
+            </label>
+            <input
+              type="text"
+              value={formData.station}
+              onChange={(e) => handleChange('station', e.target.value)}
+              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="e.g., Studio A, Location B"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Description
+            </label>
+            <textarea
+              value={formData.description}
+              onChange={(e) => handleChange('description', e.target.value)}
+              rows={3}
+              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="Brief description of the files..."
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Notes
+            </label>
+            <textarea
+              value={formData.notes}
+              onChange={(e) => handleChange('notes', e.target.value)}
+              rows={2}
+              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="Additional notes..."
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Tags
+            </label>
+            <input
+              type="text"
+              value={formData.tags}
+              onChange={(e) => handleChange('tags', e.target.value)}
+              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="tag1, tag2, tag3"
+            />
+          </div>
+
+          <div className="flex justify-end space-x-3 pt-4">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Upload Files
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
 };
 
 // Drag and Drop Overlay Component
@@ -1212,757 +1962,8 @@ export default function App() {
       <DragDropOverlay isDragOver={isDragOver} />
     </div>
   );
-}
-  }
-
-  return (
-    <div className="flex-1 p-4 overflow-auto">
-      <SelectionControls />
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4">
-        {files.map((file) => (
-          <div
-            key={file.id}
-            className={`relative bg-white border-2 rounded-lg p-3 hover:shadow-lg cursor-pointer transition-all duration-200 group ${
-              isSelected(file) 
-                ? 'border-blue-500 bg-blue-50 shadow-md' 
-                : 'border-gray-200 hover:border-gray-300'
-            }`}
-            onContextMenu={(e) => onFileRightClick(e, file)}
-            onClick={() => handleFileClick(file)}
-          >
-            {/* Selection checkbox */}
-            <div className="absolute top-2 left-2 z-10">
-              <input
-                type="checkbox"
-                checked={isSelected(file)}
-                onChange={(e) => handleFileSelectToggle(file, e)}
-                className="rounded shadow-sm"
-              />
-            </div>
-
-            {/* FIXED - File thumbnail/icon with enhanced logic */}
-            <div className="aspect-square mb-2 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden">
-              {(() => {
-                console.log(`🎨 Rendering file: ${file.title}, type: ${file.type}, thumbnail: ${file.thumbnail}, url: ${file.url}`);
-                
-                // For images, try to show thumbnail first
-                if (file.type === 'image') {
-                  const imageUrl = file.thumbnail || file.url;
-                  
-                  if (imageUrl && !imageErrors.has(file.id)) {
-                    return (
-                      <img
-                        src={imageUrl}
-                        alt={file.title}
-                        className="w-full h-full object-cover rounded-lg"
-                        onError={() => {
-                          console.log(`❌ Image failed to load: ${imageUrl}`);
-                          handleImageError(file.id);
-                        }}
-                        onLoad={() => {
-                          console.log(`✅ Image loaded successfully: ${imageUrl}`);
-                        }}
-                        loading="lazy"
-                      />
-                    );
-                  }
-                }
-                
-                // For videos with thumbnails
-                if (file.type === 'video' && file.thumbnail && !imageErrors.has(file.id)) {
-                  return (
-                    <img
-                      src={file.thumbnail}
-                      alt={file.title}
-                      className="w-full h-full object-cover rounded-lg"
-                      onError={() => {
-                        console.log(`❌ Video thumbnail failed to load: ${file.thumbnail}`);
-                        handleImageError(file.id);
-                      }}
-                      onLoad={() => {
-                        console.log(`✅ Video thumbnail loaded successfully: ${file.thumbnail}`);
-                      }}
-                      loading="lazy"
-                    />
-                  );
-                }
-                
-                // Fallback to file type icon
-                return (
-                  <div className="flex flex-col items-center justify-center h-full">
-                    {getFileIcon(file.type, 'text-3xl')}
-                    <span className="text-xs text-gray-500 mt-1 uppercase font-medium">
-                      {file.type || 'unknown'}
-                    </span>
-                  </div>
-                );
-              })()}
-            </div>
-
-            {/* File info */}
-            <div className="text-sm">
-              <p className="font-medium truncate text-gray-900" title={file.title}>
-                {file.title}
-              </p>
-              <p className="text-xs text-gray-500 truncate">
-                {formatFileSize(file.fileSize)}
-              </p>
-              {file.tags && (
-                <p className="text-xs text-blue-600 truncate mt-1">
-                  {file.tags}
-                </p>
-              )}
-            </div>
-
-            {/* Hover overlay with quick actions */}
-            <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 rounded-lg transition-all duration-200 flex items-center justify-center opacity-0 group-hover:opacity-100">
-              <div className="flex gap-2">
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onFileRightClick(e, file);
-                  }}
-                  className="bg-white bg-opacity-90 hover:bg-opacity-100 p-2 rounded-full shadow-sm"
-                  title="More options"
-                >
-                  ⋯
-                </button>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-};
-
-// Enhanced File Details Modal
-const FileDetailsModal = ({ file, isOpen, onClose, onUpdate, onDelete }) => {
-  const [isEditing, setIsEditing] = useState(false);
-  const [editData, setEditData] = useState({});
-
-  useEffect(() => {
-    if (file) {
-      setEditData({
-        title: file.title || '',
-        description: file.description || '',
-        notes: file.notes || '',
-        tags: file.tags || '',
-        station: file.station || '',
-        category: file.category || ''
-      });
-    }
-  }, [file]);
-
-  const handleSave = () => {
-    onUpdate(file.id, {
-      'Title': editData.title,
-      'Description': editData.description,
-      'Notes': editData.notes,
-      'Tags': editData.tags,
-      'Station': editData.station,
-      'Category': editData.category
-    });
-    setIsEditing(false);
-  };
-
-  const handleCancel = () => {
-    if (file) {
-      setEditData({
-        title: file.title || '',
-        description: file.description || '',
-        notes: file.notes || '',
-        tags: file.tags || '',
-        station: file.station || '',
-        category: file.category || ''
-      });
-    }
-    setIsEditing(false);
-  };
-
-  if (!isOpen || !file) return null;
-
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-hidden shadow-2xl">
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b bg-gray-50">
-          <div className="flex items-center gap-3">
-            {getFileIcon(file.type, 'text-2xl')}
-            <div>
-              <h2 className="text-xl font-semibold text-gray-900">{file.title}</h2>
-              <p className="text-sm text-gray-500">{file.category} • {formatFileSize(file.fileSize)}</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setIsEditing(!isEditing)}
-              className="px-3 py-1 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              {isEditing ? 'Cancel' : '✏️ Edit'}
-            </button>
-            <button
-              onClick={onClose}
-              className="p-2 hover:bg-gray-200 rounded-lg transition-colors"
-            >
-              ✕
-            </button>
-          </div>
-        </div>
-        
-        <div className="flex h-[calc(90vh-120px)]">
-          {/* Preview Section */}
-          <div className="flex-1 p-6 bg-gray-50 flex items-center justify-center">
-            {file.type === 'image' && file.url && (
-              <img
-                src={file.url}
-                alt={file.title}
-                className="max-w-full max-h-full object-contain rounded-lg shadow-sm"
-              />
-            )}
-            
-            {file.type === 'video' && file.url && (
-              <video
-                src={file.url}
-                controls
-                className="max-w-full max-h-full rounded-lg shadow-sm"
-              >
-                Your browser does not support video playback.
-              </video>
-            )}
-            
-            {file.type === 'audio' && file.url && (
-              <div className="text-center">
-                <div className="text-6xl mb-4">🎵</div>
-                <audio
-                  src={file.url}
-                  controls
-                  className="w-full max-w-md"
-                >
-                  Your browser does not support audio playback.
-                </audio>
-              </div>
-            )}
-            
-            {!['image', 'video', 'audio'].includes(file.type) && (
-              <div className="text-center">
-                <div className="text-6xl mb-4">{getFileIcon(file.type, 'text-6xl')}</div>
-                <p className="text-gray-600 mb-4">Preview not available for this file type</p>
-                {file.url && (
-                  <a
-                    href={file.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-block px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                  >
-                    📄 Open File
-                  </a>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Details Section */}
-          <div className="w-96 p-6 overflow-y-auto border-l bg-white">
-            <h3 className="text-lg font-semibold mb-4 text-gray-900">File Details</h3>
-
-            {isEditing ? (
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
-                  <input
-                    type="text"
-                    value={editData.title}
-                    onChange={(e) => setEditData({...editData, title: e.target.value})}
-                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
-                  <select
-                    value={editData.category}
-                    onChange={(e) => setEditData({...editData, category: e.target.value})}
-                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    <option value="Images">Images</option>
-                    <option value="Video">Video</option>
-                    <option value="Audio">Audio</option>
-                    <option value="Documents">Documents</option>
-                    <option value="Files">Files</option>
-                    <option value="product">Product</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Station</label>
-                  <input
-                    type="text"
-                    value={editData.station}
-                    onChange={(e) => setEditData({...editData, station: e.target.value})}
-                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                  <textarea
-                    value={editData.description}
-                    onChange={(e) => setEditData({...editData, description: e.target.value})}
-                    rows={3}
-                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
-                  <textarea
-                    value={editData.notes}
-                    onChange={(e) => setEditData({...editData, notes: e.target.value})}
-                    rows={2}
-                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Tags</label>
-                  <input
-                    type="text"
-                    value={editData.tags}
-                    onChange={(e) => setEditData({...editData, tags: e.target.value})}
-                    placeholder="tag1, tag2, tag3"
-                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-
-                <div className="flex gap-2 pt-4">
-                  <button
-                    onClick={handleSave}
-                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                  >
-                    💾 Save Changes
-                  </button>
-                  <button
-                    onClick={handleCancel}
-                    className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                <div className="grid grid-cols-1 gap-4">
-                  <div className="bg-gray-50 p-3 rounded-lg">
-                    <span className="text-sm font-medium text-gray-700 block mb-1">File Type</span>
-                    <span className="text-sm text-gray-900 capitalize">{file.type}</span>
-                  </div>
-
-                  <div className="bg-gray-50 p-3 rounded-lg">
-                    <span className="text-sm font-medium text-gray-700 block mb-1">Size</span>
-                    <span className="text-sm text-gray-900">{formatFileSize(file.fileSize)}</span>
-                  </div>
-
-                  <div className="bg-gray-50 p-3 rounded-lg">
-                    <span className="text-sm font-medium text-gray-700 block mb-1">Upload Date</span>
-                    <span className="text-sm text-gray-900">{formatDate(file.uploadDate)}</span>
-                  </div>
-
-                  {file.station && (
-                    <div className="bg-gray-50 p-3 rounded-lg">
-                      <span className="text-sm font-medium text-gray-700 block mb-1">Station</span>
-                      <span className="text-sm text-gray-900">{file.station}</span>
-                    </div>
-                  )}
-
-                  {file.description && (
-                    <div className="bg-gray-50 p-3 rounded-lg">
-                      <span className="text-sm font-medium text-gray-700 block mb-1">Description</span>
-                      <span className="text-sm text-gray-900">{file.description}</span>
-                    </div>
-                  )}
-
-                  {file.notes && (
-                    <div className="bg-gray-50 p-3 rounded-lg">
-                      <span className="text-sm font-medium text-gray-700 block mb-1">Notes</span>
-                      <span className="text-sm text-gray-900">{file.notes}</span>
-                    </div>
-                  )}
-
-                  {file.tags && (
-                    <div className="bg-gray-50 p-3 rounded-lg">
-                      <span className="text-sm font-medium text-gray-700 block mb-1">Tags</span>
-                      <div className="flex flex-wrap gap-1">
-                        {file.tags.split(',').map((tag, index) => (
-                          <span
-                            key={index}
-                            className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full"
-                          >
-                            {tag.trim()}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {file.url && (
-                    <div className="bg-gray-50 p-3 rounded-lg">
-                      <span className="text-sm font-medium text-gray-700 block mb-1">File URL</span>
-                      <a
-                        href={file.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-sm text-blue-600 hover:text-blue-800 break-all"
-                      >
-                        {file.url}
-                      </a>
-                    </div>
-                  )}
-                </div>
-
-                <div className="pt-4 border-t">
-                  <button
-                    onClick={() => onDelete(file)}
-                    className="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-                  >
-                    🗑️ Delete File
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// Batch Operations Panel
-const BatchOperationsPanel = ({ selectedFiles, onClose, onBatchUpdate, onBatchDelete, onBatchMove }) => {
-  const [batchAction, setBatchAction] = useState('');
-  const [batchData, setBatchData] = useState({
-    category: '',
-    tags: '',
-    station: '',
-    description: '',
-    notes: ''
-  });
-
-  const handleBatchUpdate = () => {
-    const updates = selectedFiles.map(file => ({
-      id: file.id,
-      fields: {
-        ...(batchData.category && { 'Category': batchData.category }),
-        ...(batchData.tags && { 'Tags': batchData.tags }),
-        ...(batchData.station && { 'Station': batchData.station }),
-        ...(batchData.description && { 'Description': batchData.description }),
-        ...(batchData.notes && { 'Notes': batchData.notes })
-      }
-    }));
-    onBatchUpdate(updates);
-  };
-
-  if (selectedFiles.length === 0) return null;
-
-  return (
-    <div className="fixed bottom-4 right-4 bg-white border border-gray-300 rounded-lg shadow-xl p-4 w-80 z-40">
-      <div className="flex items-center justify-between mb-3">
-        <h4 className="font-medium text-gray-800">
-          Batch Operations ({selectedFiles.length} files)
-        </h4>
-        <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
-          ✕
-        </button>
-      </div>
-
-      <div className="space-y-3">
-        <div className="flex gap-2">
-          <select
-            value={batchAction}
-            onChange={(e) => setBatchAction(e.target.value)}
-            className="flex-1 p-2 border border-gray-300 rounded text-sm"
-          >
-            <option value="">Choose Action</option>
-            <option value="update">Update Fields</option>
-            <option value="move">Move to Category</option>
-            <option value="delete">Delete Files</option>
-          </select>
-        </div>
-
-        {batchAction === 'update' && (
-          <div className="space-y-2">
-            <select
-              value={batchData.category}
-              onChange={(e) => setBatchData({...batchData, category: e.target.value})}
-              className="w-full p-2 border border-gray-300 rounded text-sm"
-            >
-              <option value="">Category (no change)</option>
-              <option value="Images">Images</option>
-              <option value="Video">Video</option>
-              <option value="Audio">Audio</option>
-              <option value="Documents">Documents</option>
-              <option value="Files">Files</option>
-            </select>
-
-            <input
-              type="text"
-              placeholder="Tags (append/replace)"
-              value={batchData.tags}
-              onChange={(e) => setBatchData({...batchData, tags: e.target.value})}
-              className="w-full p-2 border border-gray-300 rounded text-sm"
-            />
-
-            <input
-              type="text"
-              placeholder="Station"
-              value={batchData.station}
-              onChange={(e) => setBatchData({...batchData, station: e.target.value})}
-              className="w-full p-2 border border-gray-300 rounded text-sm"
-            />
-
-            <button
-              onClick={handleBatchUpdate}
-              className="w-full px-3 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
-            >
-              Update {selectedFiles.length} Files
-            </button>
-          </div>
-        )}
-
-        {batchAction === 'move' && (
-          <div className="space-y-2">
-            <select
-              value={batchData.category}
-              onChange={(e) => setBatchData({...batchData, category: e.target.value})}
-              className="w-full p-2 border border-gray-300 rounded text-sm"
-            >
-              <option value="">Select Destination</option>
-              <option value="Images">Images</option>
-              <option value="Video">Video</option>
-              <option value="Audio">Audio</option>
-              <option value="Documents">Documents</option>
-              <option value="Files">Files</option>
-            </select>
-
-            <button
-              onClick={() => onBatchMove(selectedFiles, batchData.category)}
-              disabled={!batchData.category}
-              className="w-full px-3 py-2 bg-green-600 text-white rounded text-sm hover:bg-green-700 disabled:bg-gray-400"
-            >
-              Move {selectedFiles.length} Files
-            </button>
-          </div>
-        )}
-
-        {batchAction === 'delete' && (
-          <div className="space-y-2">
-            <p className="text-sm text-red-600">
-              This will permanently delete {selectedFiles.length} files.
-            </p>
-            <button
-              onClick={() => onBatchDelete(selectedFiles)}
-              className="w-full px-3 py-2 bg-red-600 text-white rounded text-sm hover:bg-red-700"
-            >
-              🗑️ Delete {selectedFiles.length} Files
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-};
-
-// Context Menu Component
-const ContextMenu = ({ contextMenu, onClose, onAction }) => {
-  if (!contextMenu.show) return null;
-
-  const handleAction = (action) => {
-    onAction(action, contextMenu.target);
-    onClose();
-  };
-
-  return (
-    <>
-      <div className="fixed inset-0 z-40" onClick={onClose} />
-      <div
-        className="fixed bg-white border border-gray-300 rounded-lg shadow-xl py-2 z-50 min-w-48"
-        style={{ left: contextMenu.x, top: contextMenu.y }}
-      >
-        {contextMenu.type === 'file' && (
-          <>
-            <button
-              className="w-full px-4 py-2 text-left hover:bg-gray-100 text-sm flex items-center gap-2"
-              onClick={() => handleAction('view')}
-            >
-              👁️ View Details
-            </button>
-            <button
-              className="w-full px-4 py-2 text-left hover:bg-gray-100 text-sm flex items-center gap-2"
-              onClick={() => handleAction('download')}
-            >
-              💾 Download
-            </button>
-            <button
-              className="w-full px-4 py-2 text-left hover:bg-gray-100 text-sm flex items-center gap-2"
-              onClick={() => handleAction('rename')}
-            >
-              ✏️ Rename
-            </button>
-            <button
-              className="w-full px-4 py-2 text-left hover:bg-gray-100 text-sm flex items-center gap-2"
-              onClick={() => handleAction('move')}
-            >
-              📁 Move to Category
-            </button>
-            <hr className="my-1" />
-            <button
-              className="w-full px-4 py-2 text-left hover:bg-red-50 text-sm text-red-600 flex items-center gap-2"
-              onClick={() => handleAction('delete')}
-            >
-              🗑️ Delete
-            </button>
-          </>
-        )}
-        
-        {contextMenu.type === 'folder' && (
-          <>
-            <button
-              className="w-full px-4 py-2 text-left hover:bg-gray-100 text-sm flex items-center gap-2"
-              onClick={() => handleAction('rename')}
-            >
-              ✏️ Rename Folder
-            </button>
-            <button
-              className="w-full px-4 py-2 text-left hover:bg-red-50 text-sm text-red-600 flex items-center gap-2"
-              onClick={() => handleAction('delete')}
-            >
-              🗑️ Delete Folder
-            </button>
-          </>
-        )}
-      </div>
-    </>
-  );
-};
-
-// Upload Metadata Form Component
-const UploadMetadataForm = ({ isOpen, onClose, onSubmit, initialData = {} }) => {
-  const [formData, setFormData] = useState({
-    category: initialData.category || 'Images',
-    station: initialData.station || '',
-    description: initialData.description || '',
-    notes: initialData.notes || '',
-    tags: initialData.tags || '',
-    ...initialData
-  });
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    onSubmit(formData);
-  };
-
-  const handleChange = (field, value) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-  };
-
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-2xl">
-        <h3 className="text-xl font-semibold mb-4 text-gray-900">Upload Settings</h3>
-        
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Category
-            </label>
-            <select
-              value={formData.category}
-              onChange={(e) => handleChange('category', e.target.value)}
-              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="Images">Images</option>
-              <option value="Video">Video</option>
-              <option value="Audio">Audio</option>
-              <option value="Documents">Documents</option>
-              <option value="Files">Files</option>
-              <option value="product">Product</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Station
-            </label>
-            <input
-              type="text"
-              value={formData.station}
-              onChange={(e) => handleChange('station', e.target.value)}
-              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="e.g., Studio A, Location B"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Description
-            </label>
-            <textarea
-              value={formData.description}
-              onChange={(e) => handleChange('description', e.target.value)}
-              rows={3}
-              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="Brief description of the files..."
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Notes
-            </label>
-            <textarea
-              value={formData.notes}
-              onChange={(e) => handleChange('notes', e.target.value)}
-              rows={2}
-              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="Additional notes..."
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Tags
-            </label>
-            <input
-              type="text"
-              value={formData.tags}
-              onChange={(e) => handleChange('tags', e.target.value)}
-              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="tag1, tag2, tag3"
-            />
-          </div>
-
-          <div className="flex justify-end space-x-3 pt-4">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              Upload Files
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );// =============================================
-// ENHANCED UI COMPONENTS - FIXED
+}// =============================================
+// ENHANCED UI COMPONENTS - FIXED JSX
 // =============================================
 
 // Enhanced Folder Tree Component
@@ -2183,5 +2184,4 @@ const FileGrid = ({
                       </div>
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-sm text-gray-600 capitalize">
-                    <span className="inline-flex items-center px-2 py-1
+                  <td className="px-4 py-3 text-
