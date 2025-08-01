@@ -675,7 +675,7 @@ const App = () => {
 
   const { files: currentFiles, folders: currentFolders } = getCurrentFolderContents();
 
-  // --- BEGIN FIXED FOLDER TREE LOGIC ---
+  // --- BEGIN CORRECTED FOLDER TREE LOGIC ---
   const folderTree = useMemo(() => {
     // 1) Start with a single "Root" node
     const tree = { name: 'Root', path: '', children: [], files: [] };
@@ -711,7 +711,7 @@ const App = () => {
 
     return tree;
   }, [folders, files]);
-  // --- END FIXED FOLDER TREE LOGIC ---
+  // --- END CORRECTED FOLDER TREE LOGIC ---
 
   // Load data on mount
   useEffect(() => {
@@ -739,7 +739,7 @@ const App = () => {
     return () => document.removeEventListener('click', handleClick);
   }, []);
 
-  // --- BEGIN FIXED FOLDER TREE RENDERER LOGIC ---
+  // --- BEGIN CORRECTED FOLDER TREE RENDERER LOGIC ---
   const renderFolderTree = (node, level = 0) => {
     const indent = level * 20;
     const isExpanded = expandedFolders.has(node.path);
@@ -798,7 +798,7 @@ const App = () => {
       </div>
     );
   };
-  // --- END FIXED FOLDER TREE RENDERER LOGIC ---
+  // --- END CORRECTED FOLDER TREE RENDERER LOGIC ---
 
   if (loading) {
     return (
@@ -1264,4 +1264,187 @@ const App = () => {
                     />
                   )}
                   <div style={{ flex: 1 }}>
-                    <h4 style
+                    <h4 style={{ margin: '0 0 5px 0', fontSize: '14px' }}>{file.name}</h4>
+                    {file.title && (
+                      <p style={{ margin: '2px 0', fontSize: '13px', fontWeight: 'bold', color: '#333' }}>
+                        {file.title}
+                      </p>
+                    )}
+                    <div style={{ display: 'flex', gap: '15px', fontSize: '12px', color: '#666' }}>
+                      {file.station && <span>📺 {file.station}</span>}
+                      {file.submittedBy && <span>👤 {file.submittedBy}</span>}
+                      {file.tags && <span>🏷️ {file.tags}</span>}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {currentFiles.length === 0 && (
+          <div style={{ 
+            textAlign: 'center', 
+            padding: '40px', 
+            color: '#666',
+            fontSize: '16px'
+          }}>
+            {files.length === 0 
+              ? 'No files uploaded yet. Upload some files to get started!'
+              : `No files in ${currentFolder || 'Root'} folder.`
+            }
+          </div>
+        )}
+      </div>
+
+      {/* Context Menu */}
+      {contextMenu && (
+        <div
+          style={{
+            position: 'fixed',
+            top: contextMenu.y,
+            left: contextMenu.x,
+            backgroundColor: 'white',
+            border: '1px solid #ddd',
+            borderRadius: '4px',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+            zIndex: 1000,
+            minWidth: '150px'
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {contextMenu.type === 'folder' ? (
+            <>
+              <div
+                style={{
+                  padding: '10px 15px',
+                  cursor: 'pointer',
+                  borderBottom: '1px solid #eee'
+                }}
+                onClick={() => handleContextMenuAction('rename', contextMenu)}
+              >
+                ✏️ Rename Folder
+              </div>
+              <div
+                style={{
+                  padding: '10px 15px',
+                  cursor: 'pointer',
+                  color: '#dc3545'
+                }}
+                onClick={() => handleContextMenuAction('delete', contextMenu)}
+              >
+                🗑️ Delete Folder
+              </div>
+            </>
+          ) : (
+            <>
+              <div
+                style={{
+                  padding: '10px 15px',
+                  cursor: 'pointer',
+                  borderBottom: '1px solid #eee'
+                }}
+                onClick={() => handleContextMenuAction('preview', contextMenu)}
+              >
+                👁️ Preview
+              </div>
+              <div
+                style={{
+                  padding: '10px 15px',
+                  cursor: 'pointer',
+                  color: '#dc3545'
+                }}
+                onClick={() => handleContextMenuAction('delete', contextMenu)}
+              >
+                🗑️ Delete
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Preview Modal */}
+      {previewFile && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.8)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 2000
+          }}
+          onClick={() => setPreviewFile(null)}
+        >
+          <div
+            style={{
+              backgroundColor: 'white',
+              borderRadius: '8px',
+              padding: '20px',
+              maxWidth: '90vw',
+              maxHeight: '90vh',
+              overflow: 'auto'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+              <h3 style={{ margin: 0 }}>{previewFile.name}</h3>
+              <button
+                onClick={() => setPreviewFile(null)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '20px',
+                  cursor: 'pointer',
+                  padding: '5px'
+                }}
+              >
+                ✕
+              </button>
+            </div>
+            
+            {previewFile.url && previewFile.type?.startsWith('image/') && (
+              <img 
+                src={previewFile.url} 
+                alt={previewFile.name}
+                style={{ 
+                  maxWidth: '100%', 
+                  maxHeight: '400px', 
+                  objectFit: 'contain',
+                  marginBottom: '15px'
+                }}
+              />
+            )}
+
+            <div style={{ fontSize: '14px', color: '#666' }}>
+              {previewFile.title && <p><strong>Title:</strong> {previewFile.title}</p>}
+              {previewFile.description && <p><strong>Description:</strong> {previewFile.description}</p>}
+              {previewFile.station && <p><strong>Station:</strong> {previewFile.station}</p>}
+              {previewFile.submittedBy && <p><strong>Submitted By:</strong> {previewFile.submittedBy}</p>}
+              {previewFile.tags && <p><strong>Tags:</strong> {previewFile.tags}</p>}
+              {previewFile.notes && <p><strong>Notes:</strong> {previewFile.notes}</p>}
+              <p><strong>Type:</strong> {previewFile.type}</p>
+              {previewFile.dateSubmitted && (
+                <p><strong>Date:</strong> {new Date(previewFile.dateSubmitted).toLocaleDateString()}</p>
+              )}
+              {previewFile.url && (
+                <p>
+                  <strong>URL:</strong> 
+                  <a href={previewFile.url} target="_blank" rel="noopener noreferrer" style={{ marginLeft: '10px' }}>
+                    Open Original
+                  </a>
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default App;
