@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 
 // =============================================
-// AIRTABLE SERVICE CLASS - FINAL FIX
+// AIRTABLE SERVICE CLASS - FIXED
 // =============================================
 class AirtableService {
   constructor() {
@@ -98,14 +98,13 @@ class AirtableService {
           break;
         }
       }
-     
-      const url = fileAttachment?.url || this.getFieldValue(fields, this.airtableFields.url) || '';
-      const thumbnail = fileAttachment?.thumbnails?.small?.url || url;
-      console.log(`🖼️ Final thumbnail URL for ${this.getFieldValue(fields, this.airtableFields.title)}: ${thumbnail}`);
 
-      const detectedType = this.detectFileTypeFromUrl(url);
-      console.log(`🔍 File type detection for ${this.getFieldValue(fields, this.airtableFields.title)}: ${detectedType} from URL: ${url}`);
-      
+      const airtableThumbnailUrl = fileAttachment?.thumbnails?.small?.url;
+      const url = fileAttachment?.url || this.getFieldValue(fields, this.airtableFields.url) || '';
+      const thumbnail = airtableThumbnailUrl || url;
+      console.log(`🖼️ Final thumbnail URL for ${this.getFieldValue(fields, this.airtableFields.title)}: ${thumbnail}`);
+      const detectedType = fileAttachment?.type?.split('/')[0] || this.detectFileTypeFromUrl(url);
+
       const processedFile = {
         id: record.id,
         title: this.getFieldValue(fields, this.airtableFields.title) || 'Untitled',
@@ -181,201 +180,9 @@ class AirtableService {
   }
 
   // FIXED - Enhanced thumbnail generation
-  generateThumbnailFromUrl(url, fileType) {
-    if (!url) {
-      console.log('⚠️ No URL provided for thumbnail generation');
-      return '';
-    }
-    
-    console.log(`🖼️ Generating thumbnail for URL: ${url}, type: ${fileType}`);
-    
-    try {
-      // If it's a Cloudinary URL, generate proper thumbnail
-      if (url.includes('cloudinary.com')) {
-        const uploadIndex = url.indexOf('/upload/');
-        if (uploadIndex === -1) {
-          return url; // Not a standard Cloudinary URL
-        }
-
-        const baseUrl = url.substring(0, uploadIndex + 8); // Include '/upload/'
-        const path = url.substring(uploadIndex + 8);
-
-        // Add transformations after the upload folder
-        const transform = 'w_150,h_150,c_fill,f_auto,q_auto';
-
-        if (fileType === 'image') {
-          return `${baseUrl}${transform}/${path}`;
-        }
-        
-        if (fileType === 'video') {
-          // Add specific video transformations for a thumbnail
-          return `${baseUrl}${transform},so_0/${path.replace(/\.[^.]+$/, '.jpg')}`;
-        }
-        
-        // For documents and other non-image/non-video files
-        if (['document', 'spreadsheet', 'presentation'].includes(fileType)) {
-          // Try to get the first page as a JPG thumbnail
-          // This conversion works for many document types like PDF
-          return `${baseUrl}${transform},f_jpg,pg_1/${path}`;
-        }
-      }
-      
-      // For non-Cloudinary URLs or files without a resource type
-      if (fileType === 'image') {
-        console.log(`✅ Direct image URL: ${url}`);
-        return url;
-      }
-     
-      return '';
-      
-    } catch (error) {
-      console.error('❌ Error generating thumbnail:', error);
-      return originalUrl;
-    }
-  }
-
-  // Save new file to Airtable
-  async saveFile(fileData) {
-    console.log('🔄 AirtableService: Saving file to Airtable:', fileData);
-    
-    try {
-      const airtableData = {
-        fields: {
-          'Title': fileData.title || fileData.name,
-          'URL': fileData.url,
-          'Category': fileData.category,
-          'Type': fileData.type,
-          'Station': fileData.station || '',
-          'Description': fileData.description || '',
-          'Notes': fileData.notes || '',
-          'Tags': fileData.tags || '',
-          'Upload Date': new Date().toISOString().split('T')[0],
-          'File Size': fileData.size || 0,
-          'Thumbnail': fileData.thumbnail || fileData.url
-        }
-      };
-
-      console.log('📡 AirtableService: Sending to Airtable:', airtableData);
-
-      const response = await fetch(this.baseUrl, {
-        method: 'POST',
-        headers: this.headers,
-        body: JSON.stringify(airtableData)
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error('❌ AirtableService: Airtable error:', errorData);
-        throw new Error(`Airtable error: ${errorData.error?.message || response.statusText}`);
-      }
-
-      const result = await response.json();
-      console.log('✅ AirtableService: File saved successfully:', result);
-      return result;
-      
-    } catch (error) {
-      console.error('❌ AirtableService: Error saving file:', error);
-      throw error;
-    }
-  }
-
-  // Update existing file in Airtable
-  async updateFile(recordId, updates) {
-    console.log('🔄 AirtableService: Updating file:', { recordId, updates });
-    
-    try {
-      const response = await fetch(`${this.baseUrl}/${recordId}`, {
-        method: 'PATCH',
-        headers: this.headers,
-        body: JSON.stringify({
-          fields: updates
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const result = await response.json();
-      console.log('✅ AirtableService: File updated successfully:', result);
-      return result;
-      
-    } catch (error) {
-      console.error('❌ AirtableService: Error updating file:', error);
-      throw error;
-    }
-  }
-
-  // Update multiple files at once
-  async updateMultipleFiles(updates) {
-    console.log('🔄 AirtableService: Updating multiple files:', updates);
-    
-    try {
-      const records = updates.map(update => ({
-        id: update.id,
-        fields: update.fields
-      }));
-
-      const response = await fetch(this.baseUrl, {
-        method: 'PATCH',
-        headers: this.headers,
-        body: JSON.stringify({
-          records: records
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const result = await response.json();
-      console.log('✅ AirtableService: Multiple files updated successfully:', result);
-      return result;
-      
-    } catch (error) {
-      console.error('❌ AirtableService: Error updating multiple files:', error);
-      throw error;
-    }
-  }
-
-  // Delete file from Airtable
-  async deleteFile(recordId) {
-    console.log('🔄 AirtableService: Deleting file:', recordId);
-    
-    try {
-      const response = await fetch(`${this.baseUrl}/${recordId}`, {
-        method: 'DELETE',
-        headers: this.headers
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      console.log('✅ AirtableService: File deleted successfully');
-      return true;
-      
-    } catch (error) {
-      console.error('❌ AirtableService: Error deleting file:', error);
-      throw error;
-    }
-  }
-
-  // Delete multiple files at once
-  async deleteMultipleFiles(recordIds) {
-    console.log('🔄 AirtableService: Deleting multiple files:', recordIds);
-    
-    try {
-      const deletePromises = recordIds.map(id => this.deleteFile(id));
-      await Promise.all(deletePromises);
-      
-      console.log('✅ AirtableService: Multiple files deleted successfully');
-      return true;
-      
-    } catch (error) {
-      console.error('❌ AirtableService: Error deleting multiple files:', error);
-      throw error;
-    }
+  generateThumbnailFromUrl(originalUrl) {
+    if (!originalUrl) return '';
+    return originalUrl;
   }
 }
 
@@ -422,7 +229,7 @@ class CloudinaryService {
               
               const processedResult = {
                 url: result.secure_url,
-                thumbnail: this.generateThumbnailUrl(result.secure_url, result.resource_type),
+                thumbnail: result.secure_url, // For now, use the full URL.
                 publicId: result.public_id,
                 resourceType: result.resource_type,
                 format: result.format,
@@ -551,52 +358,9 @@ class CloudinaryService {
   }
 
   // Generate thumbnail URL for different media types
-  generateThumbnailUrl(originalUrl, resourceType) {
+  generateThumbnailUrl(originalUrl) {
     if (!originalUrl) return '';
-    
-    try {
-      // If it's a Cloudinary URL, generate proper thumbnail
-      if (originalUrl.includes('cloudinary.com')) {
-        const uploadIndex = originalUrl.indexOf('/upload/');
-        if (uploadIndex === -1) {
-          return originalUrl; // Not a standard Cloudinary URL
-        }
-
-        const baseUrl = originalUrl.substring(0, uploadIndex + 8); // Include '/upload/'
-        const path = originalUrl.substring(uploadIndex + 8);
-
-        // Add transformations after the upload folder
-        const transform = 'w_150,h_150,c_fill,f_auto,q_auto';
-
-        if (fileType === 'image') {
-          return `${baseUrl}${transform}/${path}`;
-        }
-        
-        if (fileType === 'video') {
-          // Add specific video transformations for a thumbnail
-          return `${baseUrl}${transform},so_0/${path.replace(/\.[^.]+$/, '.jpg')}`;
-        }
-        
-        // For documents and other non-image/non-video files
-        if (['document', 'spreadsheet', 'presentation'].includes(fileType)) {
-          // Try to get the first page as a JPG thumbnail
-          // This conversion works for many document types like PDF
-          return `${baseUrl}${transform},f_jpg,pg_1/${path}`;
-        }
-      }
-      
-      // For non-Cloudinary URLs or files without a resource type
-      if (fileType === 'image') {
-        console.log(`✅ Direct image URL: ${url}`);
-        return url;
-      }
-     
-      return '';
-      
-    } catch (error) {
-      console.error('❌ Error generating thumbnail:', error);
-      return originalUrl;
-    }
+    return originalUrl;
   }
 }
 
@@ -1180,7 +944,6 @@ const FileDetailsModal = ({ file, isOpen, onClose, onUpdate, onDelete }) => {
                     type="text"
                     value={editData.tags}
                     onChange={(e) => setEditData({...editData, tags: e.target.value})}
-                    placeholder="tag1, tag2, tag3"
                     className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
@@ -1250,6 +1013,7 @@ const FileDetailsModal = ({ file, isOpen, onClose, onUpdate, onDelete }) => {
                           >
                             {tag.trim()}
                           </span>
+                        ))}
                       </div>
                     </div>
                   )}
