@@ -173,6 +173,13 @@ class AirtableService {
           console.log(`✅ Video thumbnail: ${thumbnail}`);
           return thumbnail;
         }
+        
+        // NEW: Handle documents and PDFs
+        if (fileType === 'document' || fileType === 'spreadsheet' || fileType === 'presentation') {
+          const thumbnail = url.replace('/upload/', '/upload/w_150,h_150,c_fill,f_jpg,pg_1/');
+          console.log(`✅ Document thumbnail: ${thumbnail}`);
+          return thumbnail;
+        }
       }
       
       // For non-Cloudinary URLs or non-media files, return original URL for images
@@ -522,6 +529,13 @@ class CloudinaryService {
         return originalUrl.replace('/upload/', '/upload/w_150,h_150,c_fill,f_auto,q_auto,so_0/').replace(/\.[^.]+$/, '.jpg');
       }
       
+      // NEW: For documents, get the first page as a JPG thumbnail
+      if (resourceType === 'raw' || resourceType === 'auto') {
+        if (originalUrl.endsWith('.pdf')) {
+          return originalUrl.replace('/upload/', '/upload/w_150,h_150,c_fill,f_jpg,pg_1/');
+        }
+      }
+      
       // For other types, return original URL
       return originalUrl;
       
@@ -783,7 +797,7 @@ const FileGrid = ({ 
                     <input
                       type="checkbox"
                       checked={isSelected(file)}
-                      onChange={(e) => onFileSelect(file, e)}
+                      onChange={(e) => handleFileSelectToggle(file, e)}
                       className="rounded"
                     />
                   </td>
@@ -854,42 +868,21 @@ const FileGrid = ({ 
               {(() => {
                 console.log(`🎨 Rendering file: ${file.title}, type: ${file.type}, thumbnail: ${file.thumbnail}, url: ${file.url}`);
                 
-                // For images, try to show thumbnail first
-                if (file.type === 'image') {
-                  const imageUrl = file.thumbnail || file.url;
-                  
-                  if (imageUrl && !imageErrors.has(file.id)) {
-                    return (
-                      <img
-                        src={imageUrl}
-                        alt={file.title}
-                        className="w-full h-full object-cover rounded-lg"
-                        onError={() => {
-                          console.log(`❌ Image failed to load: ${imageUrl}`);
-                          handleImageError(file.id);
-                        }}
-                        onLoad={() => {
-                          console.log(`✅ Image loaded successfully: ${imageUrl}`);
-                        }}
-                        loading="lazy"
-                      />
-                    );
-                  }
-                }
-                
-                // For videos with thumbnails
-                if (file.type === 'video' && file.thumbnail && !imageErrors.has(file.id)) {
+                const isImageOrVideo = ['image', 'video', 'document', 'spreadsheet', 'presentation'].includes(file.type);
+                const hasThumbnail = file.thumbnail && !imageErrors.has(file.id);
+
+                if (isImageOrVideo && hasThumbnail) {
                   return (
                     <img
                       src={file.thumbnail}
                       alt={file.title}
                       className="w-full h-full object-cover rounded-lg"
                       onError={() => {
-                        console.log(`❌ Video thumbnail failed to load: ${file.thumbnail}`);
+                        console.log(`❌ Thumbnail failed to load: ${file.thumbnail}`);
                         handleImageError(file.id);
                       }}
                       onLoad={() => {
-                        console.log(`✅ Video thumbnail loaded successfully: ${file.thumbnail}`);
+                        console.log(`✅ Thumbnail loaded successfully: ${file.thumbnail}`);
                       }}
                       loading="lazy"
                     />
@@ -1209,7 +1202,6 @@ const FileDetailsModal = ({ file, isOpen, onClose, onUpdate, onDelete }) => {
                           >
                             {tag.trim()}
                           </span>
-                        ))}
                       </div>
                     </div>
                   )}
@@ -2084,105 +2076,4 @@ export default function App() {
                 onClick={() => setViewMode('list')}
                 className={`px-3 py-2 rounded text-sm font-medium transition-colors ${
                   viewMode === 'list' 
-                    ? 'bg-white text-gray-800 shadow-sm' 
-                    : 'text-gray-600 hover:text-gray-800'
-                }`}
-              >
-                📋 List
-              </button>
-            </div>
-
-            {/* Upload Button */}
-            <UploadButton 
-              onFileSelect={handleFileSelect}
-              isUploading={isUploading}
-            />
-
-            {/* Refresh Button */}
-            <button
-              onClick={loadFiles}
-              disabled={loading}
-              className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors"
-            >
-              🔄 Refresh
-            </button>
-          </div>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Sidebar */}
-        <FolderTree
-          folderTree={folderTree}
-          currentFolder={currentFolder}
-          setCurrentFolder={setCurrentFolder}
-          expandedFolders={expandedFolders}
-          setExpandedFolders={setExpandedFolders}
-          setContextMenu={setContextMenu}
-          onCreateFolder={handleCreateFolder}
-        />
-
-        {/* File Display Area */}
-        <FileGrid
-          files={currentFiles}
-          viewMode={viewMode}
-          onFileRightClick={handleFileRightClick}
-          onFileClick={handleFileClick}
-          selectedFiles={selectedFiles}
-          onFileSelect={handleFileSelectToggle}
-          onSelectAll={handleSelectAll}
-          onClearSelection={handleClearSelection}
-        />
-      </div>
-
-      {/* Upload Progress */}
-      <ProgressBar
-        uploads={uploads}
-        onClose={() => setUploads([])}
-      />
-
-      {/* Batch Operations Panel */}
-      <BatchOperationsPanel
-        selectedFiles={selectedFiles}
-        onClose={() => setShowBatchPanel(false)}
-        onBatchUpdate={handleBatchUpdate}
-        onBatchDelete={handleBatchDelete}
-        onBatchMove={handleBatchMove}
-      />
-
-      {/* Upload Metadata Form */}
-      <UploadMetadataForm
-        isOpen={showUploadForm}
-        onClose={() => {
-          setShowUploadForm(false);
-          setPendingFiles([]);
-        }}
-        onSubmit={handleUploadSubmit}
-        initialData={{ category: currentFolder }}
-      />
-
-      {/* Context Menu */}
-      <ContextMenu
-        contextMenu={contextMenu}
-        onClose={closeContextMenu}
-        onAction={handleContextAction}
-      />
-
-      {/* File Details Modal */}
-      <FileDetailsModal
-        file={selectedFile}
-        isOpen={showFileDetails}
-        onClose={() => {
-          setShowFileDetails(false);
-          setSelectedFile(null);
-        }}
-        onUpdate={handleFileUpdate}
-        onDelete={handleFileDelete}
-      />
-
-      {/* Drag and Drop Overlay */}
-      <DragDropOverlay isDragOver={isDragOver} />
-    </div>
-  );
-}
+                    ? 'bg
