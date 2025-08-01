@@ -46,7 +46,7 @@ class AirtableService {
         
       } while (offset);
 
-      console.log(`✅ AirtableService: Total records fetched: ${allRecords.length}`);
+      console.log(`📊 AirtableService: Page fetched. Records this page: ${data.records?.length || 0}, Total so far: ${allRecords.length}`);
       return this.processRecords(allRecords);
       
     } catch (error) {
@@ -173,7 +173,8 @@ class AirtableService {
         }
         
         // NEW: Handle documents and PDFs
-        if (fileType === 'document' || fileType === 'spreadsheet' || fileType === 'presentation') {
+        if (['document', 'spreadsheet', 'presentation'].includes(fileType)) {
+          // Cloudinary can convert documents to images with this transformation
           const thumbnail = url.replace('/upload/', '/upload/w_150,h_150,c_fill,f_jpg,pg_1/');
           console.log(`✅ Document thumbnail: ${thumbnail}`);
           return thumbnail;
@@ -517,25 +518,42 @@ class CloudinaryService {
     if (!originalUrl) return '';
     
     try {
-      // For images, create a small thumbnail
-      if (resourceType === 'image') {
-        return originalUrl.replace('/upload/', '/upload/w_150,h_150,c_fill,f_auto,q_auto/');
-      }
-      
-      // For videos, get first frame as thumbnail
-      if (resourceType === 'video') {
-        return originalUrl.replace('/upload/', '/upload/w_150,h_150,c_fill,f_auto,q_auto,so_0/').replace(/\.[^.]+$/, '.jpg');
-      }
-      
-      // NEW: For documents, get the first page as a JPG thumbnail
-      if (resourceType === 'raw' || resourceType === 'auto') {
-        if (originalUrl.endsWith('.pdf')) {
-          return originalUrl.replace('/upload/', '/upload/w_150,h_150,c_fill,f_jpg,pg_1/');
+      // If it's a Cloudinary URL, generate proper thumbnail
+      if (originalUrl.includes('cloudinary.com')) {
+        const uploadIndex = originalUrl.indexOf('/upload/');
+        if (uploadIndex === -1) {
+          return originalUrl; // Not a standard Cloudinary URL
+        }
+
+        const baseUrl = originalUrl.substring(0, uploadIndex + 8); // Include '/upload/'
+        const path = originalUrl.substring(uploadIndex + 8);
+
+        // Add transformations after the upload folder
+        const transform = 'w_150,h_150,c_fill,f_auto,q_auto';
+
+        if (resourceType === 'image') {
+          return `${baseUrl}${transform}/${path}`;
+        }
+        
+        if (resourceType === 'video') {
+          // Add specific video transformations for a thumbnail
+          return `${baseUrl}${transform},so_0/${path.replace(/\.[^.]+$/, '.jpg')}`;
+        }
+        
+        // For documents and other non-image/non-video files
+        if (resourceType === 'raw' || resourceType === 'auto') {
+          // Try to get the first page as a JPG thumbnail
+          // This conversion works for many document types like PDF
+          return `${baseUrl}${transform},f_jpg,pg_1/${path}`;
         }
       }
       
-      // For other types, return original URL
-      return originalUrl;
+      // For non-Cloudinary URLs or files without a resource type
+      if (fileType === 'image') {
+        return url;
+      }
+     
+      return '';
       
     } catch (error) {
       console.error('❌ Error generating thumbnail:', error);
@@ -1205,6 +1223,15 @@ const FileDetailsModal = ({ file, isOpen, onClose, onUpdate, onDelete }) => {
                     </div>
                   )}
                 </div>
+
+                <div className="pt-4 border-t">
+                  <button
+                    onClick={() => onDelete(file)}
+                    className="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                  >
+                    🗑️ Delete File
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -1468,9 +1495,7 @@ const UploadMetadataForm = ({ isOpen, onClose, onSubmit, initialData = {} }) => 
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Station
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Station</label>
             <input
               type="text"
               value={formData.station}
@@ -1481,9 +1506,7 @@ const UploadMetadataForm = ({ isOpen, onClose, onSubmit, initialData = {} }) => 
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Description
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
             <textarea
               value={formData.description}
               onChange={(e) => handleChange('description', e.target.value)}
@@ -1494,9 +1517,7 @@ const UploadMetadataForm = ({ isOpen, onClose, onSubmit, initialData = {} }) => 
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Notes
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
             <textarea
               value={formData.notes}
               onChange={(e) => handleChange('notes', e.target.value)}
