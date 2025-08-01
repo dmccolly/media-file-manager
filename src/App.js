@@ -246,6 +246,7 @@ const App = () => {
   }, [AIRTABLE_BASE_ID, AIRTABLE_API_KEY]);
 
   const deleteFileFromAirtable = useCallback(async (fileId) => {
+    if (!fileId) return; // Prevent deleting undefined files
     try {
       const response = await fetch(
         `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Media%20Assets/${fileId}`,
@@ -269,6 +270,7 @@ const App = () => {
   }, [AIRTABLE_BASE_ID, AIRTABLE_API_KEY]);
 
   const deleteFolderFromAirtable = useCallback(async (folderId) => {
+    if (!folderId) return; // Prevent deleting undefined folders
     try {
       const response = await fetch(
         `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Folder%20Structure/${folderId}`,
@@ -292,6 +294,7 @@ const App = () => {
   }, [AIRTABLE_BASE_ID, AIRTABLE_API_KEY]);
 
   const renameFolderInAirtable = useCallback(async (folderId, newName) => {
+    if (!folderId) return;
     try {
       const response = await fetch(
         `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Folder%20Structure/${folderId}`,
@@ -672,31 +675,43 @@ const App = () => {
 
   const { files: currentFiles, folders: currentFolders } = getCurrentFolderContents();
 
-  // Build folder tree
+  // --- BEGIN FIXED FOLDER TREE LOGIC ---
   const folderTree = useMemo(() => {
+    // 1) Start with a single "Root" node
     const tree = { name: 'Root', path: '', children: [], files: [] };
     const folderMap = { '': tree };
 
-    // Add folders to tree
-    folders.forEach(folder => {
-      folderMap[folder.name] = {
-        ...folder,
-        children: [],
-        files: []
-      };
-      tree.children.push(folderMap[folder.name]);
+    // 2) Add any existing folders from Airtable as nodes
+    folders.forEach(f => {
+      folderMap[f.name] = { ...f, children: [], files: [] };
     });
 
-    // Add files to folders
+    // 3) Create a new folder node for every unique file.folder value that doesn't already have one
     files.forEach(file => {
-      const targetFolder = folderMap[file.folder || ''];
-      if (targetFolder) {
-        targetFolder.files.push(file);
+      const name = file.folder || '';
+      if (name && !folderMap[name]) {
+        folderMap[name] = { name, path: name, children: [], files: [] };
+      }
+    });
+
+    // 4) Collect all non-root nodes and put them under the "Root" node.
+    Object.values(folderMap).forEach(node => {
+      if (node.path !== '') {
+        tree.children.push(node);
+      }
+    });
+
+    // 5) Finally, place each file under its corresponding folder node (or Root if the folder is empty)
+    files.forEach(file => {
+      const target = folderMap[file.folder || ''];
+      if (target) {
+        target.files.push(file);
       }
     });
 
     return tree;
   }, [folders, files]);
+  // --- END FIXED FOLDER TREE LOGIC ---
 
   // Load data on mount
   useEffect(() => {
@@ -724,7 +739,7 @@ const App = () => {
     return () => document.removeEventListener('click', handleClick);
   }, []);
 
-  // Render folder tree
+  // --- BEGIN FIXED FOLDER TREE RENDERER LOGIC ---
   const renderFolderTree = (node, level = 0) => {
     const indent = level * 20;
     const isExpanded = expandedFolders.has(node.path);
@@ -733,57 +748,57 @@ const App = () => {
 
     return (
       <div key={node.path || 'root'}>
-        {level > 0 && (
-          <div
-            style={{
-              display: 'flex', alignItems: 'center', padding: '8px 4px',
-              paddingLeft: `${indent}px`, cursor: 'pointer',
-              backgroundColor: currentFolder === node.name ? '#e3f2fd' : 'transparent',
-              borderRadius: '4px', margin: '2px 0'
-            }}
-            onClick={() => setCurrentFolder(node.name || '')}
-            onContextMenu={(e) => {
-              e.preventDefault();
-              setContextMenu({
-                x: e.clientX,
-                y: e.clientY,
-                type: 'folder',
-                folder: node
-              });
-            }}
-          >
-            {hasChildren && (
-              <span
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setExpandedFolders(prev => {
-                    const newSet = new Set(prev);
-                    if (isExpanded) {
-                      newSet.delete(node.path);
-                    } else {
-                      newSet.add(node.path);
-                    }
-                    return newSet;
-                  });
-                }}
-                style={{ marginRight: '8px', fontSize: '12px' }}
-              >
-                {isExpanded ? '▼' : '▶'}
-              </span>
-            )}
-            <span style={{ marginRight: '8px' }}>📁</span>
-            <span style={{ fontSize: '14px' }}>{node.name || 'Root'}</span>
-            <span style={{ marginLeft: 'auto', fontSize: '12px', color: '#666' }}>
-              ({fileCount})
+        <div
+          style={{
+            display: 'flex', alignItems: 'center', padding: '8px 4px',
+            paddingLeft: `${indent}px`, cursor: 'pointer',
+            backgroundColor: currentFolder === (node.name || '') ? '#e3f2fd' : 'transparent',
+            borderRadius: '4px', margin: '2px 0'
+          }}
+          onClick={() => setCurrentFolder(node.name || '')}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            setContextMenu({
+              x: e.clientX,
+              y: e.clientY,
+              type: 'folder',
+              folder: node
+            });
+          }}
+        >
+          {hasChildren && (
+            <span
+              onClick={(e) => {
+                e.stopPropagation();
+                setExpandedFolders(prev => {
+                  const newSet = new Set(prev);
+                  if (isExpanded) {
+                    newSet.delete(node.path);
+                  } else {
+                    newSet.add(node.path);
+                  }
+                  return newSet;
+                });
+              }}
+              style={{ marginRight: '8px', fontSize: '12px' }}
+            >
+              {isExpanded ? '▼' : '▶'}
             </span>
-          </div>
-        )}
-        {hasChildren && (isExpanded || level === 0) && 
+          )}
+          <span style={{ marginRight: '8px' }}>📁</span>
+          <span style={{ fontSize: '14px' }}>{node.name || 'Root'}</span>
+          <span style={{ marginLeft: 'auto', fontSize: '12px', color: '#666' }}>
+            ({fileCount})
+          </span>
+        </div>
+        
+        {isExpanded && hasChildren && 
           node.children.map(child => renderFolderTree(child, level + 1))
         }
       </div>
     );
   };
+  // --- END FIXED FOLDER TREE RENDERER LOGIC ---
 
   if (loading) {
     return (
@@ -1249,187 +1264,4 @@ const App = () => {
                     />
                   )}
                   <div style={{ flex: 1 }}>
-                    <h4 style={{ margin: '0 0 5px 0', fontSize: '14px' }}>{file.name}</h4>
-                    {file.title && (
-                      <p style={{ margin: '2px 0', fontSize: '13px', fontWeight: 'bold', color: '#333' }}>
-                        {file.title}
-                      </p>
-                    )}
-                    <div style={{ display: 'flex', gap: '15px', fontSize: '12px', color: '#666' }}>
-                      {file.station && <span>📺 {file.station}</span>}
-                      {file.submittedBy && <span>👤 {file.submittedBy}</span>}
-                      {file.tags && <span>🏷️ {file.tags}</span>}
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-          ))}
-        </div>
-
-        {currentFiles.length === 0 && (
-          <div style={{ 
-            textAlign: 'center', 
-            padding: '40px', 
-            color: '#666',
-            fontSize: '16px'
-          }}>
-            {files.length === 0 
-              ? 'No files uploaded yet. Upload some files to get started!'
-              : `No files in ${currentFolder || 'Root'} folder.`
-            }
-          </div>
-        )}
-      </div>
-
-      {/* Context Menu */}
-      {contextMenu && (
-        <div
-          style={{
-            position: 'fixed',
-            top: contextMenu.y,
-            left: contextMenu.x,
-            backgroundColor: 'white',
-            border: '1px solid #ddd',
-            borderRadius: '4px',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-            zIndex: 1000,
-            minWidth: '150px'
-          }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          {contextMenu.type === 'folder' ? (
-            <>
-              <div
-                style={{
-                  padding: '10px 15px',
-                  cursor: 'pointer',
-                  borderBottom: '1px solid #eee'
-                }}
-                onClick={() => handleContextMenuAction('rename', contextMenu)}
-              >
-                ✏️ Rename Folder
-              </div>
-              <div
-                style={{
-                  padding: '10px 15px',
-                  cursor: 'pointer',
-                  color: '#dc3545'
-                }}
-                onClick={() => handleContextMenuAction('delete', contextMenu)}
-              >
-                🗑️ Delete Folder
-              </div>
-            </>
-          ) : (
-            <>
-              <div
-                style={{
-                  padding: '10px 15px',
-                  cursor: 'pointer',
-                  borderBottom: '1px solid #eee'
-                }}
-                onClick={() => handleContextMenuAction('preview', contextMenu)}
-              >
-                👁️ Preview
-              </div>
-              <div
-                style={{
-                  padding: '10px 15px',
-                  cursor: 'pointer',
-                  color: '#dc3545'
-                }}
-                onClick={() => handleContextMenuAction('delete', contextMenu)}
-              >
-                🗑️ Delete
-              </div>
-            </>
-          )}
-        </div>
-      )}
-
-      {/* Preview Modal */}
-      {previewFile && (
-        <div
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(0,0,0,0.8)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 2000
-          }}
-          onClick={() => setPreviewFile(null)}
-        >
-          <div
-            style={{
-              backgroundColor: 'white',
-              borderRadius: '8px',
-              padding: '20px',
-              maxWidth: '90vw',
-              maxHeight: '90vh',
-              overflow: 'auto'
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-              <h3 style={{ margin: 0 }}>{previewFile.name}</h3>
-              <button
-                onClick={() => setPreviewFile(null)}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  fontSize: '20px',
-                  cursor: 'pointer',
-                  padding: '5px'
-                }}
-              >
-                ✕
-              </button>
-            </div>
-            
-            {previewFile.url && previewFile.type?.startsWith('image/') && (
-              <img 
-                src={previewFile.url} 
-                alt={previewFile.name}
-                style={{ 
-                  maxWidth: '100%', 
-                  maxHeight: '400px', 
-                  objectFit: 'contain',
-                  marginBottom: '15px'
-                }}
-              />
-            )}
-
-            <div style={{ fontSize: '14px', color: '#666' }}>
-              {previewFile.title && <p><strong>Title:</strong> {previewFile.title}</p>}
-              {previewFile.description && <p><strong>Description:</strong> {previewFile.description}</p>}
-              {previewFile.station && <p><strong>Station:</strong> {previewFile.station}</p>}
-              {previewFile.submittedBy && <p><strong>Submitted By:</strong> {previewFile.submittedBy}</p>}
-              {previewFile.tags && <p><strong>Tags:</strong> {previewFile.tags}</p>}
-              {previewFile.notes && <p><strong>Notes:</strong> {previewFile.notes}</p>}
-              <p><strong>Type:</strong> {previewFile.type}</p>
-              {previewFile.dateSubmitted && (
-                <p><strong>Date:</strong> {new Date(previewFile.dateSubmitted).toLocaleDateString()}</p>
-              )}
-              {previewFile.url && (
-                <p>
-                  <strong>URL:</strong> 
-                  <a href={previewFile.url} target="_blank" rel="noopener noreferrer" style={{ marginLeft: '10px' }}>
-                    Open Original
-                  </a>
-                </p>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
-
-export default App;
+                    <h4 style
