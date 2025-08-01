@@ -75,7 +75,7 @@ class AirtableService {
         notes: fields['Notes'] || '',
         tags: fields['Tags'] || '',
         uploadDate: fields['Upload Date'] || fields['Created'] || new Date().toISOString(),
-        thumbnail: fields['Thumbnail'] || fields['URL'] || '',
+        thumbnail: fields['Thumbnail'] || this.generateThumbnailFromUrl(fields['URL'] || ''),
         fileSize: fields['File Size'] || 0,
         duration: fields['Duration'] || '',
         originalRecord: record
@@ -86,16 +86,44 @@ class AirtableService {
     return processedFiles;
   }
 
+  // Generate thumbnail from URL for different file types
+  generateThumbnailFromUrl(url) {
+    if (!url) return '';
+    
+    try {
+      // If it's a Cloudinary URL, generate thumbnail
+      if (url.includes('cloudinary.com')) {
+        // For images, create thumbnail
+        if (url.includes('image/upload/')) {
+          return url.replace('/upload/', '/upload/w_150,h_150,c_fill,f_auto,q_auto/');
+        }
+        // For videos, get first frame
+        if (url.includes('video/upload/')) {
+          return url.replace('/upload/', '/upload/w_150,h_150,c_fill,f_auto,q_auto,so_0/').replace(/\.(mp4|avi|mov|wmv|flv|webm)$/i, '.jpg');
+        }
+      }
+      
+      // For other URLs, return original
+      return url;
+    } catch (error) {
+      console.error('❌ AirtableService: Error generating thumbnail:', error);
+      return url;
+    }
+  }
+
   // Detect file type from URL
   detectFileType(url) {
     if (!url) return 'unknown';
     
     const extension = url.split('.').pop()?.toLowerCase();
     
-    if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(extension)) return 'image';
-    if (['mp4', 'avi', 'mov', 'wmv', 'flv', 'webm'].includes(extension)) return 'video';
-    if (['mp3', 'wav', 'flac', 'aac', 'ogg'].includes(extension)) return 'audio';
-    if (['pdf'].includes(extension)) return 'document';
+    if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'tiff'].includes(extension)) return 'image';
+    if (['mp4', 'avi', 'mov', 'wmv', 'flv', 'webm', 'mkv', '3gp'].includes(extension)) return 'video';
+    if (['mp3', 'wav', 'flac', 'aac', 'ogg', 'm4a', 'wma'].includes(extension)) return 'audio';
+    if (['pdf', 'doc', 'docx', 'txt', 'rtf'].includes(extension)) return 'document';
+    if (['zip', 'rar', '7z', 'tar', 'gz'].includes(extension)) return 'archive';
+    if (['xls', 'xlsx', 'csv'].includes(extension)) return 'spreadsheet';
+    if (['ppt', 'pptx'].includes(extension)) return 'presentation';
     
     return 'file';
   }
@@ -172,6 +200,38 @@ class AirtableService {
     }
   }
 
+  // Update multiple files at once
+  async updateMultipleFiles(updates) {
+    console.log('🔄 AirtableService: Updating multiple files:', updates);
+    
+    try {
+      const records = updates.map(update => ({
+        id: update.id,
+        fields: update.fields
+      }));
+
+      const response = await fetch(this.baseUrl, {
+        method: 'PATCH',
+        headers: this.headers,
+        body: JSON.stringify({
+          records: records
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log('✅ AirtableService: Multiple files updated successfully:', result);
+      return result;
+      
+    } catch (error) {
+      console.error('❌ AirtableService: Error updating multiple files:', error);
+      throw error;
+    }
+  }
+
   // Delete file from Airtable
   async deleteFile(recordId) {
     console.log('🔄 AirtableService: Deleting file:', recordId);
@@ -191,6 +251,23 @@ class AirtableService {
       
     } catch (error) {
       console.error('❌ AirtableService: Error deleting file:', error);
+      throw error;
+    }
+  }
+
+  // Delete multiple files at once
+  async deleteMultipleFiles(recordIds) {
+    console.log('🔄 AirtableService: Deleting multiple files:', recordIds);
+    
+    try {
+      const deletePromises = recordIds.map(id => this.deleteFile(id));
+      await Promise.all(deletePromises);
+      
+      console.log('✅ AirtableService: Multiple files deleted successfully');
+      return true;
+      
+    } catch (error) {
+      console.error('❌ AirtableService: Error deleting multiple files:', error);
       throw error;
     }
   }
@@ -346,6 +423,8 @@ class CloudinaryService {
     if (type.startsWith('audio/')) return 'Audio';
     if (type.includes('pdf')) return 'Documents';
     if (type.includes('text/') || type.includes('document')) return 'Documents';
+    if (type.includes('spreadsheet') || type.includes('excel')) return 'Documents';
+    if (type.includes('presentation') || type.includes('powerpoint')) return 'Documents';
     
     return 'Files';
   }
@@ -358,6 +437,9 @@ class CloudinaryService {
     if (type.startsWith('video/')) return 'video';
     if (type.startsWith('audio/')) return 'audio';
     if (type.includes('pdf')) return 'document';
+    if (type.includes('text/') || type.includes('document')) return 'document';
+    if (type.includes('spreadsheet') || type.includes('excel')) return 'spreadsheet';
+    if (type.includes('presentation') || type.includes('powerpoint')) return 'presentation';
     
     return 'file';
   }
@@ -369,12 +451,12 @@ class CloudinaryService {
     try {
       // For images, create a small thumbnail
       if (resourceType === 'image') {
-        return originalUrl.replace('/upload/', '/upload/w_150,h_150,c_fill/');
+        return originalUrl.replace('/upload/', '/upload/w_150,h_150,c_fill,f_auto,q_auto/');
       }
       
       // For videos, get first frame as thumbnail
       if (resourceType === 'video') {
-        return originalUrl.replace('/upload/', '/upload/w_150,h_150,c_fill,so_0/').replace(/\.[^.]+$/, '.jpg');
+        return originalUrl.replace('/upload/', '/upload/w_150,h_150,c_fill,f_auto,q_auto,so_0/').replace(/\.[^.]+$/, '.jpg');
       }
       
       // For other types, return original URL
@@ -386,12 +468,51 @@ class CloudinaryService {
     }
   }
 }
+// =============================================
+// UTILITY FUNCTIONS
+// =============================================
+
+// Get file type icon
+const getFileIcon = (type, size = 'text-2xl') => {
+  const icons = {
+    image: '🖼️',
+    video: '🎥',
+    audio: '🎵',
+    document: '📄',
+    spreadsheet: '📊',
+    presentation: '📽️',
+    archive: '📦',
+    file: '📁',
+    unknown: '❓'
+  };
+  
+  return <span className={size}>{icons[type] || icons.file}</span>;
+};
+
+// Format file size
+const formatFileSize = (bytes) => {
+  if (!bytes) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+};
+
+// Format date
+const formatDate = (dateString) => {
+  if (!dateString) return 'Unknown';
+  try {
+    return new Date(dateString).toLocaleDateString();
+  } catch {
+    return 'Invalid Date';
+  }
+};
 
 // =============================================
-// UI COMPONENTS
+// ENHANCED UI COMPONENTS
 // =============================================
 
-// Folder Tree Component
+// Enhanced Folder Tree Component
 const FolderTree = ({ 
   folderTree, 
   currentFolder, 
@@ -422,7 +543,7 @@ const FolderTree = ({
         <h3 className="font-semibold text-gray-800">Folders</h3>
         <button
           onClick={onCreateFolder}
-          className="text-blue-600 hover:text-blue-800 text-sm"
+          className="text-blue-600 hover:text-blue-800 text-sm font-medium"
           title="Create New Folder"
         >
           + New
@@ -433,15 +554,17 @@ const FolderTree = ({
         {Object.entries(folderTree).map(([folder, count]) => (
           <div key={folder} className="group">
             <div
-              className={`flex items-center p-2 rounded cursor-pointer hover:bg-gray-100 ${
-                currentFolder === folder ? 'bg-blue-100 text-blue-800' : 'text-gray-700'
+              className={`flex items-center p-2 rounded cursor-pointer hover:bg-gray-200 transition-colors ${
+                currentFolder === folder ? 'bg-blue-100 text-blue-800 font-medium' : 'text-gray-700'
               }`}
               onClick={() => handleFolderClick(folder)}
               onContextMenu={(e) => handleFolderRightClick(e, folder)}
             >
               <span className="w-4 h-4 mr-2">📁</span>
               <span className="flex-1 truncate">{folder}</span>
-              <span className="text-xs text-gray-500 ml-2">({count})</span>
+              <span className="text-xs text-gray-500 ml-2 bg-gray-200 px-1 rounded">
+                {count}
+              </span>
             </div>
           </div>
         ))}
@@ -470,18 +593,681 @@ const UploadButton = ({ onFileSelect, isUploading }) => {
         disabled={isUploading}
       />
       <button
-        className={`px-4 py-2 rounded-lg font-medium ${
+        className={`px-4 py-2 rounded-lg font-medium transition-colors ${
           isUploading
-            ? 'bg-gray-400 cursor-not-allowed'
-            : 'bg-blue-600 hover:bg-blue-700 text-white'
+            ? 'bg-gray-400 cursor-not-allowed text-white'
+            : 'bg-blue-600 hover:bg-blue-700 text-white shadow-sm'
         }`}
         disabled={isUploading}
       >
-        {isUploading ? 'Uploading...' : '📤 Upload Files'}
+        {isUploading ? '⏳ Uploading...' : '📤 Upload Files'}
       </button>
     </div>
   );
 };
+
+// Enhanced File Grid Component with Multi-Selection
+const FileGrid = ({ 
+  files, 
+  viewMode, 
+  onFileRightClick, 
+  onFileClick,
+  selectedFiles,
+  onFileSelect,
+  onSelectAll,
+  onClearSelection
+}) => {
+  const [imageErrors, setImageErrors] = useState(new Set());
+
+  const handleImageError = (fileId) => {
+    setImageErrors(prev => new Set([...prev, fileId]));
+  };
+
+  const handleFileClick = (file) => {
+    onFileClick && onFileClick(file);
+  };
+
+  const handleFileSelectToggle = (file, e) => {
+    e.stopPropagation();
+    onFileSelect(file);
+  };
+
+  const isSelected = (file) => selectedFiles.some(f => f.id === file.id);
+
+  if (files.length === 0) {
+    return (
+      <div className="flex-1 flex items-center justify-center text-gray-500">
+        <div className="text-center">
+          <div className="text-6xl mb-4">📁</div>
+          <p className="text-lg font-medium mb-2">No files in this folder</p>
+          <p className="text-sm">Drag files here or use the upload button</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Selection controls
+  const SelectionControls = () => (
+    <div className="flex items-center gap-2 mb-4 p-2 bg-blue-50 rounded-lg">
+      <button
+        onClick={onSelectAll}
+        className="text-sm text-blue-600 hover:text-blue-800"
+      >
+        Select All ({files.length})
+      </button>
+      <span className="text-gray-400">|</span>
+      <button
+        onClick={onClearSelection}
+        className="text-sm text-gray-600 hover:text-gray-800"
+      >
+        Clear Selection
+      </button>
+      {selectedFiles.length > 0 && (
+        <>
+          <span className="text-gray-400">|</span>
+          <span className="text-sm font-medium text-blue-800">
+            {selectedFiles.length} selected
+          </span>
+        </>
+      )}
+    </div>
+  );
+
+  if (viewMode === 'list') {
+    return (
+      <div className="flex-1 overflow-auto p-4">
+        <SelectionControls />
+        <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
+          <table className="w-full">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <input
+                    type="checkbox"
+                    checked={selectedFiles.length === files.length}
+                    onChange={selectedFiles.length === files.length ? onClearSelection : onSelectAll}
+                    className="rounded"
+                  />
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Size</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {files.map((file) => (
+                <tr
+                  key={file.id}
+                  className={`hover:bg-gray-50 cursor-pointer transition-colors ${
+                    isSelected(file) ? 'bg-blue-50' : ''
+                  }`}
+                  onContextMenu={(e) => onFileRightClick(e, file)}
+                  onClick={() => handleFileClick(file)}
+                >
+                  <td className="px-4 py-3">
+                    <input
+                      type="checkbox"
+                      checked={isSelected(file)}
+                      onChange={(e) => handleFileSelectToggle(file, e)}
+                      className="rounded"
+                    />
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center">
+                      <div className="mr-3">
+                        {getFileIcon(file.type, 'text-lg')}
+                      </div>
+                      <div>
+                        <div className="font-medium text-gray-900 truncate" title={file.title}>
+                          {file.title}
+                        </div>
+                        {file.description && (
+                          <div className="text-xs text-gray-500 truncate">
+                            {file.description}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-sm text-gray-600 capitalize">
+                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                      {file.type}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-sm text-gray-600">
+                    {formatFileSize(file.fileSize)}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-gray-600">
+                    {formatDate(file.uploadDate)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex-1 p-4 overflow-auto">
+      <SelectionControls />
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4">
+        {files.map((file) => (
+          <div
+            key={file.id}
+            className={`relative bg-white border-2 rounded-lg p-3 hover:shadow-lg cursor-pointer transition-all duration-200 group ${
+              isSelected(file) 
+                ? 'border-blue-500 bg-blue-50 shadow-md' 
+                : 'border-gray-200 hover:border-gray-300'
+            }`}
+            onContextMenu={(e) => onFileRightClick(e, file)}
+            onClick={() => handleFileClick(file)}
+          >
+            {/* Selection checkbox */}
+            <div className="absolute top-2 left-2 z-10">
+              <input
+                type="checkbox"
+                checked={isSelected(file)}
+                onChange={(e) => handleFileSelectToggle(file, e)}
+                className="rounded shadow-sm"
+              />
+            </div>
+
+            {/* File thumbnail/icon */}
+            <div className="aspect-square mb-2 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden">
+              {file.type === 'image' && file.thumbnail && !imageErrors.has(file.id) ? (
+                <img
+                  src={file.thumbnail}
+                  alt={file.title}
+                  className="w-full h-full object-cover rounded-lg"
+                  onError={() => handleImageError(file.id)}
+                  loading="lazy"
+                />
+              ) : (
+                <div className="flex flex-col items-center justify-center h-full">
+                  {getFileIcon(file.type, 'text-3xl')}
+                  <span className="text-xs text-gray-500 mt-1 uppercase font-medium">
+                    {file.type}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* File info */}
+            <div className="text-sm">
+              <p className="font-medium truncate text-gray-900" title={file.title}>
+                {file.title}
+              </p>
+              <p className="text-xs text-gray-500 truncate">
+                {formatFileSize(file.fileSize)}
+              </p>
+              {file.tags && (
+                <p className="text-xs text-blue-600 truncate mt-1">
+                  {file.tags}
+                </p>
+              )}
+            </div>
+
+            {/* Hover overlay with quick actions */}
+            <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 rounded-lg transition-all duration-200 flex items-center justify-center opacity-0 group-hover:opacity-100">
+              <div className="flex gap-2">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onFileRightClick(e, file);
+                  }}
+                  className="bg-white bg-opacity-90 hover:bg-opacity-100 p-2 rounded-full shadow-sm"
+                  title="More options"
+                >
+                  ⋯
+                </button>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// Enhanced File Details Modal
+const FileDetailsModal = ({ file, isOpen, onClose, onUpdate, onDelete }) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editData, setEditData] = useState({});
+
+  useEffect(() => {
+    if (file) {
+      setEditData({
+        title: file.title || '',
+        description: file.description || '',
+        notes: file.notes || '',
+        tags: file.tags || '',
+        station: file.station || '',
+        category: file.category || ''
+      });
+    }
+  }, [file]);
+
+  const handleSave = () => {
+    onUpdate(file.id, {
+      'Title': editData.title,
+      'Description': editData.description,
+      'Notes': editData.notes,
+      'Tags': editData.tags,
+      'Station': editData.station,
+      'Category': editData.category
+    });
+    setIsEditing(false);
+  };
+
+  const handleCancel = () => {
+    if (file) {
+      setEditData({
+        title: file.title || '',
+        description: file.description || '',
+        notes: file.notes || '',
+        tags: file.tags || '',
+        station: file.station || '',
+        category: file.category || ''
+      });
+    }
+    setIsEditing(false);
+  };
+
+  if (!isOpen || !file) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-hidden shadow-2xl">
+        {/* Header */}
+        <div className="flex items-center justify-between p-6 border-b bg-gray-50">
+          <div className="flex items-center gap-3">
+            {getFileIcon(file.type, 'text-2xl')}
+            <div>
+              <h2 className="text-xl font-semibold text-gray-900">{file.title}</h2>
+              <p className="text-sm text-gray-500">{file.category} • {formatFileSize(file.fileSize)}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setIsEditing(!isEditing)}
+              className="px-3 py-1 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              {isEditing ? 'Cancel' : '✏️ Edit'}
+            </button>
+            <button
+              onClick={onClose}
+              className="p-2 hover:bg-gray-200 rounded-lg transition-colors"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+        
+        <div className="flex h-[calc(90vh-120px)]">
+          {/* Preview Section */}
+          <div className="flex-1 p-6 bg-gray-50 flex items-center justify-center">
+            {file.type === 'image' && file.url && (
+              <img
+                src={file.url}
+                alt={file.title}
+                className="max-w-full max-h-full object-contain rounded-lg shadow-sm"
+              />
+            )}
+            
+            {file.type === 'video' && file.url && (
+              <video
+                src={file.url}
+                controls
+                className="max-w-full max-h-full rounded-lg shadow-sm"
+              >
+                Your browser does not support video playback.
+              </video>
+            )}
+            
+            {file.type === 'audio' && file.url && (
+              <div className="text-center">
+                <div className="text-6xl mb-4">🎵</div>
+                <audio
+                  src={file.url}
+                  controls
+                  className="w-full max-w-md"
+                >
+                  Your browser does not support audio playback.
+                </audio>
+              </div>
+            )}
+            
+            {!['image', 'video', 'audio'].includes(file.type) && (
+              <div className="text-center">
+                <div className="text-6xl mb-4">{getFileIcon(file.type, 'text-6xl')}</div>
+                <p className="text-gray-600 mb-4">Preview not available for this file type</p>
+                {file.url && (
+                  <a
+                    href={file.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-block px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    📄 Open File
+                  </a>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Details Section */}
+          <div className="w-96 p-6 overflow-y-auto border-l bg-white">
+            <h3 className="text-lg font-semibold mb-4 text-gray-900">File Details</h3>
+
+            {isEditing ? (
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
+                  <input
+                    type="text"
+                    value={editData.title}
+                    onChange={(e) => setEditData({...editData, title: e.target.value})}
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                  <select
+                    value={editData.category}
+                    onChange={(e) => setEditData({...editData, category: e.target.value})}
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="Images">Images</option>
+                    <option value="Video">Video</option>
+                    <option value="Audio">Audio</option>
+                    <option value="Documents">Documents</option>
+                    <option value="Files">Files</option>
+                    <option value="product">Product</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Station</label>
+                  <input
+                    type="text"
+                    value={editData.station}
+                    onChange={(e) => setEditData({...editData, station: e.target.value})}
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                  <textarea
+                    value={editData.description}
+                    onChange={(e) => setEditData({...editData, description: e.target.value})}
+                    rows={3}
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+                  <textarea
+                    value={editData.notes}
+                    onChange={(e) => setEditData({...editData, notes: e.target.value})}
+                    rows={2}
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Tags</label>
+                  <input
+                    type="text"
+                    value={editData.tags}
+                    onChange={(e) => setEditData({...editData, tags: e.target.value})}
+                    placeholder="tag1, tag2, tag3"
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div className="flex gap-2 pt-4">
+                  <button
+                    onClick={handleSave}
+                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    💾 Save Changes
+                  </button>
+                  <button
+                    onClick={handleCancel}
+                    className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 gap-4">
+                  <div className="bg-gray-50 p-3 rounded-lg">
+                    <span className="text-sm font-medium text-gray-700 block mb-1">File Type</span>
+                    <span className="text-sm text-gray-900 capitalize">{file.type}</span>
+                  </div>
+
+                  <div className="bg-gray-50 p-3 rounded-lg">
+                    <span className="text-sm font-medium text-gray-700 block mb-1">Size</span>
+                    <span className="text-sm text-gray-900">{formatFileSize(file.fileSize)}</span>
+                  </div>
+
+                  <div className="bg-gray-50 p-3 rounded-lg">
+                    <span className="text-sm font-medium text-gray-700 block mb-1">Upload Date</span>
+                    <span className="text-sm text-gray-900">{formatDate(file.uploadDate)}</span>
+                  </div>
+
+                  {file.station && (
+                    <div className="bg-gray-50 p-3 rounded-lg">
+                      <span className="text-sm font-medium text-gray-700 block mb-1">Station</span>
+                      <span className="text-sm text-gray-900">{file.station}</span>
+                    </div>
+                  )}
+
+                  {file.description && (
+                    <div className="bg-gray-50 p-3 rounded-lg">
+                      <span className="text-sm font-medium text-gray-700 block mb-1">Description</span>
+                      <span className="text-sm text-gray-900">{file.description}</span>
+                    </div>
+                  )}
+
+                  {file.notes && (
+                    <div className="bg-gray-50 p-3 rounded-lg">
+                      <span className="text-sm font-medium text-gray-700 block mb-1">Notes</span>
+                      <span className="text-sm text-gray-900">{file.notes}</span>
+                    </div>
+                  )}
+
+                  {file.tags && (
+                    <div className="bg-gray-50 p-3 rounded-lg">
+                      <span className="text-sm font-medium text-gray-700 block mb-1">Tags</span>
+                      <div className="flex flex-wrap gap-1">
+                        {file.tags.split(',').map((tag, index) => (
+                          <span
+                            key={index}
+                            className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full"
+                          >
+                            {tag.trim()}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {file.url && (
+                    <div className="bg-gray-50 p-3 rounded-lg">
+                      <span className="text-sm font-medium text-gray-700 block mb-1">File URL</span>
+                      <a
+                        href={file.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm text-blue-600 hover:text-blue-800 break-all"
+                      >
+                        {file.url}
+                      </a>
+                    </div>
+                  )}
+                </div>
+
+                <div className="pt-4 border-t">
+                  <button
+                    onClick={() => onDelete(file)}
+                    className="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                  >
+                    🗑️ Delete File
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Batch Operations Panel
+const BatchOperationsPanel = ({ selectedFiles, onClose, onBatchUpdate, onBatchDelete, onBatchMove }) => {
+  const [batchAction, setBatchAction] = useState('');
+  const [batchData, setBatchData] = useState({
+    category: '',
+    tags: '',
+    station: '',
+    description: '',
+    notes: ''
+  });
+
+  const handleBatchUpdate = () => {
+    const updates = selectedFiles.map(file => ({
+      id: file.id,
+      fields: {
+        ...(batchData.category && { 'Category': batchData.category }),
+        ...(batchData.tags && { 'Tags': batchData.tags }),
+        ...(batchData.station && { 'Station': batchData.station }),
+        ...(batchData.description && { 'Description': batchData.description }),
+        ...(batchData.notes && { 'Notes': batchData.notes })
+      }
+    }));
+    onBatchUpdate(updates);
+  };
+
+  if (selectedFiles.length === 0) return null;
+
+  return (
+    <div className="fixed bottom-4 right-4 bg-white border border-gray-300 rounded-lg shadow-xl p-4 w-80 z-40">
+      <div className="flex items-center justify-between mb-3">
+        <h4 className="font-medium text-gray-800">
+          Batch Operations ({selectedFiles.length} files)
+        </h4>
+        <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
+          ✕
+        </button>
+      </div>
+
+      <div className="space-y-3">
+        <div className="flex gap-2">
+          <select
+            value={batchAction}
+            onChange={(e) => setBatchAction(e.target.value)}
+            className="flex-1 p-2 border border-gray-300 rounded text-sm"
+          >
+            <option value="">Choose Action</option>
+            <option value="update">Update Fields</option>
+            <option value="move">Move to Category</option>
+            <option value="delete">Delete Files</option>
+          </select>
+        </div>
+
+        {batchAction === 'update' && (
+          <div className="space-y-2">
+            <select
+              value={batchData.category}
+              onChange={(e) => setBatchData({...batchData, category: e.target.value})}
+              className="w-full p-2 border border-gray-300 rounded text-sm"
+            >
+              <option value="">Category (no change)</option>
+              <option value="Images">Images</option>
+              <option value="Video">Video</option>
+              <option value="Audio">Audio</option>
+              <option value="Documents">Documents</option>
+              <option value="Files">Files</option>
+            </select>
+
+            <input
+              type="text"
+              placeholder="Tags (append/replace)"
+              value={batchData.tags}
+              onChange={(e) => setBatchData({...batchData, tags: e.target.value})}
+              className="w-full p-2 border border-gray-300 rounded text-sm"
+            />
+
+            <input
+              type="text"
+              placeholder="Station"
+              value={batchData.station}
+              onChange={(e) => setBatchData({...batchData, station: e.target.value})}
+              className="w-full p-2 border border-gray-300 rounded text-sm"
+            />
+
+            <button
+              onClick={handleBatchUpdate}
+              className="w-full px-3 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
+            >
+              Update {selectedFiles.length} Files
+            </button>
+          </div>
+        )}
+
+        {batchAction === 'move' && (
+          <div className="space-y-2">
+            <select
+              value={batchData.category}
+              onChange={(e) => setBatchData({...batchData, category: e.target.value})}
+              className="w-full p-2 border border-gray-300 rounded text-sm"
+            >
+              <option value="">Select Destination</option>
+              <option value="Images">Images</option>
+              <option value="Video">Video</option>
+              <option value="Audio">Audio</option>
+              <option value="Documents">Documents</option>
+              <option value="Files">Files</option>
+            </select>
+
+            <button
+              onClick={() => onBatchMove(selectedFiles, batchData.category)}
+              disabled={!batchData.category}
+              className="w-full px-3 py-2 bg-green-600 text-white rounded text-sm hover:bg-green-700 disabled:bg-gray-400"
+            >
+              Move {selectedFiles.length} Files
+            </button>
+          </div>
+        )}
+
+        {batchAction === 'delete' && (
+          <div className="space-y-2">
+            <p className="text-sm text-red-600">
+              This will permanently delete {selectedFiles.length} files.
+            </p>
+            <button
+              onClick={() => onBatchDelete(selectedFiles)}
+              className="w-full px-3 py-2 bg-red-600 text-white rounded text-sm hover:bg-red-700"
+            >
+              🗑️ Delete {selectedFiles.length} Files
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 // Progress Bar Component
 const ProgressBar = ({ uploads, onClose }) => {
   if (!uploads || uploads.length === 0) return null;
@@ -489,7 +1275,7 @@ const ProgressBar = ({ uploads, onClose }) => {
   const overallProgress = uploads.reduce((sum, upload) => sum + upload.progress, 0) / uploads.length;
 
   return (
-    <div className="fixed bottom-4 right-4 bg-white border border-gray-300 rounded-lg shadow-lg p-4 w-80 max-h-64 overflow-y-auto">
+    <div className="fixed bottom-4 left-4 bg-white border border-gray-300 rounded-lg shadow-lg p-4 w-80 max-h-64 overflow-y-auto z-50">
       <div className="flex items-center justify-between mb-2">
         <h4 className="font-medium text-gray-800">Uploading Files</h4>
         <button
@@ -534,7 +1320,6 @@ const ProgressBar = ({ uploads, onClose }) => {
     </div>
   );
 };
-
 // Context Menu Component
 const ContextMenu = ({ contextMenu, onClose, onAction }) => {
   if (!contextMenu.show) return null;
@@ -548,32 +1333,38 @@ const ContextMenu = ({ contextMenu, onClose, onAction }) => {
     <>
       <div className="fixed inset-0 z-40" onClick={onClose} />
       <div
-        className="fixed bg-white border border-gray-300 rounded-lg shadow-lg py-2 z-50"
+        className="fixed bg-white border border-gray-300 rounded-lg shadow-xl py-2 z-50 min-w-48"
         style={{ left: contextMenu.x, top: contextMenu.y }}
       >
         {contextMenu.type === 'file' && (
           <>
             <button
-              className="w-full px-4 py-2 text-left hover:bg-gray-100 text-sm"
-              onClick={() => handleAction('preview')}
+              className="w-full px-4 py-2 text-left hover:bg-gray-100 text-sm flex items-center gap-2"
+              onClick={() => handleAction('view')}
             >
-              👁️ Preview
+              👁️ View Details
             </button>
             <button
-              className="w-full px-4 py-2 text-left hover:bg-gray-100 text-sm"
+              className="w-full px-4 py-2 text-left hover:bg-gray-100 text-sm flex items-center gap-2"
               onClick={() => handleAction('download')}
             >
               💾 Download
             </button>
             <button
-              className="w-full px-4 py-2 text-left hover:bg-gray-100 text-sm"
+              className="w-full px-4 py-2 text-left hover:bg-gray-100 text-sm flex items-center gap-2"
               onClick={() => handleAction('rename')}
             >
               ✏️ Rename
             </button>
+            <button
+              className="w-full px-4 py-2 text-left hover:bg-gray-100 text-sm flex items-center gap-2"
+              onClick={() => handleAction('move')}
+            >
+              📁 Move to Category
+            </button>
             <hr className="my-1" />
             <button
-              className="w-full px-4 py-2 text-left hover:bg-gray-100 text-sm text-red-600"
+              className="w-full px-4 py-2 text-left hover:bg-red-50 text-sm text-red-600 flex items-center gap-2"
               onClick={() => handleAction('delete')}
             >
               🗑️ Delete
@@ -584,13 +1375,13 @@ const ContextMenu = ({ contextMenu, onClose, onAction }) => {
         {contextMenu.type === 'folder' && (
           <>
             <button
-              className="w-full px-4 py-2 text-left hover:bg-gray-100 text-sm"
+              className="w-full px-4 py-2 text-left hover:bg-gray-100 text-sm flex items-center gap-2"
               onClick={() => handleAction('rename')}
             >
               ✏️ Rename Folder
             </button>
             <button
-              className="w-full px-4 py-2 text-left hover:bg-gray-100 text-sm text-red-600"
+              className="w-full px-4 py-2 text-left hover:bg-red-50 text-sm text-red-600 flex items-center gap-2"
               onClick={() => handleAction('delete')}
             >
               🗑️ Delete Folder
@@ -599,111 +1390,6 @@ const ContextMenu = ({ contextMenu, onClose, onAction }) => {
         )}
       </div>
     </>
-  );
-};
-
-// File Grid Component
-const FileGrid = ({ files, viewMode, onFileRightClick, onFileDoubleClick }) => {
-  if (files.length === 0) {
-    return (
-      <div className="flex-1 flex items-center justify-center text-gray-500">
-        <div className="text-center">
-          <div className="text-4xl mb-2">📁</div>
-          <p>No files in this folder</p>
-          <p className="text-sm">Drag files here or use the upload button</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (viewMode === 'list') {
-    return (
-      <div className="flex-1 overflow-auto">
-        <table className="w-full">
-          <thead className="bg-gray-50 sticky top-0">
-            <tr>
-              <th className="px-4 py-2 text-left text-sm font-medium text-gray-700">Name</th>
-              <th className="px-4 py-2 text-left text-sm font-medium text-gray-700">Type</th>
-              <th className="px-4 py-2 text-left text-sm font-medium text-gray-700">Size</th>
-              <th className="px-4 py-2 text-left text-sm font-medium text-gray-700">Date</th>
-            </tr>
-          </thead>
-          <tbody>
-            {files.map((file) => (
-              <tr
-                key={file.id}
-                className="border-b hover:bg-gray-50 cursor-pointer"
-                onContextMenu={(e) => onFileRightClick(e, file)}
-                onDoubleClick={() => onFileDoubleClick(file)}
-              >
-                <td className="px-4 py-2">
-                  <div className="flex items-center">
-                    <span className="mr-2">
-                      {file.type === 'image' && '🖼️'}
-                      {file.type === 'video' && '🎥'}
-                      {file.type === 'audio' && '🎵'}
-                      {file.type === 'document' && '📄'}
-                      {!['image', 'video', 'audio', 'document'].includes(file.type) && '📁'}
-                    </span>
-                    <span className="truncate">{file.title}</span>
-                  </div>
-                </td>
-                <td className="px-4 py-2 text-sm text-gray-600 capitalize">{file.type}</td>
-                <td className="px-4 py-2 text-sm text-gray-600">
-                  {file.fileSize ? `${(file.fileSize / 1024 / 1024).toFixed(1)} MB` : '-'}
-                </td>
-                <td className="px-4 py-2 text-sm text-gray-600">
-                  {file.uploadDate ? new Date(file.uploadDate).toLocaleDateString() : '-'}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex-1 p-4 overflow-auto">
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-        {files.map((file) => (
-          <div
-            key={file.id}
-            className="bg-white border border-gray-200 rounded-lg p-3 hover:shadow-md cursor-pointer transition-shadow"
-            onContextMenu={(e) => onFileRightClick(e, file)}
-            onDoubleClick={() => onFileDoubleClick(file)}
-          >
-            <div className="aspect-square mb-2 bg-gray-100 rounded flex items-center justify-center overflow-hidden">
-              {file.type === 'image' && file.thumbnail ? (
-                <img
-                  src={file.thumbnail}
-                  alt={file.title}
-                  className="w-full h-full object-cover"
-                  onError={(e) => {
-                    e.target.style.display = 'none';
-                    e.target.nextSibling.style.display = 'flex';
-                  }}
-                />
-              ) : (
-                <div className="text-2xl">
-                  {file.type === 'image' && '🖼️'}
-                  {file.type === 'video' && '🎥'}
-                  {file.type === 'audio' && '🎵'}
-                  {file.type === 'document' && '📄'}
-                  {!['image', 'video', 'audio', 'document'].includes(file.type) && '📁'}
-                </div>
-              )}
-            </div>
-            <div className="text-sm">
-              <p className="font-medium truncate" title={file.title}>
-                {file.title}
-              </p>
-              <p className="text-gray-500 text-xs capitalize">{file.type}</p>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
   );
 };
 
@@ -730,9 +1416,9 @@ const UploadMetadataForm = ({ isOpen, onClose, onSubmit, initialData = {} }) => 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 w-96 max-w-full max-h-[90vh] overflow-y-auto">
-        <h3 className="text-lg font-semibold mb-4">Upload Settings</h3>
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-2xl">
+        <h3 className="text-xl font-semibold mb-4 text-gray-900">Upload Settings</h3>
         
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
@@ -742,7 +1428,7 @@ const UploadMetadataForm = ({ isOpen, onClose, onSubmit, initialData = {} }) => 
             <select
               value={formData.category}
               onChange={(e) => handleChange('category', e.target.value)}
-              className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
               <option value="Images">Images</option>
               <option value="Video">Video</option>
@@ -761,7 +1447,7 @@ const UploadMetadataForm = ({ isOpen, onClose, onSubmit, initialData = {} }) => 
               type="text"
               value={formData.station}
               onChange={(e) => handleChange('station', e.target.value)}
-              className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               placeholder="e.g., Studio A, Location B"
             />
           </div>
@@ -774,7 +1460,7 @@ const UploadMetadataForm = ({ isOpen, onClose, onSubmit, initialData = {} }) => 
               value={formData.description}
               onChange={(e) => handleChange('description', e.target.value)}
               rows={3}
-              className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               placeholder="Brief description of the files..."
             />
           </div>
@@ -787,7 +1473,7 @@ const UploadMetadataForm = ({ isOpen, onClose, onSubmit, initialData = {} }) => 
               value={formData.notes}
               onChange={(e) => handleChange('notes', e.target.value)}
               rows={2}
-              className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               placeholder="Additional notes..."
             />
           </div>
@@ -800,7 +1486,7 @@ const UploadMetadataForm = ({ isOpen, onClose, onSubmit, initialData = {} }) => 
               type="text"
               value={formData.tags}
               onChange={(e) => handleChange('tags', e.target.value)}
-              className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               placeholder="tag1, tag2, tag3"
             />
           </div>
@@ -809,13 +1495,13 @@ const UploadMetadataForm = ({ isOpen, onClose, onSubmit, initialData = {} }) => 
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
+              className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             >
               Upload Files
             </button>
@@ -832,110 +1518,10 @@ const DragDropOverlay = ({ isDragOver }) => {
 
   return (
     <div className="fixed inset-0 bg-blue-600 bg-opacity-20 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-8 shadow-lg text-center">
-        <div className="text-4xl mb-4">📤</div>
-        <h3 className="text-xl font-semibold text-gray-800 mb-2">Drop files to upload</h3>
-        <p className="text-gray-600">Release to start uploading</p>
-      </div>
-    </div>
-  );
-};
-
-// File Preview Modal Component
-const FilePreviewModal = ({ file, isOpen, onClose }) => {
-  if (!isOpen || !file) return null;
-
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg max-w-4xl max-h-[90vh] overflow-hidden">
-        <div className="flex items-center justify-between p-4 border-b">
-          <h3 className="text-lg font-semibold truncate">{file.title}</h3>
-          <button
-            onClick={onClose}
-            className="text-gray-500 hover:text-gray-700 text-xl"
-          >
-            ✕
-          </button>
-        </div>
-        
-        <div className="p-4 overflow-auto max-h-[calc(90vh-8rem)]">
-          {file.type === 'image' && (
-            <img
-              src={file.url}
-              alt={file.title}
-              className="max-w-full max-h-full object-contain"
-            />
-          )}
-          
-          {file.type === 'video' && (
-            <video
-              src={file.url}
-              controls
-              className="max-w-full max-h-full"
-            >
-              Your browser does not support video playback.
-            </video>
-          )}
-          
-          {file.type === 'audio' && (
-            <div className="text-center py-8">
-              <div className="text-4xl mb-4">🎵</div>
-              <audio
-                src={file.url}
-                controls
-                className="w-full max-w-md"
-              >
-                Your browser does not support audio playback.
-              </audio>
-            </div>
-          )}
-          
-          {!['image', 'video', 'audio'].includes(file.type) && (
-            <div className="text-center py-8">
-              <div className="text-4xl mb-4">📄</div>
-              <p className="text-gray-600 mb-4">Preview not available for this file type</p>
-              <a
-                href={file.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-block px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-              >
-                Open File
-              </a>
-            </div>
-          )}
-          
-          <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <span className="font-medium text-gray-700">Category:</span>
-                <span className="ml-2 text-gray-600">{file.category}</span>
-              </div>
-              <div>
-                <span className="font-medium text-gray-700">Type:</span>
-                <span className="ml-2 text-gray-600 capitalize">{file.type}</span>
-              </div>
-              <div>
-                <span className="font-medium text-gray-700">Station:</span>
-                <span className="ml-2 text-gray-600">{file.station || 'N/A'}</span>
-              </div>
-              <div>
-                <span className="font-medium text-gray-700">Upload Date:</span>
-                <span className="ml-2 text-gray-600">
-                  {file.uploadDate ? new Date(file.uploadDate).toLocaleDateString() : 'N/A'}
-                </span>
-              </div>
-              <div className="col-span-2">
-                <span className="font-medium text-gray-700">Description:</span>
-                <span className="ml-2 text-gray-600">{file.description || 'No description'}</span>
-              </div>
-              <div className="col-span-2">
-                <span className="font-medium text-gray-700">Tags:</span>
-                <span className="ml-2 text-gray-600">{file.tags || 'No tags'}</span>
-              </div>
-            </div>
-          </div>
-        </div>
+      <div className="bg-white rounded-2xl p-12 shadow-2xl text-center border-4 border-dashed border-blue-400">
+        <div className="text-6xl mb-4">📤</div>
+        <h3 className="text-2xl font-semibold text-gray-800 mb-2">Drop files to upload</h3>
+        <p className="text-gray-600">Release to start uploading to the current folder</p>
       </div>
     </div>
   );
@@ -945,411 +1531,9 @@ const FilePreviewModal = ({ file, isOpen, onClose }) => {
 // MAIN APPLICATION COMPONENT
 // =============================================
 export default function App() {
-  console.log('🚀 App: Starting File Manager...');
+  console.log('🚀 App: Starting Enhanced File Manager...');
 
   // Initialize services
   const airtableService = useMemo(() => {
     console.log('🔧 App: Initializing AirtableService...');
-    return new AirtableService();
-  }, []);
-
-  const cloudinaryService = useMemo(() => {
-    console.log('🔧 App: Initializing CloudinaryService...');
-    return new CloudinaryService();
-  }, []);
-
-  // State Management
-  const [files, setFiles] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [currentFolder, setCurrentFolder] = useState('Images');
-  const [viewMode, setViewMode] = useState('grid');
-  const [expandedFolders, setExpandedFolders] = useState(['Images', 'Video', 'Audio']);
-  const [contextMenu, setContextMenu] = useState({ show: false, x: 0, y: 0, type: '', target: null });
-  
-  // Upload states
-  const [isUploading, setIsUploading] = useState(false);
-  const [uploads, setUploads] = useState([]);
-  const [showUploadForm, setShowUploadForm] = useState(false);
-  const [pendingFiles, setPendingFiles] = useState([]);
-  
-  // UI states
-  const [isDragOver, setIsDragOver] = useState(false);
-  const [previewFile, setPreviewFile] = useState(null);
-  const [showPreview, setShowPreview] = useState(false);
-
-  // Computed Values
-  const folderTree = useMemo(() => {
-    console.log('🔄 App: Computing folder tree from files:', files);
-    
-    const tree = {};
-    files.forEach(file => {
-      const category = file.category || 'uncategorized';
-      tree[category] = (tree[category] || 0) + 1;
-    });
-    
-    console.log('📊 App: Folder tree:', tree);
-    return tree;
-  }, [files]);
-
-  const currentFiles = useMemo(() => {
-    const filtered = files.filter(file => file.category === currentFolder);
-    console.log(`📁 App: Files in ${currentFolder}:`, filtered.length);
-    return filtered;
-  }, [files, currentFolder]);
-
-  // Load Files from Database
-  const loadFiles = useCallback(async () => {
-    console.log('🔄 App: Loading files from database...');
-    setLoading(true);
-    setError(null);
-
-    try {
-      const loadedFiles = await airtableService.fetchAllFiles();
-      console.log('✅ App: Files loaded successfully:', loadedFiles);
-      setFiles(loadedFiles);
-    } catch (err) {
-      console.error('❌ App: Error loading files:', err);
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  }, [airtableService]);
-
-  // Initial load
-  useEffect(() => {
-    console.log('🔄 App: Component mounted, loading files...');
-    loadFiles();
-  }, [loadFiles]);
-
-  // File Upload Functions
-  const startUpload = useCallback((selectedFiles, metadata) => {
-    console.log('🔄 App: Starting upload process...', { files: selectedFiles.length, metadata });
-    setIsUploading(true);
-    setUploads(selectedFiles.map(file => ({ name: file.name, progress: 0 })));
-    setShowUploadForm(false);
-
-    const uploadProcess = async () => {
-      try {
-        const result = await cloudinaryService.uploadMultipleFiles(
-          selectedFiles,
-          metadata,
-          (fileIndex, progress, fileName) => {
-            console.log(`📈 App: Upload progress - ${fileName}: ${progress}%`);
-            setUploads(prev => prev.map((upload, index) => 
-              index === fileIndex ? { ...upload, progress } : upload
-            ));
-          }
-        );
-
-        console.log('🔄 App: Upload to Cloudinary complete, saving to database...', result);
-
-        // Save successful uploads to Airtable
-        const savePromises = result.successful.map(async (fileData) => {
-          try {
-            await airtableService.saveFile(fileData);
-            console.log('✅ App: File saved to database:', fileData.title);
-          } catch (error) {
-            console.error('❌ App: Error saving file to database:', error);
-            throw error;
-          }
-        });
-
-        await Promise.all(savePromises);
-
-        // Show results
-        if (result.failed.length > 0) {
-          console.warn('⚠️ App: Some uploads failed:', result.failed);
-          alert(`Upload complete! ${result.successful.length} files uploaded successfully, ${result.failed.length} failed.`);
-        } else {
-          console.log('✅ App: All uploads successful!');
-          alert(`All ${result.successful.length} files uploaded successfully!`);
-        }
-
-        // Reload files and reset states
-        await loadFiles();
-        setUploads([]);
-        setPendingFiles([]);
-
-      } catch (error) {
-        console.error('❌ App: Upload process failed:', error);
-        alert('Upload failed: ' + error.message);
-      } finally {
-        setIsUploading(false);
-      }
-    };
-
-    uploadProcess();
-  }, [cloudinaryService, airtableService, loadFiles]);
-
-  // Handle File Selection
-  const handleFileSelect = useCallback((selectedFiles) => {
-    console.log('🔄 App: Files selected for upload:', selectedFiles.length);
-    setPendingFiles(selectedFiles);
-    setShowUploadForm(true);
-  }, []);
-
-  // Handle Upload Form Submit
-  const handleUploadSubmit = useCallback((metadata) => {
-    console.log('🔄 App: Upload form submitted with metadata:', metadata);
-    if (pendingFiles.length > 0) {
-      startUpload(pendingFiles, metadata);
-    }
-  }, [pendingFiles, startUpload]);
-
-  // Drag and Drop Handlers
-  const handleDragOver = useCallback((e) => {
-    e.preventDefault();
-    if (!isDragOver) {
-      console.log('🔄 App: Drag over detected');
-      setIsDragOver(true);
-    }
-  }, [isDragOver]);
-
-  const handleDragLeave = useCallback((e) => {
-    e.preventDefault();
-    if (!e.currentTarget.contains(e.relatedTarget)) {
-      console.log('🔄 App: Drag leave detected');
-      setIsDragOver(false);
-    }
-  }, []);
-
-  const handleDrop = useCallback((e) => {
-    e.preventDefault();
-    console.log('🔄 App: Files dropped');
-    setIsDragOver(false);
-    
-    const droppedFiles = Array.from(e.dataTransfer.files);
-    if (droppedFiles.length > 0) {
-      handleFileSelect(droppedFiles);
-    }
-  }, [handleFileSelect]);
-
-  // Context Menu Handlers
-  const handleFileRightClick = useCallback((e, file) => {
-    e.preventDefault();
-    console.log('🔄 App: File right-clicked:', file.title);
-    setContextMenu({
-      show: true,
-      x: e.clientX,
-      y: e.clientY,
-      type: 'file',
-      target: file
-    });
-  }, []);
-
-  const handleContextAction = useCallback(async (action, target) => {
-    console.log('🔄 App: Context action:', { action, target: target?.title || target });
-
-    try {
-      switch (action) {
-        case 'preview':
-          setPreviewFile(target);
-          setShowPreview(true);
-          break;
-
-        case 'download':
-          if (target.url) {
-            window.open(target.url, '_blank');
-          }
-          break;
-
-        case 'rename':
-          const newTitle = prompt('Enter new name:', target.title);
-          if (newTitle && newTitle !== target.title) {
-            await airtableService.updateFile(target.id, { 'Title': newTitle });
-            await loadFiles();
-          }
-          break;
-
-        case 'delete':
-          if (confirm(`Are you sure you want to delete "${target.title}"?`)) {
-            await airtableService.deleteFile(target.id);
-            await loadFiles();
-          }
-          break;
-
-        default:
-          console.log('🔄 App: Unknown action:', action);
-      }
-    } catch (error) {
-      console.error('❌ App: Context action failed:', error);
-      alert('Action failed: ' + error.message);
-    }
-  }, [airtableService, loadFiles]);
-
-  const closeContextMenu = useCallback(() => {
-    setContextMenu({ show: false, x: 0, y: 0, type: '', target: null });
-  }, []);
-
-  // File Actions
-  const handleFileDoubleClick = useCallback((file) => {
-    console.log('🔄 App: File double-clicked:', file.title);
-    setPreviewFile(file);
-    setShowPreview(true);
-  }, []);
-
-  // Folder Management
-  const handleCreateFolder = useCallback(() => {
-    const folderName = prompt('Enter folder name:');
-    if (folderName && folderName.trim()) {
-      console.log('🔄 App: Creating folder:', folderName);
-      // Add folder to current categories if it doesn't exist
-      if (!folderTree[folderName.trim()]) {
-        setCurrentFolder(folderName.trim());
-      }
-    }
-  }, [folderTree]);
-
-  // Render Loading State
-  if (loading) {
-    return (
-      <div className="h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading files...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Render Error State
-  if (error) {
-    return (
-      <div className="h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="text-red-500 text-4xl mb-4">❌</div>
-          <p className="text-red-600 mb-4">Error loading files: {error}</p>
-          <button
-            onClick={loadFiles}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-          >
-            Try Again
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // Main Render
-  return (
-    <div 
-      className="h-screen flex flex-col bg-gray-50"
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-      onDrop={handleDrop}
-    >
-      {/* Header */}
-      <header className="bg-white border-b border-gray-200 p-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-800">📁 File Manager</h1>
-            <p className="text-sm text-gray-600">
-              {files.length} files • Current: {currentFolder} ({currentFiles.length})
-            </p>
-          </div>
-          
-          <div className="flex items-center space-x-4">
-            {/* View Toggle */}
-            <div className="flex bg-gray-100 rounded-lg p-1">
-              <button
-                onClick={() => setViewMode('grid')}
-                className={`px-3 py-1 rounded text-sm ${
-                  viewMode === 'grid' 
-                    ? 'bg-white text-gray-800 shadow-sm' 
-                    : 'text-gray-600 hover:text-gray-800'
-                }`}
-              >
-                🔲 Grid
-              </button>
-              <button
-                onClick={() => setViewMode('list')}
-                className={`px-3 py-1 rounded text-sm ${
-                  viewMode === 'list' 
-                    ? 'bg-white text-gray-800 shadow-sm' 
-                    : 'text-gray-600 hover:text-gray-800'
-                }`}
-              >
-                📋 List
-              </button>
-            </div>
-
-            {/* Upload Button */}
-            <UploadButton 
-              onFileSelect={handleFileSelect}
-              isUploading={isUploading}
-            />
-
-            {/* Refresh Button */}
-            <button
-              onClick={loadFiles}
-              disabled={loading}
-              className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
-            >
-              🔄 Refresh
-            </button>
-          </div>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Sidebar */}
-        <FolderTree
-          folderTree={folderTree}
-          currentFolder={currentFolder}
-          setCurrentFolder={setCurrentFolder}
-          expandedFolders={expandedFolders}
-          setExpandedFolders={setExpandedFolders}
-          setContextMenu={setContextMenu}
-          onCreateFolder={handleCreateFolder}
-        />
-
-        {/* File Display Area */}
-        <FileGrid
-          files={currentFiles}
-          viewMode={viewMode}
-          onFileRightClick={handleFileRightClick}
-          onFileDoubleClick={handleFileDoubleClick}
-        />
-      </div>
-
-      {/* Upload Progress */}
-      <ProgressBar
-        uploads={uploads}
-        onClose={() => setUploads([])}
-      />
-
-      {/* Upload Metadata Form */}
-      <UploadMetadataForm
-        isOpen={showUploadForm}
-        onClose={() => {
-          setShowUploadForm(false);
-          setPendingFiles([]);
-        }}
-        onSubmit={handleUploadSubmit}
-        initialData={{ category: currentFolder }}
-      />
-
-      {/* Context Menu */}
-      <ContextMenu
-        contextMenu={contextMenu}
-        onClose={closeContextMenu}
-        onAction={handleContextAction}
-      />
-
-      {/* File Preview Modal */}
-      <FilePreviewModal
-        file={previewFile}
-        isOpen={showPreview}
-        onClose={() => {
-          setShowPreview(false);
-          setPreviewFile(null);
-        }}
-      />
-
-      {/* Drag and Drop Overlay */}
-      <DragDropOverlay isDragOver={isDragOver} />
-    </div>
-  );
-}
+    return new A
