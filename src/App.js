@@ -1,3 +1,601 @@
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+
+// =============================================
+// AIRTABLE SERVICE CLASS - FIXED
+// =============================================
+class AirtableService {
+  constructor() {
+    this.baseId = 'appTK2fgCwe039t5J';
+    this.apiKey = 'patbQMUOfJRtJ1S5d.be54ccdaf03c795c8deca53ae7c05ddbda8efe584e9a07a613a79fd0f0c04dc9';
+    this.baseUrl = `https://api.airtable.com/v0/${this.baseId}/Media%20Assets`;
+    this.headers = {
+      'Authorization': `Bearer ${this.apiKey}`,
+      'Content-Type': 'application/json'
+    };
+  }
+
+  // Fetch all files from Airtable with pagination
+  async fetchAllFiles() {
+    console.log('🔄 AirtableService: Fetching files from Airtable...');
+    
+    try {
+      let allRecords = [];
+      let offset = null;
+      
+      do {
+        const url = offset 
+          ? `${this.baseUrl}?offset=${offset}` 
+          : this.baseUrl;
+        
+        console.log('📡 AirtableService: Fetching page...', { offset });
+        
+        const response = await fetch(url, {
+          method: 'GET',
+          headers: this.headers
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        console.log('📦 AirtableService: Raw response data:', data);
+        
+        allRecords = allRecords.concat(data.records || []);
+        offset = data.offset;
+        
+        console.log(`📊 AirtableService: Page fetched. Records this page: ${data.records?.length || 0}, Total so far: ${allRecords.length}`);
+        
+      } while (offset);
+
+      console.log(`✅ AirtableService: Total records fetched: ${allRecords.length}`);
+      return this.processRecords(allRecords);
+      
+    } catch (error) {
+      console.error('❌ AirtableService: Error fetching files:', error);
+      throw error;
+    }
+  }
+
+  // FIXED - Process raw Airtable records into app format
+  processRecords(records) {
+    console.log('🔄 AirtableService: Processing records...', records);
+    
+    const processedFiles = records.map(record => {
+      const fields = record.fields || {};
+      const url = fields['URL'] || fields['File URL'] || '';
+      
+      // Better file type detection
+      const detectedType = this.detectFileTypeFromUrl(url);
+      console.log(`🔍 File type detection for ${fields['Title']}: ${detectedType} from URL: ${url}`);
+      
+      // Generate thumbnail with better logic
+      const thumbnail = this.generateThumbnailFromUrl(url, detectedType);
+      console.log(`🖼️ Thumbnail generated for ${fields['Title']}: ${thumbnail}`);
+      
+      const processedFile = {
+        id: record.id,
+        title: fields['Title'] || fields['Name'] || 'Untitled',
+        url: url,
+        category: fields['Category'] || 'uncategorized', 
+        type: detectedType,
+        station: fields['Station'] || '',
+        description: fields['Description'] || '',
+        notes: fields['Notes'] || '',
+        tags: fields['Tags'] || '',
+        uploadDate: fields['Upload Date'] || fields['Created'] || new Date().toISOString(),
+        thumbnail: thumbnail,
+        fileSize: fields['File Size'] || 0,
+        duration: fields['Duration'] || '',
+        originalRecord: record
+      };
+      
+      console.log('✅ Processed file:', processedFile);
+      return processedFile;
+    });
+
+    console.log('✅ AirtableService: All processed files:', processedFiles);
+    return processedFiles;
+  }
+
+  // FIXED - Enhanced file type detection from URL
+  detectFileTypeFromUrl(url) {
+    if (!url) {
+      console.log('⚠️ No URL provided for file type detection');
+      return 'unknown';
+    }
+    
+    console.log(`🔍 Detecting file type from URL: ${url}`);
+    
+    // Extract extension from URL (handle query parameters)
+    const urlParts = url.split('?')[0]; // Remove query params
+    const extension = urlParts.split('.').pop()?.toLowerCase();
+    
+    console.log(`📄 Extracted extension: ${extension}`);
+    
+    // Enhanced file type mapping
+    const typeMap = {
+      // Images
+      'jpg': 'image', 'jpeg': 'image', 'png': 'image', 'gif': 'image', 
+      'webp': 'image', 'svg': 'image', 'bmp': 'image', 'tiff': 'image', 'tif': 'image',
+      
+      // Videos  
+      'mp4': 'video', 'avi': 'video', 'mov': 'video', 'wmv': 'video', 
+      'flv': 'video', 'webm': 'video', 'mkv': 'video', '3gp': 'video', 'm4v': 'video',
+      
+      // Audio
+      'mp3': 'audio', 'wav': 'audio', 'flac': 'audio', 'aac': 'audio', 
+      'ogg': 'audio', 'm4a': 'audio', 'wma': 'audio',
+      
+      // Documents
+      'pdf': 'document', 'doc': 'document', 'docx': 'document', 
+      'txt': 'document', 'rtf': 'document',
+      
+      // Spreadsheets
+      'xls': 'spreadsheet', 'xlsx': 'spreadsheet', 'csv': 'spreadsheet',
+      
+      // Presentations
+      'ppt': 'presentation', 'pptx': 'presentation',
+      
+      // Archives
+      'zip': 'archive', 'rar': 'archive', '7z': 'archive', 'tar': 'archive', 'gz': 'archive'
+    };
+    
+    const detectedType = typeMap[extension] || 'file';
+    console.log(`✅ File type detected: ${detectedType} for extension: ${extension}`);
+    
+    return detectedType;
+  }
+
+  // FIXED - Enhanced thumbnail generation
+  generateThumbnailFromUrl(url, fileType) {
+    if (!url) {
+      console.log('⚠️ No URL provided for thumbnail generation');
+      return '';
+    }
+    
+    console.log(`🖼️ Generating thumbnail for URL: ${url}, type: ${fileType}`);
+    
+    try {
+      // If it's a Cloudinary URL, generate proper thumbnail
+      if (url.includes('cloudinary.com')) {
+        console.log('📸 Cloudinary URL detected, generating thumbnail...');
+        
+        if (fileType === 'image') {
+          const thumbnail = url.replace('/upload/', '/upload/w_150,h_150,c_fill,f_auto,q_auto/');
+          console.log(`✅ Image thumbnail: ${thumbnail}`);
+          return thumbnail;
+        }
+        
+        if (fileType === 'video') {
+          const thumbnail = url.replace('/upload/', '/upload/w_150,h_150,c_fill,f_auto,q_auto,so_0/')
+                              .replace(/\.(mp4|avi|mov|wmv|flv|webm|mkv|3gp|m4v)$/i, '.jpg');
+          console.log(`✅ Video thumbnail: ${thumbnail}`);
+          return thumbnail;
+        }
+        
+        // NEW: Handle documents and PDFs
+        if (fileType === 'document' || fileType === 'spreadsheet' || fileType === 'presentation') {
+          const thumbnail = url.replace('/upload/', '/upload/w_150,h_150,c_fill,f_jpg,pg_1/');
+          console.log(`✅ Document thumbnail: ${thumbnail}`);
+          return thumbnail;
+        }
+      }
+      
+      // For non-Cloudinary URLs or non-media files, return original URL for images
+      if (fileType === 'image') {
+        console.log(`✅ Direct image URL: ${url}`);
+        return url;
+      }
+      
+      // For other file types, no thumbnail URL needed (will show icon)
+      console.log(`ℹ️ No thumbnail needed for type: ${fileType}`);
+      return '';
+      
+    } catch (error) {
+      console.error('❌ Error generating thumbnail:', error);
+      return url; // Fallback to original URL
+    }
+  }
+
+  // Save new file to Airtable
+  async saveFile(fileData) {
+    console.log('🔄 AirtableService: Saving file to Airtable:', fileData);
+    
+    try {
+      const airtableData = {
+        fields: {
+          'Title': fileData.title || fileData.name,
+          'URL': fileData.url,
+          'Category': fileData.category,
+          'Type': fileData.type,
+          'Station': fileData.station || '',
+          'Description': fileData.description || '',
+          'Notes': fileData.notes || '',
+          'Tags': fileData.tags || '',
+          'Upload Date': new Date().toISOString().split('T')[0],
+          'File Size': fileData.size || 0,
+          'Thumbnail': fileData.thumbnail || fileData.url
+        }
+      };
+
+      console.log('📡 AirtableService: Sending to Airtable:', airtableData);
+
+      const response = await fetch(this.baseUrl, {
+        method: 'POST',
+        headers: this.headers,
+        body: JSON.stringify(airtableData)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('❌ AirtableService: Airtable error:', errorData);
+        throw new Error(`Airtable error: ${errorData.error?.message || response.statusText}`);
+      }
+
+      const result = await response.json();
+      console.log('✅ AirtableService: File saved successfully:', result);
+      return result;
+      
+    } catch (error) {
+      console.error('❌ AirtableService: Error saving file:', error);
+      throw error;
+    }
+  }
+
+  // Update existing file in Airtable
+  async updateFile(recordId, updates) {
+    console.log('🔄 AirtableService: Updating file:', { recordId, updates });
+    
+    try {
+      const response = await fetch(`${this.baseUrl}/${recordId}`, {
+        method: 'PATCH',
+        headers: this.headers,
+        body: JSON.stringify({
+          fields: updates
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log('✅ AirtableService: File updated successfully:', result);
+      return result;
+      
+    } catch (error) {
+      console.error('❌ AirtableService: Error updating file:', error);
+      throw error;
+    }
+  }
+
+  // Update multiple files at once
+  async updateMultipleFiles(updates) {
+    console.log('🔄 AirtableService: Updating multiple files:', updates);
+    
+    try {
+      const records = updates.map(update => ({
+        id: update.id,
+        fields: update.fields
+      }));
+
+      const response = await fetch(this.baseUrl, {
+        method: 'PATCH',
+        headers: this.headers,
+        body: JSON.stringify({
+          records: records
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log('✅ AirtableService: Multiple files updated successfully:', result);
+      return result;
+      
+    } catch (error) {
+      console.error('❌ AirtableService: Error updating multiple files:', error);
+      throw error;
+    }
+  }
+
+  // Delete file from Airtable
+  async deleteFile(recordId) {
+    console.log('🔄 AirtableService: Deleting file:', recordId);
+    
+    try {
+      const response = await fetch(`${this.baseUrl}/${recordId}`, {
+        method: 'DELETE',
+        headers: this.headers
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      console.log('✅ AirtableService: File deleted successfully');
+      return true;
+      
+    } catch (error) {
+      console.error('❌ AirtableService: Error deleting file:', error);
+      throw error;
+    }
+  }
+
+  // Delete multiple files at once
+  async deleteMultipleFiles(recordIds) {
+    console.log('🔄 AirtableService: Deleting multiple files:', recordIds);
+    
+    try {
+      const deletePromises = recordIds.map(id => this.deleteFile(id));
+      await Promise.all(deletePromises);
+      
+      console.log('✅ AirtableService: Multiple files deleted successfully');
+      return true;
+      
+    } catch (error) {
+      console.error('❌ AirtableService: Error deleting multiple files:', error);
+      throw error;
+    }
+  }
+}
+
+// =============================================
+// CLOUDINARY SERVICE CLASS
+// =============================================
+class CloudinaryService {
+  constructor() {
+    this.cloudName = 'dzrw8nopf';
+    this.uploadPreset = 'HIBF_MASTER';
+    this.baseUrl = `https://api.cloudinary.com/v1_1/${this.cloudName}/upload`;
+  }
+
+  // Upload single file to Cloudinary
+  async uploadFile(file, onProgress = null) {
+    console.log('🔄 CloudinaryService: Starting upload for:', file.name);
+    
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('upload_preset', this.uploadPreset);
+      formData.append('folder', 'HIBF_assets');
+
+      // Create XMLHttpRequest for progress tracking
+      return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+
+        // Track upload progress
+        if (onProgress) {
+          xhr.upload.onprogress = (event) => {
+            if (event.lengthComputable) {
+              const progress = Math.round((event.loaded / event.total) * 100);
+              console.log(`📈 CloudinaryService: Upload progress for ${file.name}: ${progress}%`);
+              onProgress(progress, file.name);
+            }
+          };
+        }
+
+        xhr.onload = () => {
+          if (xhr.status === 200) {
+            try {
+              const result = JSON.parse(xhr.responseText);
+              console.log('✅ CloudinaryService: Upload successful:', result);
+              
+              const processedResult = {
+                url: result.secure_url,
+                thumbnail: this.generateThumbnailUrl(result.secure_url, result.resource_type),
+                publicId: result.public_id,
+                resourceType: result.resource_type,
+                format: result.format,
+                size: result.bytes,
+                width: result.width,
+                height: result.height,
+                duration: result.duration,
+                originalResult: result
+              };
+              
+              resolve(processedResult);
+            } catch (parseError) {
+              console.error('❌ CloudinaryService: Error parsing response:', parseError);
+              reject(parseError);
+            }
+          } else {
+            console.error('❌ CloudinaryService: Upload failed with status:', xhr.status);
+            reject(new Error(`Upload failed with status: ${xhr.status}`));
+          }
+        };
+
+        xhr.onerror = () => {
+          console.error('❌ CloudinaryService: Network error during upload');
+          reject(new Error('Network error during upload'));
+        };
+
+        xhr.open('POST', this.baseUrl);
+        xhr.send(formData);
+      });
+
+    } catch (error) {
+      console.error('❌ CloudinaryService: Error uploading file:', error);
+      throw error;
+    }
+  }
+
+  // Upload multiple files with shared metadata
+  async uploadMultipleFiles(files, sharedMetadata = {}, onProgress = null) {
+    console.log('🔄 CloudinaryService: Starting batch upload for', files.length, 'files');
+    console.log('📋 CloudinaryService: Shared metadata:', sharedMetadata);
+    
+    const uploadPromises = Array.from(files).map(async (file, index) => {
+      try {
+        // Individual progress callback
+        const fileProgress = (progress, fileName) => {
+          if (onProgress) {
+            onProgress(index, progress, fileName);
+          }
+        };
+
+        // Upload to Cloudinary
+        const cloudinaryResult = await this.uploadFile(file, fileProgress);
+        
+        // Combine with metadata and file info
+        const fileData = {
+          name: file.name,
+          title: sharedMetadata.title || file.name.split('.')[0],
+          category: sharedMetadata.category || this.categorizeFile(file),
+          type: this.getFileType(file),
+          station: sharedMetadata.station || '',
+          description: sharedMetadata.description || '',
+          notes: sharedMetadata.notes || '',
+          tags: sharedMetadata.tags || '',
+          url: cloudinaryResult.url,
+          thumbnail: cloudinaryResult.thumbnail,
+          size: file.size,
+          duration: cloudinaryResult.duration || '',
+          originalFile: file,
+          cloudinaryData: cloudinaryResult
+        };
+
+        console.log('✅ CloudinaryService: File processed:', fileData);
+        return fileData;
+
+      } catch (error) {
+        console.error('❌ CloudinaryService: Error uploading file:', file.name, error);
+        return {
+          name: file.name,
+          error: error.message,
+          failed: true
+        };
+      }
+    });
+
+    const results = await Promise.all(uploadPromises);
+    const successful = results.filter(r => !r.failed);
+    const failed = results.filter(r => r.failed);
+
+    console.log(`✅ CloudinaryService: Batch upload complete. Success: ${successful.length}, Failed: ${failed.length}`);
+    
+    return {
+      successful,
+      failed,
+      total: files.length
+    };
+  }
+
+  // Categorize file based on type
+  categorizeFile(file) {
+    const type = file.type.toLowerCase();
+    
+    if (type.startsWith('image/')) return 'Images';
+    if (type.startsWith('video/')) return 'Video';
+    if (type.startsWith('audio/')) return 'Audio';
+    if (type.includes('pdf')) return 'Documents';
+    if (type.includes('text/') || type.includes('document')) return 'Documents';
+    if (type.includes('spreadsheet') || type.includes('excel')) return 'Documents';
+    if (type.includes('presentation') || type.includes('powerpoint')) return 'Documents';
+    
+    return 'Files';
+  }
+
+  // Get file type for display
+  getFileType(file) {
+    const type = file.type.toLowerCase();
+    
+    if (type.startsWith('image/')) return 'image';
+    if (type.startsWith('video/')) return 'video';
+    if (type.startsWith('audio/')) return 'audio';
+    if (type.includes('pdf')) return 'document';
+    if (type.includes('text/') || type.includes('document')) return 'document';
+    if (type.includes('spreadsheet') || type.includes('excel')) return 'spreadsheet';
+    if (type.includes('presentation') || type.includes('powerpoint')) return 'presentation';
+    
+    return 'file';
+  }
+
+  // Generate thumbnail URL for different media types
+  generateThumbnailUrl(originalUrl, resourceType) {
+    if (!originalUrl) return '';
+    
+    try {
+      // For images, create a small thumbnail
+      if (resourceType === 'image') {
+        return originalUrl.replace('/upload/', '/upload/w_150,h_150,c_fill,f_auto,q_auto/');
+      }
+      
+      // For videos, get first frame as thumbnail
+      if (resourceType === 'video') {
+        return originalUrl.replace('/upload/', '/upload/w_150,h_150,c_fill,f_auto,q_auto,so_0/').replace(/\.[^.]+$/, '.jpg');
+      }
+      
+      // NEW: For documents, get the first page as a JPG thumbnail
+      if (resourceType === 'raw' || resourceType === 'auto') {
+        if (originalUrl.endsWith('.pdf')) {
+          return originalUrl.replace('/upload/', '/upload/w_150,h_150,c_fill,f_jpg,pg_1/');
+        }
+      }
+      
+      // For other types, return original URL
+      return originalUrl;
+      
+    } catch (error) {
+      console.error('❌ CloudinaryService: Error generating thumbnail:', error);
+      return originalUrl;
+    }
+  }
+}
+
+// =============================================
+// UTILITY FUNCTIONS - FIXED
+// =============================================
+
+// FIXED - Get file type icon
+const getFileIcon = (type, size = 'text-2xl') => {
+  console.log(`🎨 Getting icon for type: ${type}, size: ${size}`);
+  
+  const icons = {
+    // Media types
+    image: '🖼️',
+    video: '🎥', 
+    audio: '🎵',
+    
+    // Document types
+    document: '📄',
+    spreadsheet: '📊',
+    presentation: '📽️',
+    
+    // Other types
+    archive: '📦',
+    file: '📁',
+    unknown: '❓'
+  };
+  
+  const icon = icons[type] || icons.unknown;
+  console.log(`✅ Icon selected: ${icon} for type: ${type}`);
+  
+  return <span className={size}>{icon}</span>;
+};
+
+// Format file size
+const formatFileSize = (bytes) => {
+  if (!bytes) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+};
+
+// Format date
+const formatDate = (dateString) => {
+  if (!dateString) return 'Unknown';
+  try {
+    return new Date(dateString).toLocaleDateString();
+  } catch {
+    return 'Invalid Date';
+  }
+};
+
 // =============================================
 // ENHANCED UI COMPONENTS - FIXED JSX
 // =============================================
@@ -604,6 +1202,394 @@ const FileDetailsModal = ({ file, isOpen, onClose, onUpdate, onDelete }) => {
                           >
                             {tag.trim()}
                           </span>
+                      </div>
+                    </div>
+                  )}
+
+                  {file.url && (
+                    <div className="bg-gray-50 p-3 rounded-lg">
+                      <span className="text-sm font-medium text-gray-700 block mb-1">File URL</span>
+                      <a
+                        href={file.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm text-blue-600 hover:text-blue-800 break-all"
+                      >
+                        {file.url}
+                      </a>
+                  </div>
+                  </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex-1 p-4 overflow-auto">
+      <SelectionControls />
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4">
+        {files.map((file) => (
+          <div
+            key={file.id}
+            className={`relative bg-white border-2 rounded-lg p-3 hover:shadow-lg cursor-pointer transition-all duration-200 group ${
+              isSelected(file) 
+                ? 'border-blue-500 bg-blue-50 shadow-md' 
+                : 'border-gray-200 hover:border-gray-300'
+            }`}
+            onContextMenu={(e) => onFileRightClick(e, file)}
+            onClick={() => handleFileClick(file)}
+          >
+            {/* Selection checkbox */}
+            <div className="absolute top-2 left-2 z-10">
+              <input
+                type="checkbox"
+                checked={isSelected(file)}
+                onChange={(e) => handleFileSelectToggle(file, e)}
+                className="rounded shadow-sm"
+              />
+            </div>
+
+            {/* FIXED - File thumbnail/icon with enhanced logic */}
+            <div className="aspect-square mb-2 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden">
+              {(() => {
+                console.log(`🎨 Rendering file: ${file.title}, type: ${file.type}, thumbnail: ${file.thumbnail}, url: ${file.url}`);
+                
+                const isImageOrVideo = ['image', 'video', 'document', 'spreadsheet', 'presentation'].includes(file.type);
+                const hasThumbnail = file.thumbnail && !imageErrors.has(file.id);
+
+                if (isImageOrVideo && hasThumbnail) {
+                  return (
+                    <img
+                      src={file.thumbnail}
+                      alt={file.title}
+                      className="w-full h-full object-cover rounded-lg"
+                      onError={() => {
+                        console.log(`❌ Thumbnail failed to load: ${file.thumbnail}`);
+                        handleImageError(file.id);
+                      }}
+                      onLoad={() => {
+                        console.log(`✅ Thumbnail loaded successfully: ${file.thumbnail}`);
+                      }}
+                      loading="lazy"
+                    />
+                  );
+                }
+                
+                // Fallback to file type icon
+                return (
+                  <div className="flex flex-col items-center justify-center h-full">
+                    {getFileIcon(file.type, 'text-3xl')}
+                    <span className="text-xs text-gray-500 mt-1 uppercase font-medium">
+                      {file.type || 'unknown'}
+                    </span>
+                  </div>
+                );
+              })()}
+          </div>
+
+            {/* File info */}
+            <div className="text-sm">
+              <p className="font-medium truncate text-gray-900" title={file.title}>
+                {file.title}
+              </p>
+              <p className="text-xs text-gray-500 truncate">
+                {formatFileSize(file.fileSize)}
+              </p>
+              {file.tags && (
+                <p className="text-xs text-blue-600 truncate mt-1">
+                  {file.tags}
+                </p>
+              )}
+            </div>
+
+            {/* Hover overlay with quick actions */}
+            <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 rounded-lg transition-all duration-200 flex items-center justify-center opacity-0 group-hover:opacity-100">
+              <div className="flex gap-2">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onFileRightClick(e, file);
+                  }}
+                  className="bg-white bg-opacity-90 hover:bg-opacity-100 p-2 rounded-full shadow-sm"
+                  title="More options"
+                >
+                  ⋯
+                </button>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// Enhanced File Details Modal
+const FileDetailsModal = ({ file, isOpen, onClose, onUpdate, onDelete }) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editData, setEditData] = useState({});
+
+  useEffect(() => {
+    if (file) {
+      setEditData({
+        title: file.title || '',
+        description: file.description || '',
+        notes: file.notes || '',
+        tags: file.tags || '',
+        station: file.station || '',
+        category: file.category || ''
+      });
+    }
+  }, [file]);
+
+  const handleSave = () => {
+    onUpdate(file.id, {
+      'Title': editData.title,
+      'Description': editData.description,
+      'Notes': editData.notes,
+      'Tags': editData.tags,
+      'Station': editData.station,
+      'Category': editData.category
+    });
+    setIsEditing(false);
+  };
+
+  const handleCancel = () => {
+    if (file) {
+      setEditData({
+        title: file.title || '',
+        description: file.description || '',
+        notes: file.notes || '',
+        tags: file.tags || '',
+        station: file.station || '',
+        category: file.category || ''
+      });
+    }
+    setIsEditing(false);
+  };
+
+  if (!isOpen || !file) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-hidden shadow-2xl">
+        {/* Header */}
+        <div className="flex items-center justify-between p-6 border-b bg-gray-50">
+          <div className="flex items-center gap-3">
+            {getFileIcon(file.type, 'text-2xl')}
+            <div>
+              <h2 className="text-xl font-semibold text-gray-900">{file.title}</h2>
+              <p className="text-sm text-gray-500">{file.category} • {formatFileSize(file.fileSize)}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setIsEditing(!isEditing)}
+              className="px-3 py-1 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              {isEditing ? 'Cancel' : '✏️ Edit'}
+            </button>
+            <button
+              onClick={onClose}
+              className="p-2 hover:bg-gray-200 rounded-lg transition-colors"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+        
+        <div className="flex h-[calc(90vh-120px)]">
+          {/* Preview Section */}
+          <div className="flex-1 p-6 bg-gray-50 flex items-center justify-center">
+            {file.type === 'image' && file.url && (
+              <img
+                src={file.url}
+                alt={file.title}
+                className="max-w-full max-h-full object-contain rounded-lg shadow-sm"
+              />
+            )}
+            
+            {file.type === 'video' && file.url && (
+              <video
+                src={file.url}
+                controls
+                className="max-w-full max-h-full rounded-lg shadow-sm"
+              >
+                Your browser does not support video playback.
+              </video>
+            )}
+            
+            {file.type === 'audio' && file.url && (
+              <div className="text-center">
+                <div className="text-6xl mb-4">🎵</div>
+                <audio
+                  src={file.url}
+                  controls
+                  className="w-full max-w-md"
+                >
+                  Your browser does not support audio playback.
+                </audio>
+              </div>
+            )}
+            
+            {!['image', 'video', 'audio'].includes(file.type) && (
+              <div className="text-center">
+                <div className="text-6xl mb-4">{getFileIcon(file.type, 'text-6xl')}</div>
+                <p className="text-gray-600 mb-4">Preview not available for this file type</p>
+                {file.url && (
+                  <a
+                    href={file.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-block px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    📄 Open File
+                  </a>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Details Section */}
+          <div className="w-96 p-6 overflow-y-auto border-l bg-white">
+            <h3 className="text-lg font-semibold mb-4 text-gray-900">File Details</h3>
+
+            {isEditing ? (
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
+                  <input
+                    type="text"
+                    value={editData.title}
+                    onChange={(e) => setEditData({...editData, title: e.target.value})}
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                  <select
+                    value={editData.category}
+                    onChange={(e) => setEditData({...editData, category: e.target.value})}
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="Images">Images</option>
+                    <option value="Video">Video</option>
+                    <option value="Audio">Audio</option>
+                    <option value="Documents">Documents</option>
+                    <option value="Files">Files</option>
+                    <option value="product">Product</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Station</label>
+                  <input
+                    type="text"
+                    value={editData.station}
+                    onChange={(e) => setEditData({...editData, station: e.target.value})}
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                  <textarea
+                    value={editData.description}
+                    onChange={(e) => setEditData({...editData, description: e.target.value})}
+                    rows={3}
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+                  <textarea
+                    value={editData.notes}
+                    onChange={(e) => setEditData({...editData, notes: e.target.value})}
+                    rows={2}
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Tags</label>
+                  <input
+                    type="text"
+                    value={editData.tags}
+                    onChange={(e) => setEditData({...editData, tags: e.target.value})}
+                    placeholder="tag1, tag2, tag3"
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+
+                <div className="flex gap-2 pt-4">
+                  <button
+                    onClick={handleSave}
+                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    💾 Save Changes
+                  </button>
+                  <button
+                    onClick={handleCancel}
+                    className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 gap-4">
+                  <div className="bg-gray-50 p-3 rounded-lg">
+                    <span className="text-sm font-medium text-gray-700 block mb-1">File Type</span>
+                    <span className="text-sm text-gray-900 capitalize">{file.type}</span>
+                  </div>
+
+                  <div className="bg-gray-50 p-3 rounded-lg">
+                    <span className="text-sm font-medium text-gray-700 block mb-1">Size</span>
+                    <span className="text-sm text-gray-900">{formatFileSize(file.fileSize)}</span>
+                  </div>
+
+                  <div className="bg-gray-50 p-3 rounded-lg">
+                    <span className="text-sm font-medium text-gray-700 block mb-1">Upload Date</span>
+                    <span className="text-sm text-gray-900">{formatDate(file.uploadDate)}</span>
+                  </div>
+
+                  {file.station && (
+                    <div className="bg-gray-50 p-3 rounded-lg">
+                      <span className="text-sm font-medium text-gray-700 block mb-1">Station</span>
+                      <span className="text-sm text-gray-900">{file.station}</span>
+                    </div>
+                  )}
+
+                  {file.description && (
+                    <div className="bg-gray-50 p-3 rounded-lg">
+                      <span className="text-sm font-medium text-gray-700 block mb-1">Description</span>
+                      <span className="text-sm text-gray-900">{file.description}</span>
+                    </div>
+                  )}
+
+                  {file.notes && (
+                    <div className="bg-gray-50 p-3 rounded-lg">
+                      <span className="text-sm font-medium text-gray-700 block mb-1">Notes</span>
+                      <span className="text-sm text-gray-900">{file.notes}</span>
+                    </div>
+                  )}
+
+                  {file.tags && (
+                    <div className="bg-gray-50 p-3 rounded-lg">
+                      <span className="text-sm font-medium text-gray-700 block mb-1">Tags</span>
+                      <div className="flex flex-wrap gap-1">
+                        {file.tags.split(',').map((tag, index) => (
+                          <span
+                            key={index}
+                            className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full"
+                          >
+                            {tag.trim()}
                       </div>
                     </div>
                   )}
@@ -1484,99 +2470,7 @@ export default function App() {
               >
                 📋 List
               </button>
-            </div>
+          </div>
 
             {/* Upload Button */}
-            <UploadButton 
-              onFileSelect={handleFileSelect}
-              isUploading={isUploading}
-            />
-
-            {/* Refresh Button */}
-            <button
-              onClick={loadFiles}
-              disabled={loading}
-              className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors"
-            >
-              🔄 Refresh
-            </button>
-          </div>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Sidebar */}
-        <FolderTree
-          folderTree={folderTree}
-          currentFolder={currentFolder}
-          setCurrentFolder={setCurrentFolder}
-          expandedFolders={expandedFolders}
-          setExpandedFolders={setExpandedFolders}
-          setContextMenu={setContextMenu}
-          onCreateFolder={handleCreateFolder}
-        />
-
-        {/* File Display Area */}
-        <FileGrid
-          files={currentFiles}
-          viewMode={viewMode}
-          onFileRightClick={handleFileRightClick}
-          onFileClick={handleFileClick}
-          selectedFiles={selectedFiles}
-          onFileSelect={handleFileSelectToggle}
-          onSelectAll={handleSelectAll}
-          onClearSelection={handleClearSelection}
-        />
-      </div>
-
-      {/* Upload Progress */}
-      <ProgressBar
-        uploads={uploads}
-        onClose={() => setUploads([])}
-      />
-
-      {/* Batch Operations Panel */}
-      <BatchOperationsPanel
-        selectedFiles={selectedFiles}
-        onClose={() => setShowBatchPanel(false)}
-        onBatchUpdate={handleBatchUpdate}
-        onBatchDelete={handleBatchDelete}
-        onBatchMove={handleBatchMove}
-      />
-
-      {/* Upload Metadata Form */}
-      <UploadMetadataForm
-        isOpen={showUploadForm}
-        onClose={() => {
-          setShowUploadForm(false);
-          setPendingFiles([]);
-        }}
-        onSubmit={handleUploadSubmit}
-        initialData={{ category: currentFolder }}
-      />
-
-      {/* Context Menu */}
-      <ContextMenu
-        contextMenu={contextMenu}
-        onClose={closeContextMenu}
-        onAction={handleContextAction}
-      />
-
-      {/* File Details Modal */}
-      <FileDetailsModal
-        file={selectedFile}
-        isOpen={showFileDetails}
-        onClose={() => {
-          setShowFileDetails(false);
-          setSelectedFile(null);
-        }}
-        onUpdate={handleFileUpdate}
-        onDelete={handleFileDelete}
-      />
-
-      {/* Drag and Drop Overlay */}
-      <DragDropOverlay isDragOver={isDragOver} />
-    </div>
-  );
-}
+            <UploadButton
