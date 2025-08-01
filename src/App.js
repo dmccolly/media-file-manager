@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 
 // =============================================
-// AIRTABLE SERVICE CLASS - FIXED
+// AIRTABLE SERVICE CLASS - FINAL FIX
 // =============================================
 class AirtableService {
   constructor() {
@@ -60,11 +60,9 @@ class AirtableService {
         allRecords = allRecords.concat(data.records || []);
         offset = data.offset;
         
-        console.log(`📊 AirtableService: Page fetched. Records this page: ${data.records?.length || 0}, Total so far: ${allRecords.length}`);
-        
       } while (offset);
 
-      console.log(`✅ AirtableService: Total records fetched: ${allRecords.length}`);
+      console.log(`📊 AirtableService: Page fetched. Records this page: ${data.records?.length || 0}, Total so far: ${allRecords.length}`);
       return this.processRecords(allRecords);
       
     } catch (error) {
@@ -98,12 +96,12 @@ class AirtableService {
           break;
         }
       }
-
-      const airtableThumbnailUrl = fileAttachment?.thumbnails?.small?.url;
+     
       const url = fileAttachment?.url || this.getFieldValue(fields, this.airtableFields.url) || '';
-      const thumbnail = airtableThumbnailUrl || url;
+      const thumbnail = fileAttachment?.thumbnails?.small?.url || url;
       console.log(`🖼️ Final thumbnail URL for ${this.getFieldValue(fields, this.airtableFields.title)}: ${thumbnail}`);
-      const detectedType = fileAttachment?.type?.split('/')[0] || this.detectFileTypeFromUrl(url);
+
+      const detectedType = fileAttachment?.type?.split('/')[0] || this.detectFileTypeFromUrl(url);
 
       const processedFile = {
         id: record.id,
@@ -182,7 +180,7 @@ class AirtableService {
   // FIXED - Enhanced thumbnail generation
   generateThumbnailFromUrl(originalUrl) {
     if (!originalUrl) return '';
-    return originalUrl;
+    return originalUrl;
   }
 }
 
@@ -1272,9 +1270,17 @@ const UploadMetadataForm = ({ isOpen, onClose, onSubmit, initialData = {} }) => 
         
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Category
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
+            <input
+              type="text"
+              value={formData.title}
+              onChange={(e) => setFormData({...formData, title: e.target.value})}
+              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
             <select
               value={formData.category}
               onChange={(e) => handleChange('category', e.target.value)}
@@ -1753,21 +1759,6 @@ export default function App() {
     } catch (error) {
       console.error('❌ App: Error batch updating files:', error);
       alert('Error updating files: ' + error.message);
-    }
-  }, [airtableService, loadFiles]);
-
-  const handleBatchDelete = useCallback(async (filesToDelete) => {
-    if (confirm(`Are you sure you want to delete ${filesToDelete.length} files? This cannot be undone.`)) {
-      try {
-        const recordIds = filesToDelete.map(f => f.id);
-        await airtableService.deleteMultipleFiles(recordIds);
-        await loadFiles();
-        setSelectedFiles([]);
-        alert(`Successfully deleted ${filesToDelete.length} files!`);
-      } catch (error) {
-        console.error('❌ App: Error batch deleting files:', error);
-        alert('Error deleting files: ' + error.message);
-      }
     }
   }, [airtableService, loadFiles]);
 
