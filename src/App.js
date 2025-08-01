@@ -23,24 +23,32 @@ const App = () => {
   const fetchFilesFromAirtable = useCallback(async () => {
     try {
       console.log('Fetching files from Airtable...');
-      const response = await fetch(
-        `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Media%20Assets`,
-        {
+      
+      let allRecords = [];
+      let offset = null;
+      
+      do {
+        const url = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Media%20Assets${offset ? `?offset=${offset}` : ''}`;
+        const response = await fetch(url, {
           headers: {
             'Authorization': `Bearer ${AIRTABLE_API_KEY}`,
             'Content-Type': 'application/json',
           },
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
         }
-      );
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
+        const data = await response.json();
+        console.log('Raw Airtable response:', data);
+        
+        allRecords = allRecords.concat(data.records);
+        offset = data.offset; // Continue if there are more records
+        
+      } while (offset);
 
-      const data = await response.json();
-      console.log('Raw Airtable response:', data);
-
-      const filesData = data.records.map(record => ({
+      const filesData = allRecords.map(record => ({
         id: record.id,
         name: record.fields['Asset Name'] || 'Untitled',
         url: record.fields['Cloudinary Public URL'] || '',
@@ -635,6 +643,13 @@ const App = () => {
       setFiles(prev => [...prev, ...uploadedFiles]);
       setUploadFiles([]);
       setUploadProgress(0);
+      
+      // Force refresh data from Airtable to ensure UI is updated
+      await Promise.all([
+        fetchFilesFromAirtable(),
+        fetchFoldersFromAirtable()
+      ]);
+      
       alert(`${uploadedFiles.length} files uploaded successfully!`);
     } catch (error) {
       console.error('Upload error:', error);
