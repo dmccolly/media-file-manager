@@ -808,6 +808,15 @@ const App = () => {
     );
   }
 
+  // Helper function to get an icon based on file type
+  const getFileIcon = (fileType) => {
+    if (fileType.startsWith('image/')) return '🖼️';
+    if (fileType.startsWith('video/')) return '📺';
+    if (fileType.startsWith('audio/')) return '🎵';
+    if (fileType.includes('pdf')) return '📄';
+    return '📁'; // Generic file icon
+  };
+
   return (
     <div style={{ display: 'flex', height: '100vh', fontFamily: 'Arial, sans-serif' }}>
       {/* Sidebar */}
@@ -1206,7 +1215,7 @@ const App = () => {
             >
               {viewMode === 'grid' ? (
                 <>
-                  {file.url && file.type?.startsWith('image/') && (
+                  {file.url && file.type?.startsWith('image/') ? (
                     <img 
                       src={file.url} 
                       alt={file.name}
@@ -1221,6 +1230,20 @@ const App = () => {
                         e.target.style.display = 'none';
                       }}
                     />
+                  ) : (
+                    <div style={{
+                      width: '100%',
+                      height: '120px',
+                      borderRadius: '4px',
+                      marginBottom: '10px',
+                      backgroundColor: '#e9ecef',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '48px'
+                    }}>
+                      {getFileIcon(file.type)}
+                    </div>
                   )}
                   <div>
                     <h4 style={{ margin: '0 0 5px 0', fontSize: '14px' }}>{file.name}</h4>
@@ -1248,7 +1271,7 @@ const App = () => {
                 </>
               ) : (
                 <>
-                  {file.url && file.type?.startsWith('image/') && (
+                  {file.url && file.type?.startsWith('image/') ? (
                     <img 
                       src={file.url} 
                       alt={file.name}
@@ -1262,6 +1285,19 @@ const App = () => {
                         e.target.style.display = 'none';
                       }}
                     />
+                  ) : (
+                    <div style={{
+                      width: '60px',
+                      height: '60px',
+                      borderRadius: '4px',
+                      backgroundColor: '#e9ecef',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '32px'
+                    }}>
+                      {getFileIcon(file.type)}
+                    </div>
                   )}
                   <div style={{ flex: 1 }}>
                     <h4 style={{ margin: '0 0 5px 0', fontSize: '14px' }}>{file.name}</h4>
