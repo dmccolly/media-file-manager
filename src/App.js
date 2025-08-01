@@ -103,7 +103,7 @@ class AirtableService {
       const thumbnail = fileAttachment?.thumbnails?.small?.url || url;
       console.log(`🖼️ Final thumbnail URL for ${this.getFieldValue(fields, this.airtableFields.title)}: ${thumbnail}`);
 
-      const detectedType = fileAttachment?.type?.split('/')[0] || this.detectFileTypeFromUrl(url);
+      const detectedType = fileAttachment?.type?.split('/')[0] || this.detectFileTypeFromUrl(url);
 
       const processedFile = {
         id: record.id,
