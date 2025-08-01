@@ -66,15 +66,21 @@ class AirtableService {
     
     const processedFiles = records.map(record => {
       const fields = record.fields || {};
-      const url = fields['URL'] || fields['File URL'] || '';
+      
+      // NEW: Prioritize Airtable's own thumbnails for file attachments
+      const attachmentField = fields['Attachments'] || fields['File'] || null;
+      const airtableThumbnailUrl = attachmentField && attachmentField[0]?.thumbnails?.small?.url;
+      console.log(`🔍 Airtable thumbnail found: ${airtableThumbnailUrl}`);
+      
+      const url = fields['URL'] || fields['File URL'] || (attachmentField && attachmentField[0]?.url) || '';
       
       // Better file type detection
       const detectedType = this.detectFileTypeFromUrl(url);
       console.log(`🔍 File type detection for ${fields['Title']}: ${detectedType} from URL: ${url}`);
       
       // Generate thumbnail with better logic
-      const thumbnail = this.generateThumbnailFromUrl(url, detectedType);
-      console.log(`🖼️ Thumbnail generated for ${fields['Title']}: ${thumbnail}`);
+      const thumbnail = airtableThumbnailUrl || this.generateThumbnailFromUrl(url, detectedType);
+      console.log(`🖼️ Final thumbnail URL for ${fields['Title']}: ${thumbnail}`);
       
       const processedFile = {
         id: record.id,
@@ -186,7 +192,7 @@ class AirtableService {
         }
       }
       
-      // For non-Cloudinary URLs or non-media files, return original URL for images
+      // For non-Cloudinary URLs or files without a resource type
       if (fileType === 'image') {
         console.log(`✅ Direct image URL: ${url}`);
         return url;
@@ -544,7 +550,7 @@ class CloudinaryService {
         }
         
         // For documents and other non-image/non-video files
-        if (resourceType === 'raw' || resourceType === 'auto') {
+        if (['document', 'spreadsheet', 'presentation'].includes(resourceType)) {
           // Try to get the first page as a JPG thumbnail
           // This conversion works for many document types like PDF
           return `${baseUrl}${transform},f_jpg,pg_1/${path}`;
@@ -835,7 +841,7 @@ const FileGrid = ({ 
                           </div>
                         )}
                       </div>
-                    </div>
+                  </div>
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-600 capitalize">
                     <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
