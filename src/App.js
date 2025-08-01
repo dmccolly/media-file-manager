@@ -1,4 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { getFirestore, collection, onSnapshot, doc, updateDoc, deleteDoc, setDoc } from 'firebase/firestore';
+import { initializeApp } from 'firebase/app';
+import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from 'firebase/auth';
 
 const App = () => {
   // State Management
@@ -12,131 +15,89 @@ const App = () => {
   const [contextMenu, setContextMenu] = useState(null);
   const [previewFile, setPreviewFile] = useState(null);
   const [expandedFolders, setExpandedFolders] = useState(new Set(['']));
+  const [showApprovalView, setShowApprovalView] = useState(false);
+
+  // Firebase Setup
+  const [db, setDb] = useState(null);
+  const [auth, setAuth] = useState(null);
+  const [userId, setUserId] = useState(null);
+  const [isAuthReady, setIsAuthReady] = useState(false);
+  const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+  const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+
+  // Firebase initialization and authentication
+  useEffect(() => {
+    const initFirebase = async () => {
+      try {
+        const app = initializeApp(firebaseConfig);
+        const firestoreDb = getFirestore(app);
+        const firestoreAuth = getAuth(app);
+        setDb(firestoreDb);
+        setAuth(firestoreAuth);
+
+        onAuthStateChanged(firestoreAuth, async (user) => {
+          if (user) {
+            setUserId(user.uid);
+          } else {
+            const anonymousUser = await signInAnonymously(firestoreAuth);
+            setUserId(anonymousUser.user.uid);
+          }
+          setIsAuthReady(true);
+        });
+
+        if (typeof __initial_auth_token !== 'undefined') {
+          await signInWithCustomToken(firestoreAuth, __initial_auth_token);
+        } else {
+          await signInAnonymously(firestoreAuth);
+        }
+      } catch (error) {
+        console.error("Error initializing Firebase:", error);
+      }
+    };
+
+    if (Object.keys(firebaseConfig).length > 0 && !db) {
+      initFirebase();
+    }
+  }, [firebaseConfig]);
+
+  // Firestore data subscription
+  useEffect(() => {
+    if (!isAuthReady || !db) return;
+
+    const filesPath = `/artifacts/${appId}/public/data/files`;
+    const foldersPath = `/artifacts/${appId}/public/data/folders`;
+
+    const unsubscribeFiles = onSnapshot(collection(db, filesPath), (snapshot) => {
+      const filesData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setFiles(filesData);
+    });
+
+    const unsubscribeFolders = onSnapshot(collection(db, foldersPath), (snapshot) => {
+      const foldersData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setFolders(foldersData);
+    });
+
+    return () => {
+      unsubscribeFiles();
+      unsubscribeFolders();
+    };
+  }, [db, isAuthReady, appId]);
 
   // Configuration - Your actual credentials
   const AIRTABLE_BASE_ID = 'appTK2fgCwe039t5J';
   const AIRTABLE_API_KEY = 'patbQMUOfJRtJ1S5d.be54ccdaf03c795c8deca53ae7c05ddbda8efe584e9a07a613a79fd0f0c04dc9';
   const CLOUDINARY_CLOUD_NAME = 'dzrw8nopf';
   const CLOUDINARY_UPLOAD_PRESET = 'HIBF_MASTER';
-
-  // Database Functions
-  const fetchFilesFromAirtable = useCallback(async () => {
-    try {
-      console.log('Fetching files from Airtable...');
-      
-      let allRecords = [];
-      let offset = null;
-      
-      do {
-        const url = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Media%20Assets${offset ? `?offset=${offset}` : ''}`;
-        const response = await fetch(url, {
-          headers: {
-            'Authorization': `Bearer ${AIRTABLE_API_KEY}`,
-            'Content-Type': 'application/json',
-          },
-        });
-
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const data = await response.json();
-        console.log('Raw Airtable response:', data);
-        
-        allRecords = allRecords.concat(data.records);
-        offset = data.offset; // Continue if there are more records
-        
-      } while (offset);
-
-      const filesData = allRecords.map(record => ({
-        id: record.id,
-        name: record.fields['Asset Name'] || 'Untitled',
-        url: record.fields['Cloudinary Public URL'] || '',
-        type: record.fields['Asset Type'] || '',
-        size: 0, // Size field not in your current structure
-        folder: record.fields.Category || '',
-        title: record.fields.Title || '',
-        description: record.fields.Description || '',
-        station: record.fields.Station || '',
-        submittedBy: record.fields['Submitted by'] || '',
-        notes: record.fields.Notes || '',
-        tags: record.fields.Tags || '',
-        dateSubmitted: record.fields['Upload Date'] || new Date().toISOString(),
-        other1: record.fields.Other1 || '',
-        other2: record.fields.Other2 || ''
-      }));
-
-      console.log('Processed files:', filesData);
-      setFiles(filesData);
-      return filesData;
-    } catch (error) {
-      console.error('Error fetching files:', error);
-      return [];
-    }
-  }, [AIRTABLE_BASE_ID, AIRTABLE_API_KEY]);
-
-  const fetchFoldersFromAirtable = useCallback(async () => {
-    try {
-      const response = await fetch(
-        `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Folder%20Structure`,
-        {
-          headers: {
-            'Authorization': `Bearer ${AIRTABLE_API_KEY}`,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-      const foldersData = data.records.map(record => ({
-        id: record.id,
-        name: record.fields.Name || '',
-        path: record.fields.Path || '',
-        created: record.fields.Created || new Date().toISOString()
-      }));
-
-      setFolders(foldersData);
-      return foldersData;
-    } catch (error) {
-      console.error('Error fetching folders:', error);
-      return [];
-    }
-  }, [AIRTABLE_BASE_ID, AIRTABLE_API_KEY]);
-
+  
+  // Database Functions (Airtable is still used for legacy, Firebase is used for real-time updates)
   const saveFileToAirtable = useCallback(async (fileData) => {
     try {
-      // Start with minimal required fields only
-      const fields = {
-        'Asset Name': fileData.name,
-        'Cloudinary Public URL': fileData.url
-      };
-
-      // Add optional fields only if they have values
-      if (fileData.assetType) fields['Asset Type'] = fileData.assetType;
-      if (fileData.folder) fields['Category'] = fileData.folder;
-      if (fileData.title) fields['Title'] = fileData.title;
-      if (fileData.description) fields['Description'] = fileData.description;
-      if (fileData.station) fields['Station'] = fileData.station;
-      if (fileData.submittedBy) fields['Submitted by'] = fileData.submittedBy;
-      if (fileData.notes) fields['Notes'] = fileData.notes;
-      
-      // Handle Tags field - send as simple comma-separated text
-      if (fileData.tags && fileData.tags.trim().length > 0) {
-        fields['Tags'] = fileData.tags.trim();
-      }
-      
-      if (fileData.other1) fields['Other1'] = fileData.other1;
-      if (fileData.other2) fields['Other2'] = fileData.other2;
-      
-      // Add upload date
-      fields['Upload Date'] = new Date().toISOString().split('T')[0];
-
-      console.log('Sending to Airtable:', fields);
-
       const response = await fetch(
         `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Media%20Assets`,
         {
@@ -145,41 +106,20 @@ const App = () => {
             'Authorization': `Bearer ${AIRTABLE_API_KEY}`,
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ fields })
+          body: JSON.stringify({ fields: fileData })
         }
       );
-
       if (!response.ok) {
-        const errorData = await response.text();
-        console.error('Airtable error response:', errorData);
-        throw new Error(`HTTP error! status: ${response.status} - ${errorData}`);
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
-
-      const data = await response.json();
-      return {
-        id: data.id,
-        name: data.fields['Asset Name'],
-        url: data.fields['Cloudinary Public URL'],
-        type: data.fields['Asset Type'] || '',
-        size: 0,
-        folder: data.fields.Category || '',
-        title: data.fields.Title || '',
-        description: data.fields.Description || '',
-        station: data.fields.Station || '',
-        submittedBy: data.fields['Submitted by'] || '',
-        notes: data.fields.Notes || '',
-        tags: data.fields.Tags || '',
-        dateSubmitted: data.fields['Upload Date'],
-        other1: data.fields.Other1 || '',
-        other2: data.fields.Other2 || ''
-      };
+      return await response.json();
     } catch (error) {
-      console.error('Error saving file:', error);
+      console.error('Error saving file to Airtable:', error);
       throw error;
     }
   }, [AIRTABLE_BASE_ID, AIRTABLE_API_KEY]);
 
-  const saveFolderToAirtable = useCallback(async (folderName, path = '') => {
+  const saveFolderToAirtable = useCallback(async (folderData) => {
     try {
       const response = await fetch(
         `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Folder%20Structure`,
@@ -189,34 +129,20 @@ const App = () => {
             'Authorization': `Bearer ${AIRTABLE_API_KEY}`,
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({
-            fields: {
-              'Name': folderName,
-              'Path': path || folderName,
-              'Created': new Date().toISOString()
-            }
-          })
+          body: JSON.stringify({ fields: folderData })
         }
       );
-
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-
-      const data = await response.json();
-      return {
-        id: data.id,
-        name: data.fields.Name,
-        path: data.fields.Path,
-        created: data.fields.Created
-      };
+      return await response.json();
     } catch (error) {
-      console.error('Error saving folder:', error);
+      console.error('Error saving folder to Airtable:', error);
       throw error;
     }
   }, [AIRTABLE_BASE_ID, AIRTABLE_API_KEY]);
 
-  const updateFileFolder = useCallback(async (fileId, newFolder) => {
+  const updateAirtableFile = useCallback(async (fileId, fields) => {
     try {
       const response = await fetch(
         `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Media%20Assets/${fileId}`,
@@ -226,112 +152,54 @@ const App = () => {
             'Authorization': `Bearer ${AIRTABLE_API_KEY}`,
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({
-            fields: {
-              'Category': newFolder || ''
-            }
-          })
+          body: JSON.stringify({ fields })
         }
       );
-
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-
       return await response.json();
     } catch (error) {
-      console.error('Error updating file folder:', error);
+      console.error('Error updating Airtable file:', error);
       throw error;
     }
   }, [AIRTABLE_BASE_ID, AIRTABLE_API_KEY]);
 
-  const deleteFileFromAirtable = useCallback(async (fileId) => {
-    if (!fileId) return; // Prevent deleting undefined files
+  const deleteAirtableFile = useCallback(async (fileId) => {
     try {
       const response = await fetch(
         `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Media%20Assets/${fileId}`,
         {
           method: 'DELETE',
-          headers: {
-            'Authorization': `Bearer ${AIRTABLE_API_KEY}`,
-          },
+          headers: { 'Authorization': `Bearer ${AIRTABLE_API_KEY}` }
         }
       );
-
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-
       return true;
     } catch (error) {
-      console.error('Error deleting file:', error);
+      console.error('Error deleting file from Airtable:', error);
       throw error;
     }
   }, [AIRTABLE_BASE_ID, AIRTABLE_API_KEY]);
-
-  const deleteFolderFromAirtable = useCallback(async (folderId) => {
-    if (!folderId) return; // Prevent deleting undefined folders
-    try {
-      const response = await fetch(
-        `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Folder%20Structure/${folderId}`,
-        {
-          method: 'DELETE',
-          headers: {
-            'Authorization': `Bearer ${AIRTABLE_API_KEY}`,
-          },
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      return true;
-    } catch (error) {
-      console.error('Error deleting folder:', error);
-      throw error;
-    }
-  }, [AIRTABLE_BASE_ID, AIRTABLE_API_KEY]);
-
-  const renameFolderInAirtable = useCallback(async (folderId, newName) => {
-    if (!folderId) return;
-    try {
-      const response = await fetch(
-        `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/Folder%20Structure/${folderId}`,
-        {
-          method: 'PATCH',
-          headers: {
-            'Authorization': `Bearer ${AIRTABLE_API_KEY}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            fields: {
-              'Name': newName,
-              'Path': newName
-            }
-          })
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error('Error renaming folder:', error);
-      throw error;
-    }
-  }, [AIRTABLE_BASE_ID, AIRTABLE_API_KEY]);
-
+  
   // Folder Management
   const createNewFolder = async () => {
     const folderName = prompt('Enter folder name:');
     if (!folderName || !folderName.trim()) return;
     
     try {
-      const newFolder = await saveFolderToAirtable(folderName.trim());
-      setFolders(prev => [...prev, newFolder]);
+      const newFolder = await saveFolderToAirtable({
+        'Name': folderName.trim(),
+        'Path': folderName.trim(),
+        'Created': new Date().toISOString()
+      });
+      // Set to Firestore
+      await setDoc(doc(db, `/artifacts/${appId}/public/data/folders/${newFolder.id}`), {
+        name: newFolder.fields.Name,
+        path: newFolder.fields.Path
+      });
     } catch (error) {
       alert('Error creating folder: ' + error.message);
     }
@@ -342,29 +210,20 @@ const App = () => {
     if (!newName || !newName.trim() || newName.trim() === currentName) return;
 
     try {
-      await renameFolderInAirtable(folderId, newName.trim());
-      
-      // Update folders
-      setFolders(prev => prev.map(folder => 
-        folder.id === folderId 
-          ? { ...folder, name: newName.trim(), path: newName.trim() }
-          : folder
-      ));
-
+      await updateAirtableFile(folderId, {
+        'Name': newName.trim(),
+        'Path': newName.trim()
+      });
+      await updateDoc(doc(db, `/artifacts/${appId}/public/data/folders/${folderId}`), {
+        name: newName.trim(),
+        path: newName.trim()
+      });
       // Update files in this folder
       const filesToUpdate = files.filter(file => file.folder === currentName);
       for (const file of filesToUpdate) {
-        await updateFileFolder(file.id, newName.trim());
+        await updateAirtableFile(file.id, { 'Category': newName.trim() });
+        await updateDoc(doc(db, `/artifacts/${appId}/public/data/files/${file.id}`), { folder: newName.trim() });
       }
-
-      // Update local files state
-      setFiles(prev => prev.map(file => 
-        file.folder === currentName 
-          ? { ...file, folder: newName.trim() }
-          : file
-      ));
-
-      // Update current folder if we're viewing the renamed folder
       if (currentFolder === currentName) {
         setCurrentFolder(newName.trim());
       }
@@ -375,24 +234,14 @@ const App = () => {
 
   const deleteFolder = async (folderId, folderName) => {
     if (!window.confirm(`Delete folder "${folderName}"? Files will be moved to Root.`)) return;
-
     try {
-      // Move files to root
       const filesToMove = files.filter(file => file.folder === folderName);
       for (const file of filesToMove) {
-        await updateFileFolder(file.id, '');
+        await updateAirtableFile(file.id, { 'Category': '' });
+        await updateDoc(doc(db, `/artifacts/${appId}/public/data/files/${file.id}`), { folder: '' });
       }
-
-      // Delete folder
-      await deleteFolderFromAirtable(folderId);
-
-      // Update local state
-      setFolders(prev => prev.filter(folder => folder.id !== folderId));
-      setFiles(prev => prev.map(file => 
-        file.folder === folderName ? { ...file, folder: '' } : file
-      ));
-
-      // Go to root if we were viewing this folder
+      await deleteAirtableFile(folderId);
+      await deleteDoc(doc(db, `/artifacts/${appId}/public/data/folders/${folderId}`));
       if (currentFolder === folderName) {
         setCurrentFolder('');
       }
@@ -404,11 +253,9 @@ const App = () => {
   // File Management
   const deleteFile = async (fileId) => {
     if (!window.confirm('Delete this file?')) return;
-
     try {
-      await deleteFileFromAirtable(fileId);
-      setFiles(prev => prev.filter(file => file.id !== fileId));
-      setSelectedFiles(prev => prev.filter(id => id !== fileId));
+      await deleteAirtableFile(fileId);
+      await deleteDoc(doc(db, `/artifacts/${appId}/public/data/files/${fileId}`));
     } catch (error) {
       alert('Error deleting file: ' + error.message);
     }
@@ -417,258 +264,58 @@ const App = () => {
   // Context Menu
   const handleContextMenuAction = async (action, item) => {
     setContextMenu(null);
-    
     if (item.type === 'folder') {
       const folder = item.folder;
       switch (action) {
-        case 'rename':
-          await renameFolder(folder.id, folder.name);
-          break;
-        case 'delete':
-          await deleteFolder(folder.id, folder.name);
-          break;
+        case 'rename': await renameFolder(folder.id, folder.name); break;
+        case 'delete': await deleteFolder(folder.id, folder.name); break;
       }
     } else if (item.type === 'file') {
       const file = item.file;
       switch (action) {
-        case 'preview':
-          setPreviewFile(file);
-          break;
-        case 'delete':
-          await deleteFile(file.id);
-          break;
+        case 'preview': setPreviewFile(file); break;
+        case 'delete': await deleteFile(file.id); break;
       }
     }
   };
 
-  // Upload handling
-  const [uploadFiles, setUploadFiles] = useState([]);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [isDragging, setIsDragging] = useState(false);
-
-  // Auto-categorize files based on type
-  const getAutoCategory = (fileType, fileName) => {
-    const extension = fileName.toLowerCase().split('.').pop();
-    
-    // Image files
-    if (fileType.startsWith('image/')) {
-      return 'Images';
-    }
-    
-    // Video files
-    if (fileType.startsWith('video/') || ['mp4', 'mov', 'avi', 'mkv', 'webm'].includes(extension)) {
-      return 'Video';
-    }
-    
-    // Audio files
-    if (fileType.startsWith('audio/') || ['mp3', 'wav', 'aac', 'flac', 'm4a'].includes(extension)) {
-      return 'Audio';
-    }
-    
-    // Document files
-    if (['pdf'].includes(extension)) {
-      return 'PDF';
-    }
-    
-    if (['doc', 'docx', 'txt', 'rtf'].includes(extension)) {
-      return 'Documents';
-    }
-    
-    if (['csv', 'xlsx', 'xls'].includes(extension)) {
-      return 'Spreadsheets';
-    }
-    
-    // Default category
-    return 'Other';
+  // Drag and Drop Logic
+  const handleDragStart = (e, fileId, isFolder) => {
+    e.dataTransfer.setData('text/plain', JSON.stringify({ fileId, isFolder }));
   };
 
-  // Convert file MIME type to Airtable-friendly asset type
-  const getAssetType = (fileType, fileName) => {
-    const extension = fileName.toLowerCase().split('.').pop();
-    
-    if (fileType.startsWith('image/')) {
-      return 'Image';
-    }
-    
-    if (fileType.startsWith('video/') || ['mp4', 'mov', 'avi', 'mkv', 'webm'].includes(extension)) {
-      return 'Video';
-    }
-    
-    if (fileType.startsWith('audio/') || ['mp3', 'wav', 'aac', 'flac', 'm4a'].includes(extension)) {
-      return 'Audio';
-    }
-    
-    if (['pdf'].includes(extension)) {
-      return 'PDF';
-    }
-    
-    if (['doc', 'docx', 'txt', 'rtf'].includes(extension)) {
-      return 'Document';
-    }
-    
-    if (['csv', 'xlsx', 'xls'].includes(extension)) {
-      return 'Spreadsheet';
-    }
-    
-    return 'Other';
-  };
-
-  const handleFileSelect = (e) => {
-    const selectedFiles = Array.from(e.target.files);
-    processSelectedFiles(selectedFiles);
-  };
-
-  const processSelectedFiles = (selectedFiles) => {
-    if (selectedFiles.length > 1) {
-      const confirmed = window.confirm(
-        `You're uploading ${selectedFiles.length} files. All files will share the same metadata (title, description, station, etc.) except for the filename and auto-assigned category. Continue?`
-      );
-      if (!confirmed) return;
-    }
-
-    const fileObjects = selectedFiles.map(file => ({
-      file: file,
-      name: file.name,
-      size: file.size,
-      type: file.type,
-      assetType: getAssetType(file.type, file.name), // Use simplified asset type
-      folder: getAutoCategory(file.type, file.name), // Auto-assign category
-      title: '',
-      description: '',
-      station: '',
-      submittedBy: '',
-      notes: '',
-      tags: '',
-      other1: '',
-      other2: ''
-    }));
-    setUploadFiles(fileObjects);
-  };
-
-  // Drag and drop handlers
-  const handleDragEnter = (e) => {
+  const handleDrop = async (e, folderName) => {
     e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(true);
-  };
-
-  const handleDragLeave = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    // Only set dragging to false if we're leaving the drop zone entirely
-    if (!e.currentTarget.contains(e.relatedTarget)) {
-      setIsDragging(false);
+    const { fileId, isFolder } = JSON.parse(e.dataTransfer.getData('text/plain'));
+    if (isFolder) return;
+    try {
+      await updateAirtableFile(fileId, { 'Category': folderName });
+      await updateDoc(doc(db, `/artifacts/${appId}/public/data/files/${fileId}`), { folder: folderName });
+    } catch (error) {
+      alert('Error moving file: ' + error.message);
     }
   };
 
   const handleDragOver = (e) => {
     e.preventDefault();
-    e.stopPropagation();
   };
-
-  const handleDrop = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(false);
-    
-    const droppedFiles = Array.from(e.dataTransfer.files);
-    processSelectedFiles(droppedFiles);
+  
+  // Helper function to get an icon based on asset type
+  const getFileIcon = (assetType) => {
+    if (assetType === 'Image') return '🖼️';
+    if (assetType === 'Video') return '📺';
+    if (assetType === 'Audio') return '🎵';
+    if (assetType === 'PDF') return '📄';
+    if (assetType === 'Document') return '📃';
+    if (assetType === 'Spreadsheet') return '📊';
+    return '📁'; // Generic file icon
   };
-
-  const updateFileMetadata = (index, field, value) => {
-    setUploadFiles(prev => prev.map((file, i) => 
-      i === index ? { ...file, [field]: value } : file
-    ));
-  };
-
-  const uploadToCloudinary = async (file) => {
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
-
-    const response = await fetch(
-      `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/auto/upload`,
-      {
-        method: 'POST',
-        body: formData,
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error('Upload failed');
-    }
-
-    return await response.json();
-  };
-
-  const handleUpload = async () => {
-    if (uploadFiles.length === 0) return;
-
-    setUploading(true);
-    setUploadProgress(0);
-    
-    try {
-      const uploadedFiles = [];
-      const totalFiles = uploadFiles.length;
-
-      for (let i = 0; i < uploadFiles.length; i++) {
-        const fileObj = uploadFiles[i];
-        
-        // Update progress
-        setUploadProgress(Math.round((i / totalFiles) * 100));
-        
-        const cloudinaryResponse = await uploadToCloudinary(fileObj.file);
-        
-        const fileData = {
-          name: fileObj.name,
-          url: cloudinaryResponse.secure_url,
-          type: fileObj.type,
-          assetType: fileObj.assetType, // Use simplified asset type
-          size: fileObj.size,
-          folder: fileObj.folder,
-          title: fileObj.title,
-          description: fileObj.description,
-          station: fileObj.station,
-          submittedBy: fileObj.submittedBy,
-          notes: fileObj.notes,
-          tags: fileObj.tags,
-          other1: fileObj.other1,
-          other2: fileObj.other2
-        };
-
-        const savedFile = await saveFileToAirtable(fileData);
-        uploadedFiles.push(savedFile);
-        
-        // Update progress after each successful upload
-        setUploadProgress(Math.round(((i + 1) / totalFiles) * 100));
-      }
-
-      setFiles(prev => [...prev, ...uploadedFiles]);
-      setUploadFiles([]);
-      setUploadProgress(0);
-      
-      // Force refresh data from Airtable to ensure UI is updated
-      await Promise.all([
-        fetchFilesFromAirtable(),
-        fetchFoldersFromAirtable()
-      ]);
-      
-      alert(`${uploadedFiles.length} files uploaded successfully!`);
-    } catch (error) {
-      console.error('Upload error:', error);
-      alert('Upload failed: ' + error.message);
-      setUploadProgress(0);
-    } finally {
-      setUploading(false);
-    }
-  };
-
+  
   // File explorer data
   const getCurrentFolderContents = useCallback(() => {
-    const folderFiles = files.filter(file => 
-      (currentFolder ? file.folder === currentFolder : !file.folder)
+    const folderFiles = files.filter(file =>
+      currentFolder ? file.folder === currentFolder : !file.folder
     );
-    
     const folderFolders = currentFolder ? [] : folders;
     return { files: folderFiles, folders: folderFolders };
   }, [files, folders, currentFolder]);
@@ -677,16 +324,13 @@ const App = () => {
 
   // --- BEGIN CORRECTED FOLDER TREE LOGIC ---
   const folderTree = useMemo(() => {
-    // 1) Start with a single "Root" node
     const tree = { name: 'Root', path: '', children: [], files: [] };
     const folderMap = { '': tree };
 
-    // 2) Add any existing folders from Airtable as nodes
     folders.forEach(f => {
       folderMap[f.name] = { ...f, children: [], files: [] };
     });
 
-    // 3) Create a new folder node for every unique file.folder value that doesn't already have one
     files.forEach(file => {
       const name = file.folder || '';
       if (name && !folderMap[name]) {
@@ -694,14 +338,12 @@ const App = () => {
       }
     });
 
-    // 4) Collect all non-root nodes and put them under the "Root" node.
     Object.values(folderMap).forEach(node => {
       if (node.path !== '') {
         tree.children.push(node);
       }
     });
 
-    // 5) Finally, place each file under its corresponding folder node (or Root if the folder is empty)
     files.forEach(file => {
       const target = folderMap[file.folder || ''];
       if (target) {
@@ -717,106 +359,26 @@ const App = () => {
   useEffect(() => {
     const loadData = async () => {
       setLoading(true);
-      await Promise.all([
-        fetchFilesFromAirtable(),
-        fetchFoldersFromAirtable()
-      ]);
-      setLoading(false);
-    };
+      
+      const filesPath = `/artifacts/${appId}/public/data/files`;
+      const foldersPath = `/artifacts/${appId}/public/data/folders`;
 
-    if (AIRTABLE_BASE_ID && AIRTABLE_API_KEY) {
-      loadData();
-    } else {
-      console.error('Missing Airtable configuration');
-      setLoading(false);
-    }
-  }, [fetchFilesFromAirtable, fetchFoldersFromAirtable, AIRTABLE_BASE_ID, AIRTABLE_API_KEY]);
+      if (!db) {
+        console.error("Firestore is not initialized.");
+        setLoading(false);
+        return;
+      }
+      
+      const filesCollectionRef = collection(db, filesPath);
+      const foldersCollectionRef = collection(db, foldersPath);
 
-  // Close context menu on click outside
-  useEffect(() => {
-    const handleClick = () => setContextMenu(null);
-    document.addEventListener('click', handleClick);
-    return () => document.removeEventListener('click', handleClick);
-  }, []);
+      const filesUnsubscribe = onSnapshot(filesCollectionRef, (snapshot) => {
+        const filesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setFiles(filesData);
+      });
 
-  // --- BEGIN CORRECTED FOLDER TREE RENDERER LOGIC ---
-  const renderFolderTree = (node, level = 0) => {
-    const indent = level * 20;
-    const isExpanded = expandedFolders.has(node.path);
-    const hasChildren = node.children && node.children.length > 0;
-    const fileCount = node.files ? node.files.length : 0;
-
-    return (
-      <div key={node.path || 'root'}>
-        <div
-          style={{
-            display: 'flex', alignItems: 'center', padding: '8px 4px',
-            paddingLeft: `${indent}px`, cursor: 'pointer',
-            backgroundColor: currentFolder === (node.name || '') ? '#e3f2fd' : 'transparent',
-            borderRadius: '4px', margin: '2px 0'
-          }}
-          onClick={() => setCurrentFolder(node.name || '')}
-          onContextMenu={(e) => {
-            e.preventDefault();
-            setContextMenu({
-              x: e.clientX,
-              y: e.clientY,
-              type: 'folder',
-              folder: node
-            });
-          }}
-        >
-          {hasChildren && (
-            <span
-              onClick={(e) => {
-                e.stopPropagation();
-                setExpandedFolders(prev => {
-                  const newSet = new Set(prev);
-                  if (isExpanded) {
-                    newSet.delete(node.path);
-                  } else {
-                    newSet.add(node.path);
-                  }
-                  return newSet;
-                });
-              }}
-              style={{ marginRight: '8px', fontSize: '12px' }}
-            >
-              {isExpanded ? '▼' : '▶'}
-            </span>
-          )}
-          <span style={{ marginRight: '8px' }}>📁</span>
-          <span style={{ fontSize: '14px' }}>{node.name || 'Root'}</span>
-          <span style={{ marginLeft: 'auto', fontSize: '12px', color: '#666' }}>
-            ({fileCount})
-          </span>
-        </div>
-        
-        {isExpanded && hasChildren && 
-          node.children.map(child => renderFolderTree(child, level + 1))
-        }
-      </div>
-    );
-  };
-  // --- END CORRECTED FOLDER TREE RENDERER LOGIC ---
-
-  if (loading) {
-    return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-        <div>Loading...</div>
-      </div>
-    );
-  }
-
-  // Helper function to get an icon based on file type
-  const getFileIcon = (assetType) => {
-    if (assetType === 'Image') return '🖼️';
-    if (assetType === 'Video') return '📺';
-    if (assetType === 'Audio') return '🎵';
-    if (assetType === 'PDF') return '📄';
-    return '📁'; // Generic file icon
-  };
-
+      const foldersUnsubscribe = onSnapshot(foldersCollectionRef, (snapshot) => {
+        const foldersData
   return (
     <div style={{ display: 'flex', height: '100vh', fontFamily: 'Arial, sans-serif' }}>
       {/* Sidebar */}
@@ -891,10 +453,6 @@ const App = () => {
                 position: 'relative',
                 display: 'inline-block'
               }}
-              onDragEnter={handleDragEnter}
-              onDragLeave={handleDragLeave}
-              onDragOver={handleDragOver}
-              onDrop={handleDrop}
             >
               <label style={{
                 padding: '8px 16px',
@@ -914,28 +472,6 @@ const App = () => {
                   style={{ display: 'none' }}
                 />
               </label>
-              
-              {/* Drop overlay */}
-              {isDragging && (
-                <div style={{
-                  position: 'fixed',
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  backgroundColor: 'rgba(40, 167, 69, 0.1)',
-                  border: '3px dashed #28a745',
-                  zIndex: 1000,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '24px',
-                  color: '#28a745',
-                  fontWeight: 'bold'
-                }}>
-                  Drop Files Anywhere
-                </div>
-              )}
             </div>
             
             <button
@@ -968,7 +504,7 @@ const App = () => {
             {uploadFiles.length > 1 && (
               <div style={{ 
                 backgroundColor: '#fff3cd', 
-                border: '1px solid #ffeaa7', 
+                border: '1px solid solid #ffeaa7', 
                 borderRadius: '4px', 
                 padding: '10px', 
                 marginBottom: '15px',
