@@ -109,20 +109,16 @@ const App = () => {
 
       // Add optional fields only if they have values
       if (fileData.assetType) fields['Asset Type'] = fileData.assetType;
-      // Skip Category for now until we add the options to Airtable
-      // if (fileData.folder) fields['Category'] = fileData.folder;
+      if (fileData.folder) fields['Category'] = fileData.folder;
       if (fileData.title) fields['Title'] = fileData.title;
       if (fileData.description) fields['Description'] = fileData.description;
       if (fileData.station) fields['Station'] = fileData.station;
       if (fileData.submittedBy) fields['Submitted by'] = fileData.submittedBy;
       if (fileData.notes) fields['Notes'] = fileData.notes;
       
-      // Handle Tags field - convert comma-separated string to array
-      if (fileData.tags) {
-        const tagsArray = fileData.tags.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0);
-        if (tagsArray.length > 0) {
-          fields['Tags'] = tagsArray;
-        }
+      // Handle Tags field - send as simple comma-separated text
+      if (fileData.tags && fileData.tags.trim().length > 0) {
+        fields['Tags'] = fileData.tags.trim();
       }
       
       if (fileData.other1) fields['Other1'] = fileData.other1;
