@@ -809,11 +809,11 @@ const App = () => {
   }
 
   // Helper function to get an icon based on file type
-  const getFileIcon = (fileType) => {
-    if (fileType.startsWith('image/')) return '🖼️';
-    if (fileType.startsWith('video/')) return '📺';
-    if (fileType.startsWith('audio/')) return '🎵';
-    if (fileType.includes('pdf')) return '📄';
+  const getFileIcon = (assetType) => {
+    if (assetType === 'Image') return '🖼️';
+    if (assetType === 'Video') return '📺';
+    if (assetType === 'Audio') return '🎵';
+    if (assetType === 'PDF') return '📄';
     return '📁'; // Generic file icon
   };
 
@@ -1215,7 +1215,7 @@ const App = () => {
             >
               {viewMode === 'grid' ? (
                 <>
-                  {file.url && file.type?.startsWith('image/') ? (
+                  {file.url && file.type?.startsWith('Image') ? (
                     <img 
                       src={file.url} 
                       alt={file.name}
@@ -1271,7 +1271,7 @@ const App = () => {
                 </>
               ) : (
                 <>
-                  {file.url && file.type?.startsWith('image/') ? (
+                  {file.url && file.type?.startsWith('Image') ? (
                     <img 
                       src={file.url} 
                       alt={file.name}
@@ -1443,7 +1443,7 @@ const App = () => {
               </button>
             </div>
             
-            {previewFile.url && previewFile.type?.startsWith('image/') && (
+            {previewFile.url && previewFile.type?.startsWith('Image') && (
               <img 
                 src={previewFile.url} 
                 alt={previewFile.name}
@@ -1462,7 +1462,6 @@ const App = () => {
               {previewFile.station && <p><strong>Station:</strong> {previewFile.station}</p>}
               {previewFile.submittedBy && <p><strong>Submitted By:</strong> {previewFile.submittedBy}</p>}
               {previewFile.tags && <p><strong>Tags:</strong> {previewFile.tags}</p>}
-              {previewFile.notes && <p><strong>Notes:</strong> {previewFile.notes}</p>}
               <p><strong>Type:</strong> {previewFile.type}</p>
               {previewFile.dateSubmitted && (
                 <p><strong>Date:</strong> {new Date(previewFile.dateSubmitted).toLocaleDateString()}</p>
