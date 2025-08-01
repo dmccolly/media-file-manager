@@ -352,3 +352,210 @@ export const UploadMetadataForm = ({ isOpen, onClose, onSubmit, initialData = {}
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg p-6 w-96 max-w-full max-h-[90vh] overflow-y-auto">
         <h3 className="text-lg font-semibold mb-4">Upload Settings</h3>
+        
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Category
+            </label>
+            <select
+              value={formData.category}
+              onChange={(e) => handleChange('category', e.target.value)}
+              className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+              <option value="Images">Images</option>
+              <option value="Video">Video</option>
+              <option value="Audio">Audio</option>
+              <option value="Documents">Documents</option>
+              <option value="Files">Files</option>
+              <option value="product">Product</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Station
+            </label>
+            <input
+              type="text"
+              value={formData.station}
+              onChange={(e) => handleChange('station', e.target.value)}
+              className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="e.g., Studio A, Location B"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Description
+            </label>
+            <textarea
+              value={formData.description}
+              onChange={(e) => handleChange('description', e.target.value)}
+              rows={3}
+              className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="Brief description of the files..."
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Notes
+            </label>
+            <textarea
+              value={formData.notes}
+              onChange={(e) => handleChange('notes', e.target.value)}
+              rows={2}
+              className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="Additional notes..."
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Tags
+            </label>
+            <input
+              type="text"
+              value={formData.tags}
+              onChange={(e) => handleChange('tags', e.target.value)}
+              className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="tag1, tag2, tag3"
+            />
+          </div>
+
+          <div className="flex justify-end space-x-3 pt-4">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            >
+              Upload Files
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+// Drag and Drop Overlay Component
+export const DragDropOverlay = ({ isDragOver }) => {
+  if (!isDragOver) return null;
+
+  return (
+    <div className="fixed inset-0 bg-blue-600 bg-opacity-20 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg p-8 shadow-lg text-center">
+        <div className="text-4xl mb-4">📤</div>
+        <h3 className="text-xl font-semibold text-gray-800 mb-2">Drop files to upload</h3>
+        <p className="text-gray-600">Release to start uploading</p>
+      </div>
+    </div>
+  );
+};
+
+// File Preview Modal Component
+export const FilePreviewModal = ({ file, isOpen, onClose }) => {
+  if (!isOpen || !file) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg max-w-4xl max-h-[90vh] overflow-hidden">
+        <div className="flex items-center justify-between p-4 border-b">
+          <h3 className="text-lg font-semibold truncate">{file.title}</h3>
+          <button
+            onClick={onClose}
+            className="text-gray-500 hover:text-gray-700 text-xl"
+          >
+            ✕
+          </button>
+        </div>
+        
+        <div className="p-4 overflow-auto max-h-[calc(90vh-8rem)]">
+          {file.type === 'image' && (
+            <img
+              src={file.url}
+              alt={file.title}
+              className="max-w-full max-h-full object-contain"
+            />
+          )}
+          
+          {file.type === 'video' && (
+            <video
+              src={file.url}
+              controls
+              className="max-w-full max-h-full"
+            >
+              Your browser does not support video playback.
+            </video>
+          )}
+          
+          {file.type === 'audio' && (
+            <div className="text-center py-8">
+              <div className="text-4xl mb-4">🎵</div>
+              <audio
+                src={file.url}
+                controls
+                className="w-full max-w-md"
+              >
+                Your browser does not support audio playback.
+              </audio>
+            </div>
+          )}
+          
+          {!['image', 'video', 'audio'].includes(file.type) && (
+            <div className="text-center py-8">
+              <div className="text-4xl mb-4">📄</div>
+              <p className="text-gray-600 mb-4">Preview not available for this file type</p>
+              <a
+                href={file.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-block px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
+                Open File
+              </a>
+            </div>
+          )}
+          
+          <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <span className="font-medium text-gray-700">Category:</span>
+                <span className="ml-2 text-gray-600">{file.category}</span>
+              </div>
+              <div>
+                <span className="font-medium text-gray-700">Type:</span>
+                <span className="ml-2 text-gray-600 capitalize">{file.type}</span>
+              </div>
+              <div>
+                <span className="font-medium text-gray-700">Station:</span>
+                <span className="ml-2 text-gray-600">{file.station || 'N/A'}</span>
+              </div>
+              <div>
+                <span className="font-medium text-gray-700">Upload Date:</span>
+                <span className="ml-2 text-gray-600">
+                  {file.uploadDate ? new Date(file.uploadDate).toLocaleDateString() : 'N/A'}
+                </span>
+              </div>
+              <div className="col-span-2">
+                <span className="font-medium text-gray-700">Description:</span>
+                <span className="ml-2 text-gray-600">{file.description || 'No description'}</span>
+              </div>
+              <div className="col-span-2">
+                <span className="font-medium text-gray-700">Tags:</span>
+                <span className="ml-2 text-gray-600">{file.tags || 'No tags'}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
