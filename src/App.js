@@ -926,12 +926,9 @@ const FileGrid = ({ 
             {/* FIXED - File thumbnail/icon with enhanced logic */}
             <div className="aspect-square mb-2 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden">
               {(() => {
-                console.log(`🎨 Rendering file: ${file.title}, type: ${file.type}, thumbnail: ${file.thumbnail}, url: ${file.url}`);
-                
-                const isImageOrVideo = ['image', 'video', 'document', 'spreadsheet', 'presentation'].includes(file.type);
-                const hasThumbnail = file.thumbnail && !imageErrors.has(file.id);
+                const hasThumbnail = file.thumbnail;
 
-                if (isImageOrVideo && hasThumbnail) {
+                if (hasThumbnail) {
                   return (
                     <img
                       src={file.thumbnail}
@@ -940,9 +937,6 @@ const FileGrid = ({ 
                       onError={() => {
                         console.log(`❌ Thumbnail failed to load: ${file.thumbnail}`);
                         handleImageError(file.id);
-                      }}
-                      onLoad={() => {
-                        console.log(`✅ Thumbnail loaded successfully: ${file.thumbnail}`);
                       }}
                       loading="lazy"
                     />
@@ -2132,87 +2126,4 @@ export default function App() {
             <button
               onClick={loadFiles}
               disabled={loading}
-              className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors"
-            >
-              🔄 Refresh
-            </button>
-          </div>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Sidebar */}
-        <FolderTree
-          folderTree={folderTree}
-          currentFolder={currentFolder}
-          setCurrentFolder={setCurrentFolder}
-          expandedFolders={expandedFolders}
-          setExpandedFolders={setExpandedFolders}
-          setContextMenu={setContextMenu}
-          onCreateFolder={handleCreateFolder}
-        />
-
-        {/* File Display Area */}
-        <FileGrid
-          files={currentFiles}
-          viewMode={viewMode}
-          onFileRightClick={handleFileRightClick}
-          onFileClick={handleFileClick}
-          selectedFiles={selectedFiles}
-          onFileSelect={handleFileSelectToggle}
-          onSelectAll={handleSelectAll}
-          onClearSelection={handleClearSelection}
-        />
-      </div>
-
-      {/* Upload Progress */}
-      <ProgressBar
-        uploads={uploads}
-        onClose={() => setUploads([])}
-      />
-
-      {/* Batch Operations Panel */}
-      <BatchOperationsPanel
-        selectedFiles={selectedFiles}
-        onClose={() => setShowBatchPanel(false)}
-        onBatchUpdate={handleBatchUpdate}
-        onBatchDelete={handleBatchDelete}
-        onBatchMove={handleBatchMove}
-      />
-
-      {/* Upload Metadata Form */}
-      <UploadMetadataForm
-        isOpen={showUploadForm}
-        onClose={() => {
-          setShowUploadForm(false);
-          setPendingFiles([]);
-        }}
-        onSubmit={handleUploadSubmit}
-        initialData={{ category: currentFolder }}
-      />
-
-      {/* Context Menu */}
-      <ContextMenu
-        contextMenu={contextMenu}
-        onClose={closeContextMenu}
-        onAction={handleContextAction}
-      />
-
-      {/* File Details Modal */}
-      <FileDetailsModal
-        file={selectedFile}
-        isOpen={showFileDetails}
-        onClose={() => {
-          setShowFileDetails(false);
-          setSelectedFile(null);
-        }}
-        onUpdate={handleFileUpdate}
-        onDelete={handleFileDelete}
-      />
-
-      {/* Drag and Drop Overlay */}
-      <DragDropOverlay isDragOver={isDragOver} />
-    </div>
-  );
-}
+              className
