@@ -2126,4 +2126,87 @@ export default function App() {
             <button
               onClick={loadFiles}
               disabled={loading}
-              className
+              className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors"
+            >
+              🔄 Refresh
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Sidebar */}
+        <FolderTree
+          folderTree={folderTree}
+          currentFolder={currentFolder}
+          setCurrentFolder={setCurrentFolder}
+          expandedFolders={expandedFolders}
+          setExpandedFolders={setExpandedFolders}
+          setContextMenu={setContextMenu}
+          onCreateFolder={handleCreateFolder}
+        />
+
+        {/* File Display Area */}
+        <FileGrid
+          files={currentFiles}
+          viewMode={viewMode}
+          onFileRightClick={handleFileRightClick}
+          onFileClick={handleFileClick}
+          selectedFiles={selectedFiles}
+          onFileSelect={handleFileSelectToggle}
+          onSelectAll={handleSelectAll}
+          onClearSelection={handleClearSelection}
+        />
+      </div>
+
+      {/* Upload Progress */}
+      <ProgressBar
+        uploads={uploads}
+        onClose={() => setUploads([])}
+      />
+
+      {/* Batch Operations Panel */}
+      <BatchOperationsPanel
+        selectedFiles={selectedFiles}
+        onClose={() => setShowBatchPanel(false)}
+        onBatchUpdate={handleBatchUpdate}
+        onBatchDelete={handleBatchDelete}
+        onBatchMove={handleBatchMove}
+      />
+
+      {/* Upload Metadata Form */}
+      <UploadMetadataForm
+        isOpen={showUploadForm}
+        onClose={() => {
+          setShowUploadForm(false);
+          setPendingFiles([]);
+        }}
+        onSubmit={handleUploadSubmit}
+        initialData={{ category: currentFolder }}
+      />
+
+      {/* Context Menu */}
+      <ContextMenu
+        contextMenu={contextMenu}
+        onClose={closeContextMenu}
+        onAction={handleContextAction}
+      />
+
+      {/* File Details Modal */}
+      <FileDetailsModal
+        file={selectedFile}
+        isOpen={showFileDetails}
+        onClose={() => {
+          setShowFileDetails(false);
+          setSelectedFile(null);
+        }}
+        onUpdate={handleFileUpdate}
+        onDelete={handleFileDelete}
+      />
+
+      {/* Drag and Drop Overlay */}
+      <DragDropOverlay isDragOver={isDragOver} />
+    </div>
+  );
+}
