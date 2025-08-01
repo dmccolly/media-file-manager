@@ -60,9 +60,11 @@ class AirtableService {
         allRecords = allRecords.concat(data.records || []);
         offset = data.offset;
         
+        console.log(`📊 AirtableService: Page fetched. Records this page: ${data.records?.length || 0}, Total so far: ${allRecords.length}`);
+        
       } while (offset);
 
-      console.log(`📊 AirtableService: Page fetched. Records this page: ${data.records?.length || 0}, Total so far: ${allRecords.length}`);
+      console.log(`✅ AirtableService: Total records fetched: ${allRecords.length}`);
       return this.processRecords(allRecords);
       
     } catch (error) {
@@ -1759,6 +1761,21 @@ export default function App() {
     } catch (error) {
       console.error('❌ App: Error batch updating files:', error);
       alert('Error updating files: ' + error.message);
+    }
+  }, [airtableService, loadFiles]);
+
+  const handleBatchDelete = useCallback(async (filesToDelete) => {
+    if (confirm(`Are you sure you want to delete ${filesToDelete.length} files? This cannot be undone.`)) {
+      try {
+        const recordIds = filesToDelete.map(f => f.id);
+        await airtableService.deleteMultipleFiles(recordIds);
+        await loadFiles();
+        setSelectedFiles([]);
+        alert(`Successfully deleted ${filesToDelete.length} files!`);
+      } catch (error) {
+        console.error('❌ App: Error batch deleting files:', error);
+        alert('Error deleting files: ' + error.message);
+      }
     }
   }, [airtableService, loadFiles]);
 
