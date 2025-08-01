@@ -39,14 +39,19 @@ class AirtableService {
         }
 
         const data = await response.json();
+        if (!data) {
+          throw new Error('Airtable API returned an empty or invalid response.');
+        }
         console.log('📦 AirtableService: Raw response data:', data);
         
         allRecords = allRecords.concat(data.records || []);
         offset = data.offset;
         
+        console.log(`📊 AirtableService: Page fetched. Records this page: ${data.records?.length || 0}, Total so far: ${allRecords.length}`);
+        
       } while (offset);
 
-      console.log(`📊 AirtableService: Page fetched. Records this page: ${data.records?.length || 0}, Total so far: ${allRecords.length}`);
+      console.log(`✅ AirtableService: Total records fetched: ${allRecords.length}`);
       return this.processRecords(allRecords);
       
     } catch (error) {
@@ -186,14 +191,12 @@ class AirtableService {
         console.log(`✅ Direct image URL: ${url}`);
         return url;
       }
-      
-      // For other file types, no thumbnail URL needed (will show icon)
-      console.log(`ℹ️ No thumbnail needed for type: ${fileType}`);
+     
       return '';
       
     } catch (error) {
       console.error('❌ Error generating thumbnail:', error);
-      return url; // Fallback to original URL
+      return originalUrl;
     }
   }
 
