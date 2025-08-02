@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-import './App.css';
 
 // Utility Functions
 const getFileTypeFromUrl = (url) => {
