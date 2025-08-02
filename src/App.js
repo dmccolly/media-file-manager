@@ -148,8 +148,6 @@ class AirtableService {
    
     console.log(`🖼️ Generating thumbnail for URL: ${url}, type: ${fileType}`);
    
-    const extension = url.split('?')[0].split('.').pop().toLowerCase();
-   
     try {
       // If it's a Cloudinary URL, generate proper thumbnail
       if (url.includes('cloudinary.com')) {
@@ -165,12 +163,6 @@ class AirtableService {
           const thumbnail = url.replace('/upload/', '/upload/w_150,h_150,c_fill,f_auto,q_auto,so_0/')
                               .replace(/\.(mp4|avi|mov|wmv|flv|webm|mkv|3gp|m4v)$/i, '.jpg');
           console.log(`✅ Video thumbnail: ${thumbnail}`);
-          return thumbnail;
-        }
-
-        if (fileType === 'document' && extension === 'pdf') {
-          const thumbnail = url.replace('/upload/', '/upload/w_150,h_150,c_fill,f_jpg,pg_1,q_auto/');
-          console.log(`✅ PDF thumbnail from first page: ${thumbnail}`);
           return thumbnail;
         }
       }
@@ -319,6 +311,7 @@ class AirtableService {
     }
   }
 }
+// --- End of Part 1 ---
 // =============================================
 // CLOUDINARY SERVICE CLASS
 // =============================================
@@ -544,6 +537,7 @@ const formatDate = (dateString) => {
     return 'Invalid Date';
   }
 };
+// --- End of Part 2 ---
 // Drag and Drop Overlay Component
 const DragDropOverlay = ({ isDragOver }) => {
   if (!isDragOver) return null;
@@ -1540,6 +1534,7 @@ const UploadMetadataForm = ({ isOpen, onClose, onSubmit, initialData = {} }) => 
     </div>
   );
 };
+// --- End of Part 3 ---
 // =============================================
 // MAIN APPLICATION COMPONENT
 // =============================================
@@ -1625,7 +1620,7 @@ export default function App() {
   const startUpload = useCallback((selectedFiles, metadata) => {
     console.log('🔄 App: Starting upload process...', { files: selectedFiles.length, metadata });
     setIsUploading(true);
-    setUploads(selectedFiles.map(file => ({ name: file.name, progress: 0 }));
+    setUploads(selectedFiles.map(file => ({ name: file.name, progress: 0 })));
     setShowUploadForm(false);
     const uploadProcess = async () => {
       try {
@@ -2029,3 +2024,4 @@ export default function App() {
     </div>
   );
 }
+// --- End of Part 4 ---
