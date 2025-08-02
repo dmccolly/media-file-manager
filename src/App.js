@@ -139,47 +139,60 @@ class AirtableService {
    
     return detectedType;
   }
-  // FIXED - Enhanced thumbnail generation
+  // Enhanced thumbnail generation
   generateThumbnailFromUrl(url, fileType) {
     if (!url) {
       console.log('⚠️ No URL provided for thumbnail generation');
       return '';
     }
-   
+
     console.log(`🖼️ Generating thumbnail for URL: ${url}, type: ${fileType}`);
-   
+
+    const extension = url.split('?')[0].split('.').pop()?.toLowerCase();
+    const isCloudinaryUrl = url.includes('res.cloudinary.com') || url.includes('cloudinary.com');
+
     try {
-      // If it's a Cloudinary URL, generate proper thumbnail
-      if (url.includes('cloudinary.com')) {
+      let thumbnail = '';
+
+      if (isCloudinaryUrl) {
         console.log('📸 Cloudinary URL detected, generating thumbnail...');
-       
+        thumbnail = url; // Default to original URL as a fallback
+
         if (fileType === 'image') {
-          const thumbnail = url.replace('/upload/', '/upload/w_150,h_150,c_fill,f_auto,q_auto/');
+          thumbnail = url.replace('/upload/', '/upload/w_150,h_150,c_fill,f_auto,q_auto/');
           console.log(`✅ Image thumbnail: ${thumbnail}`);
-          return thumbnail;
-        }
-       
-        if (fileType === 'video') {
-          const thumbnail = url.replace('/upload/', '/upload/w_150,h_150,c_fill,f_auto,q_auto,so_0/')
-                              .replace(/\.(mp4|avi|mov|wmv|flv|webm|mkv|3gp|m4v)$/i, '.jpg');
+        } else if (fileType === 'video') {
+          thumbnail = url.replace('/upload/', '/upload/w_150,h_150,c_fill,f_auto,q_auto,so_0/')
+                        .replace(/\.(mp4|avi|mov|wmv|flv|webm|mkv|3gp|m4v)$/i, '.jpg');
+          if (thumbnail === url) {
+            console.warn('⚠️ Video thumbnail generation failed, using placeholder');
+            thumbnail = 'https://via.placeholder.com/150?text=Video'; // Placeholder if transformation fails
+          }
           console.log(`✅ Video thumbnail: ${thumbnail}`);
-          return thumbnail;
+        } else if (fileType === 'document' && extension === 'pdf') {
+          thumbnail = url.replace('/upload/', '/upload/w_150,h_150,c_fill,f_jpg,pg_1,q_auto/');
+          if (thumbnail === url) {
+            console.warn('⚠️ PDF thumbnail generation failed, using placeholder');
+            thumbnail = 'https://via.placeholder.com/150?text=PDF'; // Placeholder if transformation fails
+          }
+          console.log(`✅ PDF thumbnail from first page: ${thumbnail}`);
+        } else {
+          console.log(`ℹ️ No thumbnail transformation for type: ${fileType}, falling back to icon`);
+          return '';
         }
-      }
-     
-      // For non-Cloudinary URLs or non-media files, return original URL for images
-      if (fileType === 'image') {
-        console.log(`✅ Direct image URL: ${url}`);
+      } else if (fileType === 'image') {
+        console.log(`✅ Direct image URL (non-Cloudinary): ${url}`);
         return url;
+      } else {
+        console.log(`ℹ️ Non-Cloudinary URL or unsupported type: ${fileType}, falling back to icon`);
+        return '';
       }
-     
-      // For other file types, no thumbnail URL needed (will show icon)
-      console.log(`ℹ️ No thumbnail needed for type: ${fileType}`);
-      return '';
-     
+
+      return thumbnail;
+
     } catch (error) {
       console.error('❌ Error generating thumbnail:', error);
-      return url; // Fallback to original URL
+      return fileType === 'image' ? url : ''; // Fallback to original URL for images, empty for others
     }
   }
   // Save new file to Airtable
@@ -311,7 +324,7 @@ class AirtableService {
     }
   }
 }
-// --- End of Part 1 ---
+
 // =============================================
 // CLOUDINARY SERVICE CLASS
 // =============================================
@@ -482,8 +495,13 @@ class CloudinaryService {
         return originalUrl.replace('/upload/', '/upload/w_150,h_150,c_fill,f_auto,q_auto,so_0/').replace(/\.[^.]+$/, '.jpg');
       }
      
-      // For other types, return original URL
-      return originalUrl;
+      // For PDFs, get first page as thumbnail
+      if (resourceType === 'document' && originalUrl.split('.').pop()?.toLowerCase() === 'pdf') {
+        return originalUrl.replace('/upload/', '/upload/w_150,h_150,c_fill,f_jpg,pg_1,q_auto/');
+      }
+     
+      // For other types, return empty string (icon will be used)
+      return '';
      
     } catch (error) {
       console.error('❌ CloudinaryService: Error generating thumbnail:', error);
@@ -491,6 +509,7 @@ class CloudinaryService {
     }
   }
 }
+
 // =============================================
 // UTILITY FUNCTIONS - FIXED
 // =============================================
@@ -537,7 +556,6 @@ const formatDate = (dateString) => {
     return 'Invalid Date';
   }
 };
-// --- End of Part 2 ---
 // Drag and Drop Overlay Component
 const DragDropOverlay = ({ isDragOver }) => {
   if (!isDragOver) return null;
@@ -706,6 +724,7 @@ const FileGrid = ({
   const [imageErrors, setImageErrors] = useState(new Set());
 
   const handleImageError = (fileId) => {
+    console.log(`❌ Image error for file ID: ${fileId}`);
     setImageErrors(prev => new Set([...prev, fileId]));
   };
 
@@ -860,54 +879,23 @@ const FileGrid = ({
                 className="rounded shadow-sm"
               />
             </div>
-            {/* FIXED - File thumbnail/icon with enhanced logic */}
+            {/* File thumbnail/icon with enhanced logic */}
             <div className="aspect-square mb-2 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden">
               {(() => {
                 console.log(`🎨 Rendering file: ${file.title}, type: ${file.type}, thumbnail: ${file.thumbnail}, url: ${file.url}`);
-               
-                // For images, try to show thumbnail first
-                if (file.type === 'image') {
-                  const imageUrl = file.thumbnail || file.url;
-                 
-                  if (imageUrl && !imageErrors.has(file.id)) {
-                    return (
-                      <img
-                        src={imageUrl}
-                        alt={file.title}
-                        className="w-full h-full object-cover rounded-lg"
-                        onError={() => {
-                          console.log(`❌ Image failed to load: ${imageUrl}`);
-                          handleImageError(file.id);
-                        }}
-                        onLoad={() => {
-                          console.log(`✅ Image loaded successfully: ${imageUrl}`);
-                        }}
-                        loading="lazy"
-                      />
-                    );
-                  }
-                }
-               
-                // For videos with thumbnails
-                if (file.type === 'video' && file.thumbnail && !imageErrors.has(file.id)) {
+                const hasValidThumbnail = file.thumbnail && !imageErrors.has(file.id) && file.thumbnail !== '';
+                if (hasValidThumbnail) {
                   return (
                     <img
                       src={file.thumbnail}
                       alt={file.title}
                       className="w-full h-full object-cover rounded-lg"
-                      onError={() => {
-                        console.log(`❌ Video thumbnail failed to load: ${file.thumbnail}`);
-                        handleImageError(file.id);
-                      }}
-                      onLoad={() => {
-                        console.log(`✅ Video thumbnail loaded successfully: ${file.thumbnail}`);
-                      }}
+                      onError={() => handleImageError(file.id)}
+                      onLoad={() => console.log(`✅ Thumbnail loaded for ${file.title}`)}
                       loading="lazy"
                     />
                   );
                 }
-               
-                // Fallback to file type icon
                 return (
                   <div className="flex flex-col items-center justify-center h-full">
                     {getFileIcon(file.type, 'text-3xl')}
@@ -1534,7 +1522,6 @@ const UploadMetadataForm = ({ isOpen, onClose, onSubmit, initialData = {} }) => 
     </div>
   );
 };
-// --- End of Part 3 ---
 // =============================================
 // MAIN APPLICATION COMPONENT
 // =============================================
@@ -1871,157 +1858,4 @@ export default function App() {
   // Render Loading State
   if (loading) {
     return (
-      <div className="h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600 text-lg">Loading files...</p>
-        </div>
-      </div>
-    );
-  }
-  // Render Error State
-  if (error) {
-    return (
-      <div className="h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="text-red-500 text-6xl mb-4">❌</div>
-          <p className="text-red-600 mb-4 text-lg">Error loading files: {error}</p>
-          <button
-            onClick={loadFiles}
-            className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            Try Again
-          </button>
-        </div>
-      </div>
-    );
-  }
-  // Main Render
-  return (
-    <div
-      className="h-screen flex flex-col bg-gray-50"
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-      onDrop={handleDrop}
-    >
-      {/* Header */}
-      <header className="bg-white border-b border-gray-200 p-4 shadow-sm">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-800">📁 Enhanced File Manager</h1>
-            <p className="text-sm text-gray-600 mt-1">
-              {files.length} total files • {currentFiles.length} in {currentFolder}
-              {selectedFiles.length > 0 && ` • ${selectedFiles.length} selected`}
-            </p>
-          </div>
-         
-          <div className="flex items-center space-x-4">
-            {/* View Toggle */}
-            <div className="flex bg-gray-100 rounded-lg p-1">
-              <button
-                onClick={() => setViewMode('grid')}
-                className={`px-3 py-2 rounded text-sm font-medium transition-colors ${
-                  viewMode === 'grid'
-                    ? 'bg-white text-gray-800 shadow-sm'
-                    : 'text-gray-600 hover:text-gray-800'
-                }`}
-              >
-                🔲 Grid
-              </button>
-              <button
-                onClick={() => setViewMode('list')}
-                className={`px-3 py-2 rounded text-sm font-medium transition-colors ${
-                  viewMode === 'list'
-                    ? 'bg-white text-gray-800 shadow-sm'
-                    : 'text-gray-600 hover:text-gray-800'
-                }`}
-              >
-                📋 List
-              </button>
-            </div>
-            {/* Upload Button */}
-            <UploadButton
-              onFileSelect={handleFileSelect}
-              isUploading={isUploading}
-            />
-            {/* Refresh Button */}
-            <button
-              onClick={loadFiles}
-              disabled={loading}
-              className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-colors"
-            >
-              🔄 Refresh
-            </button>
-          </div>
-        </div>
-      </header>
-      {/* Main Content */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Sidebar */}
-        <FolderTree
-          folderTree={folderTree}
-          currentFolder={currentFolder}
-          setCurrentFolder={setCurrentFolder}
-          expandedFolders={expandedFolders}
-          setExpandedFolders={setExpandedFolders}
-          setContextMenu={setContextMenu}
-          onCreateFolder={handleCreateFolder}
-        />
-        {/* File Display Area */}
-        <FileGrid
-          files={currentFiles}
-          viewMode={viewMode}
-          onFileRightClick={handleFileRightClick}
-          onFileClick={handleFileClick}
-          selectedFiles={selectedFiles}
-          onFileSelect={handleFileSelectToggle}
-          onSelectAll={handleSelectAll}
-          onClearSelection={handleClearSelection}
-        />
-      </div>
-      {/* Upload Progress */}
-      <ProgressBar
-        uploads={uploads}
-        onClose={() => setUploads([])}
-      />
-      {/* Batch Operations Panel */}
-      <BatchOperationsPanel
-        selectedFiles={selectedFiles}
-        onClose={() => setShowBatchPanel(false)}
-        onBatchUpdate={handleBatchUpdate}
-        onBatchDelete={handleBatchDelete}
-        onBatchMove={handleBatchMove}
-      />
-      {/* Upload Metadata Form */}
-      <UploadMetadataForm
-        isOpen={showUploadForm}
-        onClose={() => {
-          setShowUploadForm(false);
-          setPendingFiles([]);
-        }}
-        onSubmit={handleUploadSubmit}
-        initialData={{ category: currentFolder }}
-      />
-      {/* Context Menu */}
-      <ContextMenu
-        contextMenu={contextMenu}
-        onClose={closeContextMenu}
-        onAction={handleContextAction}
-      />
-      {/* File Details Modal */}
-      <FileDetailsModal
-        file={selectedFile}
-        isOpen={showFileDetails}
-        onClose={() => {
-          setShowFileDetails(false);
-          setSelectedFile(null);
-        }}
-        onUpdate={handleFileUpdate}
-        onDelete={handleFileDelete}
-      />
-      {/* Drag and Drop Overlay */}
-      <DragDropOverlay isDragOver={isDragOver} />
-    </div>
-  );
-}
-// --- End of Part 4 ---
+      <div class
