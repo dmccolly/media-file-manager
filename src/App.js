@@ -1,662 +1,1048 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import './App.css';
 
-// =============================================
-// AIRTABLE SERVICE CLASS
-// =============================================
-class AirtableService {
-  constructor() {
-    this.baseId = 'appTK2fgCwe039t5J';
-    this.apiKey = 'patbQMUOfJRtJ1S5d.be54ccdaf03c795c8deca53ae7c05ddbda8efe584e9a07a613a79fd0f0c04dc9';
-    this.baseUrl = `https://api.airtable.com/v0/${this.baseId}/Media%20Assets`;
-    this.headers = {
-      'Authorization': `Bearer ${this.apiKey}`,
-      'Content-Type': 'application/json'
-    };
+// Utility Functions
+const getFileTypeFromUrl = (url) => {
+  console.log('🔍 Getting file type from URL:', url);
+  
+  if (!url) {
+    console.log('❌ No URL provided');
+    return 'unknown';
   }
+  
+  const urlLower = url.toLowerCase();
+  
+  // Image types
+  if (urlLower.includes('.jpg') || urlLower.includes('.jpeg') || 
+      urlLower.includes('.png') || urlLower.includes('.gif') || 
+      urlLower.includes('.webp') || urlLower.includes('.svg') ||
+      urlLower.includes('image/') || urlLower.includes('f_auto')) {
+    console.log('✅ Detected as image');
+    return 'image';
+  }
+  
+  // Video types
+  if (urlLower.includes('.mp4') || urlLower.includes('.avi') || 
+      urlLower.includes('.mov') || urlLower.includes('.wmv') || 
+      urlLower.includes('.webm') || urlLower.includes('video/')) {
+    console.log('✅ Detected as video');
+    return 'video';
+  }
+  
+  // Document types
+  if (urlLower.includes('.pdf') || urlLower.includes('.doc') || 
+      urlLower.includes('.docx') || urlLower.includes('.txt') || 
+      urlLower.includes('.rtf')) {
+    console.log('✅ Detected as document');
+    return 'document';
+  }
+  
+  console.log('⚠️ Unknown file type, defaulting to document');
+  return 'document';
+};
 
-  async fetchAllFiles() {
-    console.log('🔄 AirtableService: Fetching files from Airtable...');
+const generateThumbnailUrl = (originalUrl, fileType) => {
+  console.log('🖼️ Generating thumbnail for:', originalUrl, 'Type:', fileType);
+  
+  if (!originalUrl) {
+    console.log('❌ No original URL provided');
+    return null;
+  }
+  
+  // If it's a Cloudinary URL, generate proper thumbnail
+  if (originalUrl.includes('cloudinary.com')) {
+    console.log('☁️ Cloudinary URL detected, generating thumbnail');
     
+    if (fileType === 'image') {
+      // Replace upload/ with upload/w_300,h_200,c_fill/ for images
+      const thumbnailUrl = originalUrl.replace('/upload/', '/upload/w_300,h_200,c_fill/');
+      console.log('✅ Image thumbnail generated:', thumbnailUrl);
+      return thumbnailUrl;
+    } else if (fileType === 'video') {
+      // For videos, get first frame as thumbnail
+      const thumbnailUrl = originalUrl.replace('/upload/', '/upload/w_300,h_200,c_fill,so_0/');
+      console.log('✅ Video thumbnail generated:', thumbnailUrl);
+      return thumbnailUrl;
+    }
+  }
+  
+  // For non-Cloudinary images, return original if it's an image
+  if (fileType === 'image') {
+    console.log('✅ Non-Cloudinary image, using original');
+    return originalUrl;
+  }
+  
+  console.log('⚠️ No thumbnail generated, will use icon');
+  return null;
+};
+
+const getFileIcon = (fileType) => {
+  const icons = {
+    image: '🖼️',
+    video: '🎥',
+    document: '📄',
+    pdf: '📕',
+    unknown: '📁'
+  };
+  return icons[fileType] || icons.unknown;
+};
+
+// API Service
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+
+const apiService = {
+  async fetchFiles() {
+    console.log('📡 Fetching files from API...');
     try {
-      let allRecords = [];
-      let offset = null;
+      const response = await fetch(`${API_BASE_URL}/files`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const data = await response.json();
+      console.log('✅ Files fetched successfully:', data.length, 'files');
       
-      do {
-        const url = offset ? `${this.baseUrl}?offset=${offset}` : this.baseUrl;
-        const response = await fetch(url, { method: 'GET', headers: this.headers });
-
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const data = await response.json();
-        allRecords = allRecords.concat(data.records || []);
-        offset = data.offset;
+      // Process each file to ensure proper type detection
+      const processedFiles = data.map(file => {
+        const detectedType = getFileTypeFromUrl(file.file_url);
+        const thumbnailUrl = generateThumbnailUrl(file.file_url, detectedType);
         
-      } while (offset);
-
-      console.log(`✅ AirtableService: Total records fetched: ${allRecords.length}`);
-      return this.processRecords(allRecords);
+        console.log(`🔍 Processing file: ${file.file_name}`);
+        console.log(`   Type: ${detectedType}`);
+        console.log(`   Thumbnail: ${thumbnailUrl || 'None'}`);
+        
+        return {
+          ...file,
+          file_type: detectedType,
+          thumbnail_url: thumbnailUrl
+        };
+      });
       
+      return processedFiles;
     } catch (error) {
-      console.error('❌ AirtableService: Error fetching files:', error);
+      console.error('❌ Error fetching files:', error);
+      throw error;
+    }
+  },
+
+  async uploadFile(file, metadata) {
+    console.log('📤 Uploading file:', file.name);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('title', metadata.title || file.name);
+      formData.append('description', metadata.description || '');
+      formData.append('tags', metadata.tags || '');
+
+      const response = await fetch(`${API_BASE_URL}/upload`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log('✅ File uploaded successfully:', result);
+      return result;
+    } catch (error) {
+      console.error('❌ Error uploading file:', error);
+      throw error;
+    }
+  },
+
+  async deleteFile(fileId) {
+    console.log('🗑️ Deleting file:', fileId);
+    try {
+      const response = await fetch(`${API_BASE_URL}/files/${fileId}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      console.log('✅ File deleted successfully');
+      return true;
+    } catch (error) {
+      console.error('❌ Error deleting file:', error);
       throw error;
     }
   }
+};
+// File Thumbnail Component
+const FileThumbnail = ({ file, onClick }) => {
+  const [imageError, setImageError] = useState(false);
+  const [imageLoaded, setImageLoaded] = useState(false);
 
-  processRecords(records) {
-    return records.map(record => {
-      const fields = record.fields || {};
-      const url = fields['URL'] || fields['File URL'] || '';
-      const detectedType = this.detectFileTypeFromUrl(url);
-      const thumbnail = this.generateThumbnailFromUrl(url, detectedType);
-      
-      console.log(`🔍 File: ${fields['Title']}, Type: ${detectedType}, Thumbnail: ${thumbnail}`);
-      
-      return {
-        id: record.id,
-        title: fields['Title'] || fields['Name'] || 'Untitled',
-        url: url,
-        category: fields['Category'] || 'uncategorized', 
-        type: detectedType,
-        station: fields['Station'] || '',
-        description: fields['Description'] || '',
-        notes: fields['Notes'] || '',
-        tags: fields['Tags'] || '',
-        uploadDate: fields['Upload Date'] || fields['Created'] || new Date().toISOString(),
-        thumbnail: thumbnail,
-        fileSize: fields['File Size'] || 0,
-        duration: fields['Duration'] || ''
-      };
-    });
-  }
-
-  detectFileTypeFromUrl(url) {
-    if (!url) return 'unknown';
-    
-    const extension = url.split('?')[0].split('.').pop()?.toLowerCase();
-    
-    const typeMap = {
-      'jpg': 'image', 'jpeg': 'image', 'png': 'image', 'gif': 'image', 'webp': 'image',
-      'mp4': 'video', 'avi': 'video', 'mov': 'video', 'wmv': 'video', 'webm': 'video',
-      'mp3': 'audio', 'wav': 'audio', 'flac': 'audio', 'aac': 'audio', 'ogg': 'audio',
-      'pdf': 'document', 'doc': 'document', 'docx': 'document', 'txt': 'document',
-      'xls': 'spreadsheet', 'xlsx': 'spreadsheet', 'csv': 'spreadsheet'
-    };
-    
-    return typeMap[extension] || 'file';
-  }
-
-  generateThumbnailFromUrl(url, fileType) {
-    if (!url) return '';
-    
-    try {
-      if (url.includes('cloudinary.com')) {
-        if (fileType === 'image') {
-          return url.replace('/upload/', '/upload/w_150,h_150,c_fill,f_auto,q_auto/');
-        }
-        if (fileType === 'video') {
-          return url.replace('/upload/', '/upload/w_150,h_150,c_fill,f_auto,q_auto,so_0/').replace(/\.(mp4|avi|mov|wmv|webm)$/i, '.jpg');
-        }
-      }
-      
-      if (fileType === 'image') return url;
-      return '';
-      
-    } catch (error) {
-      console.error('❌ Error generating thumbnail:', error);
-      return url;
-    }
-  }
-
-  async saveFile(fileData) {
-    const airtableData = {
-      fields: {
-        'Title': fileData.title || fileData.name,
-        'URL': fileData.url,
-        'Category': fileData.category,
-        'Type': fileData.type,
-        'Station': fileData.station || '',
-        'Description': fileData.description || '',
-        'Notes': fileData.notes || '',
-        'Tags': fileData.tags || '',
-        'Upload Date': new Date().toISOString().split('T')[0],
-        'File Size': fileData.size || 0,
-        'Thumbnail': fileData.thumbnail || fileData.url
-      }
-    };
-
-    const response = await fetch(this.baseUrl, {
-      method: 'POST',
-      headers: this.headers,
-      body: JSON.stringify(airtableData)
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(`Airtable error: ${errorData.error?.message || response.statusText}`);
-    }
-
-    return await response.json();
-  }
-
-  async deleteFile(recordId) {
-    const response = await fetch(`${this.baseUrl}/${recordId}`, {
-      method: 'DELETE',
-      headers: this.headers
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    return true;
-  }
-}
-// =============================================
-// CLOUDINARY SERVICE CLASS
-// =============================================
-class CloudinaryService {
-  constructor() {
-    this.cloudName = 'dzrw8nopf';
-    this.uploadPreset = 'HIBF_MASTER';
-    this.baseUrl = `https://api.cloudinary.com/v1_1/${this.cloudName}/upload`;
-  }
-
-  async uploadFile(file, onProgress = null) {
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('upload_preset', this.uploadPreset);
-    formData.append('folder', 'HIBF_assets');
-
-    return new Promise((resolve, reject) => {
-      const xhr = new XMLHttpRequest();
-
-      if (onProgress) {
-        xhr.upload.onprogress = (event) => {
-          if (event.lengthComputable) {
-            const progress = Math.round((event.loaded / event.total) * 100);
-            onProgress(progress, file.name);
-          }
-        };
-      }
-
-      xhr.onload = () => {
-        if (xhr.status === 200) {
-          const result = JSON.parse(xhr.responseText);
-          resolve({
-            url: result.secure_url,
-            thumbnail: this.generateThumbnailUrl(result.secure_url, result.resource_type),
-            publicId: result.public_id,
-            resourceType: result.resource_type,
-            size: result.bytes
-          });
-        } else {
-          reject(new Error(`Upload failed with status: ${xhr.status}`));
-        }
-      };
-
-      xhr.onerror = () => reject(new Error('Network error during upload'));
-      xhr.open('POST', this.baseUrl);
-      xhr.send(formData);
-    });
-  }
-
-  async uploadMultipleFiles(files, sharedMetadata = {}, onProgress = null) {
-    const uploadPromises = Array.from(files).map(async (file, index) => {
-      try {
-        const fileProgress = (progress, fileName) => {
-          if (onProgress) onProgress(index, progress, fileName);
-        };
-
-        const cloudinaryResult = await this.uploadFile(file, fileProgress);
-        
-        return {
-          name: file.name,
-          title: sharedMetadata.title || file.name.split('.')[0],
-          category: sharedMetadata.category || this.categorizeFile(file),
-          type: this.getFileType(file),
-          station: sharedMetadata.station || '',
-          description: sharedMetadata.description || '',
-          notes: sharedMetadata.notes || '',
-          tags: sharedMetadata.tags || '',
-          url: cloudinaryResult.url,
-          thumbnail: cloudinaryResult.thumbnail,
-          size: file.size
-        };
-      } catch (error) {
-        return { name: file.name, error: error.message, failed: true };
-      }
-    });
-
-    const results = await Promise.all(uploadPromises);
-    return {
-      successful: results.filter(r => !r.failed),
-      failed: results.filter(r => r.failed),
-      total: files.length
-    };
-  }
-
-  categorizeFile(file) {
-    const type = file.type.toLowerCase();
-    if (type.startsWith('image/')) return 'Images';
-    if (type.startsWith('video/')) return 'Video';
-    if (type.startsWith('audio/')) return 'Audio';
-    if (type.includes('pdf') || type.includes('document')) return 'Documents';
-    return 'Files';
-  }
-
-  getFileType(file) {
-    const type = file.type.toLowerCase();
-    if (type.startsWith('image/')) return 'image';
-    if (type.startsWith('video/')) return 'video';
-    if (type.startsWith('audio/')) return 'audio';
-    if (type.includes('pdf') || type.includes('document')) return 'document';
-    return 'file';
-  }
-
-  generateThumbnailUrl(originalUrl, resourceType) {
-    if (!originalUrl) return '';
-    
-    try {
-      if (resourceType === 'image') {
-        return originalUrl.replace('/upload/', '/upload/w_150,h_150,c_fill,f_auto,q_auto/');
-      }
-      if (resourceType === 'video') {
-        return originalUrl.replace('/upload/', '/upload/w_150,h_150,c_fill,f_auto,q_auto,so_0/').replace(/\.[^.]+$/, '.jpg');
-      }
-      return originalUrl;
-    } catch (error) {
-      return originalUrl;
-    }
-  }
-}
-
-// =============================================
-// UTILITY FUNCTIONS
-// =============================================
-const getFileIcon = (type, size = 'text-2xl') => {
-  const icons = {
-    image: '🖼️', video: '🎥', audio: '🎵', document: '📄',
-    spreadsheet: '📊', presentation: '📽️', archive: '📦', file: '📁', unknown: '❓'
+  const handleImageLoad = () => {
+    console.log('✅ Image loaded successfully:', file.file_name);
+    setImageLoaded(true);
+    setImageError(false);
   };
-  return <span className={size}>{icons[type] || icons.unknown}</span>;
+
+  const handleImageError = () => {
+    console.log('❌ Image failed to load:', file.file_name);
+    setImageError(true);
+    setImageLoaded(false);
+  };
+
+  const renderThumbnail = () => {
+    // If we have a thumbnail URL and no error, try to show the image
+    if (file.thumbnail_url && !imageError) {
+      return (
+        <div className="thumbnail-container">
+          <img
+            src={file.thumbnail_url}
+            alt={file.file_name}
+            onLoad={handleImageLoad}
+            onError={handleImageError}
+            style={{
+              width: '100%',
+              height: '150px',
+              objectFit: 'cover',
+              display: imageLoaded ? 'block' : 'none'
+            }}
+          />
+          {!imageLoaded && (
+            <div className="thumbnail-loading">
+              <span style={{ fontSize: '48px' }}>
+                {getFileIcon(file.file_type)}
+              </span>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // Fallback to icon
+    return (
+      <div className="thumbnail-placeholder">
+        <span style={{ fontSize: '48px' }}>
+          {getFileIcon(file.file_type)}
+        </span>
+      </div>
+    );
+  };
+
+  return (
+    <div className="file-item" onClick={() => onClick(file)}>
+      {renderThumbnail()}
+      <div className="file-details">
+        <div className="file-name" title={file.file_name}>
+          {file.file_name}
+        </div>
+        <div className="file-meta">
+          <span className="file-type">{file.file_type}</span>
+          <span className="file-size">
+            {file.file_size ? `${Math.round(file.file_size / 1024)} KB` : 'Unknown size'}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
 };
 
-const formatFileSize = (bytes) => {
-  if (!bytes) return '0 B';
-  const k = 1024;
-  const sizes = ['B', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+// Upload Form Component
+const UploadForm = ({ onUpload, onCancel, isUploading }) => {
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [metadata, setMetadata] = useState({
+    title: '',
+    description: '',
+    tags: ''
+  });
+  const fileInputRef = useRef(null);
+
+  const handleFileSelect = (event) => {
+    const file = event.target.files[0];
+    console.log('📁 File selected:', file?.name);
+    setSelectedFile(file);
+    if (file && !metadata.title) {
+      setMetadata(prev => ({ ...prev, title: file.name }));
+    }
+  };
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    if (!selectedFile) {
+      alert('Please select a file');
+      return;
+    }
+
+    console.log('🚀 Starting upload process...');
+    await onUpload(selectedFile, metadata);
+  };
+
+  const handleCancel = () => {
+    setSelectedFile(null);
+    setMetadata({ title: '', description: '', tags: '' });
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+    onCancel();
+  };
+
+  return (
+    <div className="upload-form">
+      <h3>Upload New File</h3>
+      <form onSubmit={handleSubmit}>
+        <div className="form-group">
+          <label>Select File:</label>
+          <input
+            ref={fileInputRef}
+            type="file"
+            onChange={handleFileSelect}
+            disabled={isUploading}
+            accept="image/*,video/*,.pdf,.doc,.docx,.txt"
+          />
+        </div>
+
+        {selectedFile && (
+          <>
+            <div className="form-group">
+              <label>Title:</label>
+              <input
+                type="text"
+                value={metadata.title}
+                onChange={(e) => setMetadata(prev => ({ ...prev, title: e.target.value }))}
+                disabled={isUploading}
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Description:</label>
+              <textarea
+                value={metadata.description}
+                onChange={(e) => setMetadata(prev => ({ ...prev, description: e.target.value }))}
+                disabled={isUploading}
+                rows="3"
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Tags (comma-separated):</label>
+              <input
+                type="text"
+                value={metadata.tags}
+                onChange={(e) => setMetadata(prev => ({ ...prev, tags: e.target.value }))}
+                disabled={isUploading}
+                placeholder="tag1, tag2, tag3"
+              />
+            </div>
+          </>
+        )}
+
+        <div className="form-actions">
+          <button type="submit" disabled={!selectedFile || isUploading}>
+            {isUploading ? 'Uploading...' : 'Upload File'}
+          </button>
+          <button type="button" onClick={handleCancel} disabled={isUploading}>
+            Cancel
+          </button>
+        </div>
+      </form>
+    </div>
+  );
 };
 
-const formatDate = (dateString) => {
-  if (!dateString) return 'Unknown';
-  try {
-    return new Date(dateString).toLocaleDateString();
-  } catch {
-    return 'Invalid Date';
-  }
-};
-// =============================================
-// MAIN APPLICATION COMPONENT
-// =============================================
-export default function App() {
-  // Initialize services
-  const airtableService = useMemo(() => new AirtableService(), []);
-  const cloudinaryService = useMemo(() => new CloudinaryService(), []);
+// File Detail Modal Component
+const FileDetailModal = ({ file, onClose, onDelete }) => {
+  const [isDeleting, setIsDeleting] = useState(false);
 
-  // State Management
+  const handleDelete = async () => {
+    if (window.confirm(`Are you sure you want to delete "${file.file_name}"?`)) {
+      console.log('🗑️ User confirmed deletion of:', file.file_name);
+      setIsDeleting(true);
+      try {
+        await onDelete(file.id);
+        onClose();
+      } catch (error) {
+        console.error('❌ Delete failed:', error);
+        alert('Failed to delete file. Please try again.');
+      } finally {
+        setIsDeleting(false);
+      }
+    }
+  };
+
+  const handleBackdropClick = (e) => {
+    if (e.target === e.currentTarget) {
+      onClose();
+    }
+  };
+
+  return (
+    <div className="modal-backdrop" onClick={handleBackdropClick}>
+      <div className="modal-content">
+        <div className="modal-header">
+          <h2>{file.file_name}</h2>
+          <button className="close-button" onClick={onClose}>×</button>
+        </div>
+        
+        <div className="modal-body">
+          <div className="file-preview">
+            {file.file_type === 'image' ? (
+              <img 
+                src={file.file_url} 
+                alt={file.file_name}
+                style={{ maxWidth: '100%', maxHeight: '400px', objectFit: 'contain' }}
+                onError={(e) => {
+                  console.log('❌ Full image failed to load, showing icon');
+                  e.target.style.display = 'none';
+                  e.target.nextSibling.style.display = 'block';
+                }}
+              />
+            ) : (
+              <div className="file-icon-large">
+                <span style={{ fontSize: '64px' }}>
+                  {getFileIcon(file.file_type)}
+                </span>
+              </div>
+            )}
+            <div style={{ display: 'none', textAlign: 'center', padding: '20px' }}>
+              <span style={{ fontSize: '64px' }}>
+                {getFileIcon(file.file_type)}
+              </span>
+            </div>
+          </div>
+
+          <div className="file-info">
+            <div className="info-row">
+              <strong>Type:</strong> {file.file_type}
+            </div>
+            <div className="info-row">
+              <strong>Size:</strong> {file.file_size ? `${Math.round(file.file_size / 1024)} KB` : 'Unknown'}
+            </div>
+            <div className="info-row">
+              <strong>Uploaded:</strong> {new Date(file.created_at).toLocaleDateString()}
+            </div>
+            {file.description && (
+              <div className="info-row">
+                <strong>Description:</strong> {file.description}
+              </div>
+            )}
+            {file.tags && (
+              <div className="info-row">
+                <strong>Tags:</strong> {file.tags}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="modal-footer">
+          <a 
+            href={file.file_url} 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="view-button"
+          >
+            View Full Size
+          </a>
+          <button 
+            onClick={handleDelete} 
+            disabled={isDeleting}
+            className="delete-button"
+          >
+            {isDeleting ? 'Deleting...' : 'Delete File'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+// Main App Component
+function App() {
   const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [currentFolder, setCurrentFolder] = useState('Images');
-  const [isUploading, setIsUploading] = useState(false);
-  const [uploads, setUploads] = useState([]);
   const [showUploadForm, setShowUploadForm] = useState(false);
-  const [pendingFiles, setPendingFiles] = useState([]);
   const [selectedFile, setSelectedFile] = useState(null);
-  const [showFileDetails, setShowFileDetails] = useState(false);
-  const [imageErrors, setImageErrors] = useState(new Set());
+  const [isUploading, setIsUploading] = useState(false);
 
-  // Computed Values
-  const folderTree = useMemo(() => {
-    const tree = {};
-    files.forEach(file => {
-      const category = file.category || 'uncategorized';
-      tree[category] = (tree[category] || 0) + 1;
-    });
-    return tree;
-  }, [files]);
+  // Load files on component mount
+  useEffect(() => {
+    loadFiles();
+  }, []);
 
-  const currentFiles = useMemo(() => {
-    return files.filter(file => file.category === currentFolder);
-  }, [files, currentFolder]);
-
-  // Load Files
-  const loadFiles = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  const loadFiles = async () => {
+    console.log('🔄 Loading files...');
     try {
-      const loadedFiles = await airtableService.fetchAllFiles();
-      setFiles(loadedFiles);
+      setLoading(true);
+      setError(null);
+      const fetchedFiles = await apiService.fetchFiles();
+      setFiles(fetchedFiles);
+      console.log('✅ Files loaded successfully:', fetchedFiles.length);
     } catch (err) {
-      setError(err.message);
+      console.error('❌ Failed to load files:', err);
+      setError('Failed to load files. Please check your connection and try again.');
     } finally {
       setLoading(false);
     }
-  }, [airtableService]);
-
-  useEffect(() => {
-    loadFiles();
-  }, [loadFiles]);
-
-  // Helper functions
-  const handleImageError = (fileId) => {
-    setImageErrors(prev => new Set([...prev, fileId]));
   };
 
-  // Upload handler
-  const handleUpload = async (uploadFiles, metadata) => {
-    setIsUploading(true);
-    setUploads(uploadFiles.map(file => ({ name: file.name, progress: 0 })));
-    setShowUploadForm(false);
-
+  const handleUpload = async (file, metadata) => {
+    console.log('📤 Starting upload process for:', file.name);
     try {
-      const result = await cloudinaryService.uploadMultipleFiles(
-        uploadFiles,
-        metadata,
-        (fileIndex, progress) => {
-          setUploads(prev => prev.map((upload, index) => 
-            index === fileIndex ? { ...upload, progress } : upload
-          ));
-        }
-      );
-
-      const savePromises = result.successful.map(fileData => airtableService.saveFile(fileData));
-      await Promise.all(savePromises);
-
-      if (result.failed.length > 0) {
-        alert(`Upload complete! ${result.successful.length} files uploaded, ${result.failed.length} failed.`);
-      } else {
-        alert(`All ${result.successful.length} files uploaded successfully!`);
-      }
-
+      setIsUploading(true);
+      const result = await apiService.uploadFile(file, metadata);
+      console.log('✅ Upload successful:', result);
+      
+      // Reload files to get the updated list
       await loadFiles();
-      setUploads([]);
-      setPendingFiles([]);
-    } catch (error) {
-      alert('Upload failed: ' + error.message);
+      setShowUploadForm(false);
+      
+      alert('File uploaded successfully!');
+    } catch (err) {
+      console.error('❌ Upload failed:', err);
+      alert('Failed to upload file. Please try again.');
     } finally {
       setIsUploading(false);
     }
   };
 
+  const handleDelete = async (fileId) => {
+    console.log('🗑️ Starting delete process for file ID:', fileId);
+    try {
+      await apiService.deleteFile(fileId);
+      console.log('✅ Delete successful');
+      
+      // Remove the file from the local state
+      setFiles(prevFiles => prevFiles.filter(file => file.id !== fileId));
+      
+      alert('File deleted successfully!');
+    } catch (err) {
+      console.error('❌ Delete failed:', err);
+      throw err; // Re-throw to let the modal handle it
+    }
+  };
+
+  const handleFileClick = (file) => {
+    console.log('👆 File clicked:', file.file_name);
+    setSelectedFile(file);
+  };
+
+  const handleCloseModal = () => {
+    setSelectedFile(null);
+  };
+
+  const handleRefresh = () => {
+    console.log('🔄 Refresh requested');
+    loadFiles();
+  };
+
+  // Render loading state
   if (loading) {
     return (
-      <div className="h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600 text-lg">Loading files...</p>
+      <div className="app">
+        <div className="loading">
+          <div className="loading-spinner"></div>
+          <p>Loading files...</p>
         </div>
       </div>
     );
   }
 
+  // Render error state
   if (error) {
     return (
-      <div className="h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="text-red-500 text-6xl mb-4">❌</div>
-          <p className="text-red-600 mb-4 text-lg">Error loading files: {error}</p>
-          <button onClick={loadFiles} className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-            Try Again
-          </button>
+      <div className="app">
+        <div className="error">
+          <h2>Error</h2>
+          <p>{error}</p>
+          <button onClick={handleRefresh}>Try Again</button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="h-screen flex flex-col bg-gray-50">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-200 p-4 shadow-sm">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-800">📁 Enhanced File Manager</h1>
-            <p className="text-sm text-gray-600 mt-1">
-              {files.length} total files • {currentFiles.length} in {currentFolder}
-            </p>
-          </div>
-          
-          <div className="flex items-center space-x-4">
-            {/* Upload Button */}
-            <div className="relative">
-              <input
-                type="file"
-                multiple
-                onChange={(e) => {
-                  const selectedFiles = Array.from(e.target.files);
-                  if (selectedFiles.length > 0) {
-                    setPendingFiles(selectedFiles);
-                    setShowUploadForm(true);
-                  }
-                  e.target.value = '';
-                }}
-                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                disabled={isUploading}
-              />
-              <button
-                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                  isUploading ? 'bg-gray-400 cursor-not-allowed text-white' : 'bg-blue-600 hover:bg-blue-700 text-white shadow-sm'
-                }`}
-                disabled={isUploading}
-              >
-                {isUploading ? '⏳ Uploading...' : '📤 Upload Files'}
-              </button>
-            </div>
-
-            <button onClick={loadFiles} className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50">
-              🔄 Refresh
-            </button>
-          </div>
+    <div className="app">
+      <header className="app-header">
+        <h1>📁 Media File Manager</h1>
+        <div className="header-actions">
+          <button onClick={handleRefresh} className="refresh-button">
+            🔄 Refresh
+          </button>
+          <button 
+            onClick={() => setShowUploadForm(true)} 
+            className="upload-button"
+            disabled={showUploadForm}
+          >
+            📤 Upload File
+          </button>
         </div>
       </header>
 
-      {/* Main Content */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Sidebar */}
-        <div className="w-64 bg-gray-50 border-r p-4 overflow-y-auto">
-          <h3 className="font-semibold text-gray-800 mb-4">Folders</h3>
-          <div className="space-y-1">
-            {Object.entries(folderTree).map(([folder, count]) => (
-              <div
-                key={folder}
-                className={`flex items-center p-2 rounded cursor-pointer hover:bg-gray-200 transition-colors ${
-                  currentFolder === folder ? 'bg-blue-100 text-blue-800 font-medium' : 'text-gray-700'
-                }`}
-                onClick={() => setCurrentFolder(folder)}
-              >
-                <span className="w-4 h-4 mr-2">📁</span>
-                <span className="flex-1 truncate">{folder}</span>
-                <span className="text-xs text-gray-500 ml-2 bg-gray-200 px-1 rounded">{count}</span>
-              </div>
-            ))}
+      <main className="app-main">
+        {showUploadForm && (
+          <div className="upload-section">
+            <UploadForm
+              onUpload={handleUpload}
+              onCancel={() => setShowUploadForm(false)}
+              isUploading={isUploading}
+            />
           </div>
-        </div>
-{/* File Display Area */}
-        <div className="flex-1 p-4 overflow-auto">
-          {currentFiles.length === 0 ? (
-            <div className="flex-1 flex items-center justify-center text-gray-500">
-              <div className="text-center">
-                <div className="text-6xl mb-4">📁</div>
-                <p className="text-lg font-medium mb-2">No files in this folder</p>
-                <p className="text-sm">Drag files here or use the upload button</p>
+        )}
+
+        <div className="files-section">
+          <div className="files-header">
+            <h2>Files ({files.length})</h2>
+            {files.length > 0 && (
+              <div className="files-stats">
+                <span>Images: {files.filter(f => f.file_type === 'image').length}</span>
+                <span>Videos: {files.filter(f => f.file_type === 'video').length}</span>
+                <span>Documents: {files.filter(f => f.file_type === 'document').length}</span>
               </div>
+            )}
+          </div>
+
+          {files.length === 0 ? (
+            <div className="empty-state">
+              <div className="empty-icon">📭</div>
+              <h3>No files yet</h3>
+              <p>Upload your first file to get started!</p>
+              <button 
+                onClick={() => setShowUploadForm(true)}
+                className="upload-button"
+              >
+                📤 Upload File
+              </button>
             </div>
           ) : (
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4">
-              {currentFiles.map((file) => (
-                <div
+            <div className="files-grid">
+              {files.map((file) => (
+                <FileThumbnail
                   key={file.id}
-                  className="bg-white border-2 rounded-lg p-3 hover:shadow-lg cursor-pointer transition-all duration-200 border-gray-200 hover:border-gray-300"
-                  onClick={() => {
-                    setSelectedFile(file);
-                    setShowFileDetails(true);
-                  }}
-                >
-                  {/* File thumbnail/icon */}
-                  <div className="aspect-square mb-2 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden">
-                    {file.type === 'image' && (file.thumbnail || file.url) && !imageErrors.has(file.id) ? (
-                      <img
-                        src={file.thumbnail || file.url}
-                        alt={file.title}
-                        className="w-full h-full object-cover rounded-lg"
-                        onError={() => handleImageError(file.id)}
-                        loading="lazy"
-                      />
-                    ) : file.type === 'video' && file.thumbnail && !imageErrors.has(file.id) ? (
-                      <img
-                        src={file.thumbnail}
-                        alt={file.title}
-                        className="w-full h-full object-cover rounded-lg"
-                        onError={() => handleImageError(file.id)}
-                        loading="lazy"
-                      />
-                    ) : (
-                      <div className="flex flex-col items-center justify-center h-full">
-                        {getFileIcon(file.type, 'text-3xl')}
-                        <span className="text-xs text-gray-500 mt-1 uppercase font-medium">
-                          {file.type || 'unknown'}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* File info */}
-                  <div className="text-sm">
-                    <p className="font-medium truncate text-gray-900" title={file.title}>
-                      {file.title}
-                    </p>
-                    <p className="text-xs text-gray-500 truncate">
-                      {formatFileSize(file.fileSize)}
-                    </p>
-                  </div>
-                </div>
+                  file={file}
+                  onClick={handleFileClick}
+                />
               ))}
             </div>
           )}
         </div>
-      </div>
+      </main>
 
-      {/* Upload Form Modal */}
-      {showUploadForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-2xl">
-            <h3 className="text-xl font-semibold mb-4 text-gray-900">Upload Settings</h3>
-            <form onSubmit={async (e) => {
-              e.preventDefault();
-              const formData = new FormData(e.target);
-              const metadata = {
-                category: formData.get('category') || currentFolder,
-                station: formData.get('station') || '',
-                description: formData.get('description') || '',
-                tags: formData.get('tags') || ''
-              };
-              if (pendingFiles.length > 0) {
-                await handleUpload(pendingFiles, metadata);
-              }
-            }} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
-                <select name="category" defaultValue={currentFolder} className="w-full p-3 border border-gray-300 rounded-lg">
-                  <option value="Images">Images</option>
-                  <option value="Video">Video</option>
-                  <option value="Audio">Audio</option>
-                  <option value="Documents">Documents</option>
-                  <option value="Files">Files</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Station</label>
-                <input type="text" name="station" placeholder="e.g., Studio A" className="w-full p-3 border border-gray-300 rounded-lg" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                <textarea name="description" rows={3} placeholder="Brief description..." className="w-full p-3 border border-gray-300 rounded-lg" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Tags</label>
-                <input type="text" name="tags" placeholder="tag1, tag2, tag3" className="w-full p-3 border border-gray-300 rounded-lg" />
-              </div>
-              <div className="flex justify-end space-x-3 pt-4">
-                <button type="button" onClick={() => { setShowUploadForm(false); setPendingFiles([]); }} className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50">
-                  Cancel
-                </button>
-                <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-                  Upload Files
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+      {selectedFile && (
+        <FileDetailModal
+          file={selectedFile}
+          onClose={handleCloseModal}
+          onDelete={handleDelete}
+        />
       )}
+    </div>
+  );
+}
+export default App;
 
-      {/* File Details Modal */}
-      {showFileDetails && selectedFile && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-hidden shadow-2xl">
-            <div className="flex items-center justify-between p-6 border-b bg-gray-50">
-              <div className="flex items-center gap-3">
-                {getFileIcon(selectedFile.type, 'text-2xl')}
-                <div>
-                  <h2 className="text-xl font-semibold text-gray-900">{selectedFile.title}</h2>
-                  <p className="text-sm text-gray-500">{selectedFile.category} • {formatFileSize(selectedFile.fileSize)}</p>
-                </div>
-              </div>
-              <button onClick={() => { setShowFileDetails(false); setSelectedFile(null); }} className="p-2 hover:bg-gray-200 rounded-lg">
-                ✕
-              </button>
-            </div>
-            
-            <div className="flex h-[calc(90vh-120px)]">
-              <div className="flex-1 p-6 bg-gray-50 flex items-center justify-center">
-                {selectedFile.type === 'image' && selectedFile.url ? (
-                  <img src={selectedFile.url} alt={selectedFile.title} className="max-w-full max-h-full object-contain rounded-lg shadow-sm" />
-                ) : selectedFile.type === 'video' && selectedFile.url ? (
-                  <video src={selectedFile.url} controls className="max-w-full max-h-full rounded-lg shadow-sm">
-                    Your browser does not support video playback.
-                  </video>
-                ) : selectedFile.type === 'audio' && selectedFile.url ? (
-                  <div className="text-center">
-                    <div className="text-6xl mb-4">🎵</div>
-                    <audio src={selectedFile.url} controls className="w-full max-w-md">
-                      Your browser does not support audio playback.
-                    </audio>
-                  </div>
-                ) : (
-                  <div className="text-center">
-                    <div className="text-6xl mb-4">{getFileIcon(selectedFile.type, 'text-6xl')}</div>
-                    <p className="text-gray-600 mb-4">Preview not available for this file type</p>
-                    {selectedFile.url && (
-                      <a href={selectedFile.url} target="_blank" rel="noopener noreferrer" className="inline-block px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
-                        📄 Open File
-                      </a>
-                    )}
-                  </div>
-                )}
-              </div>
+/* Add this CSS to your App.css file */
+/*
+.app {
+  min-height: 100vh;
+  background-color: #f5f5f5;
+}
 
-              <div className="w-96 p-6 overflow-y-auto border-l bg-white">
-                <h3 className="text-lg font-semibold mb-4 text-gray-900">File Details</h3>
-                <div className="space-y-4">
-                  <div className="bg-gray-50 p-3 rounded-lg">
-                    <span className="text-sm font-medium text-gray-700 block mb-1">File Type</span>
-                    <span className="text-sm text-gray-900 capitalize">{selectedFile.type}</span>
-                  </div>
-                  <div className="bg-gray-50 p-3 rounded-lg">
-                    <span className="text-sm font-medium text-gray-700 block mb-1">Size</span>
-                    <span className="text-sm text-gray-900">{formatFileSize(selectedFile.fileSize)}</span>
-                  </div>
-                  <div className="
+.app-header {
+  background: white;
+  padding: 1rem 2rem;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.app-header h1 {
+  margin: 0;
+  color: #333;
+}
+
+.header-actions {
+  display: flex;
+  gap: 1rem;
+}
+
+.upload-button, .refresh-button {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.upload-button {
+  background: #007bff;
+  color: white;
+}
+
+.upload-button:hover {
+  background: #0056b3;
+}
+
+.refresh-button {
+  background: #6c757d;
+  color: white;
+}
+
+.refresh-button:hover {
+  background: #545b62;
+}
+
+.app-main {
+  padding: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.upload-section {
+  background: white;
+  padding: 2rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  margin-bottom: 2rem;
+}
+
+.upload-form h3 {
+  margin-top: 0;
+  color: #333;
+}
+
+.form-group {
+  margin-bottom: 1rem;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+  color: #555;
+}
+
+.form-group input,
+.form-group textarea {
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 1rem;
+}
+
+.form-actions {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.form-actions button {
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.form-actions button[type="submit"] {
+  background: #28a745;
+  color: white;
+}
+
+.form-actions button[type="button"] {
+  background: #6c757d;
+  color: white;
+}
+
+.files-section {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  overflow: hidden;
+}
+
+.files-header {
+  padding: 1.5rem 2rem;
+  border-bottom: 1px solid #eee;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.files-header h2 {
+  margin: 0;
+  color: #333;
+}
+
+.files-stats {
+  display: flex;
+  gap: 1rem;
+  font-size: 0.9rem;
+  color: #666;
+}
+
+.files-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 1rem;
+  padding: 2rem;
+}
+
+.file-item {
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+  background: white;
+}
+
+.file-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+.thumbnail-container,
+.thumbnail-placeholder,
+.thumbnail-loading {
+  height: 150px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f8f9fa;
+}
+
+.file-details {
+  padding: 1rem;
+}
+
+.file-name {
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+  word-break: break-word;
+  color: #333;
+}
+
+.file-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.9rem;
+  color: #666;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 4rem 2rem;
+  color: #666;
+}
+
+.empty-icon {
+  font-size: 4rem;
+  margin-bottom: 1rem;
+}
+
+.empty-state h3 {
+  margin-bottom: 0.5rem;
+  color: #333;
+}
+
+.modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0,0,0,0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 2rem;
+}
+
+.modal-content {
+  background: white;
+  border-radius: 8px;
+  max-width: 600px;
+  max-height: 90vh;
+  overflow-y: auto;
+  width: 100%;
+}
+
+.modal-header {
+  padding: 1.5rem 2rem;
+  border-bottom: 1px solid #eee;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.modal-header h2 {
+  margin: 0;
+  color: #333;
+  word-break: break-word;
+}
+
+.close-button {
+  background: none;
+  border: none;
+  font-size: 2rem;
+  cursor: pointer;
+  color: #999;
+  padding: 0;
+  width: 2rem;
+  height: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.close-button:hover {
+  color: #333;
+}
+
+.modal-body {
+  padding: 2rem;
+}
+
+.file-preview {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.file-icon-large {
+  padding: 2rem;
+}
+
+.file-info {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.info-row {
+  display: flex;
+  gap: 1rem;
+}
+
+.info-row strong {
+  min-width: 100px;
+  color: #555;
+}
+
+.modal-footer {
+  padding: 1.5rem 2rem;
+  border-top: 1px solid #eee;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.view-button {
+  background: #007bff;
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.view-button:hover {
+  background: #0056b3;
+}
+
+.delete-button {
+  background: #dc3545;
+  color: white;
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.delete-button:hover {
+  background: #c82333;
+}
+
+.loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 50vh;
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #007bff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 1rem;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.error {
+  text-align: center;
+  padding: 4rem 2rem;
+  color: #dc3545;
+}
+
+.error h2 {
+  color: #dc3545;
+  margin-bottom: 1rem;
+}
+
+.error button {
+  background: #007bff;
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+  margin-top: 1rem;
+}
+
+.error button:hover {
+  background: #0056b3;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+@media (max-width: 768px) {
+  .app-header {
+    flex-direction: column;
+    gap: 1rem;
+    text-align: center;
+  }
+  
+  .files-grid {
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 0.75rem;
+    padding: 1rem;
+  }
+  
+  .modal-backdrop {
+    padding: 1rem;
+  }
+  
+  .files-header {
+    flex-direction: column;
+    gap: 1rem;
+    text-align: center;
+  }
+  
+  .files-stats {
+    justify-content: center;
+  }
+  
+  .modal-footer {
+    flex-direction: column;
+    gap: 1rem;
+  }
+}
+*/
