@@ -1,4 +1,3 @@
-```src/App.js
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 
 // =============================================
@@ -149,6 +148,8 @@ class AirtableService {
    
     console.log(`🖼️ Generating thumbnail for URL: ${url}, type: ${fileType}`);
    
+    const extension = url.split('?')[0].split('.').pop().toLowerCase();
+   
     try {
       // If it's a Cloudinary URL, generate proper thumbnail
       if (url.includes('cloudinary.com')) {
@@ -164,6 +165,12 @@ class AirtableService {
           const thumbnail = url.replace('/upload/', '/upload/w_150,h_150,c_fill,f_auto,q_auto,so_0/')
                               .replace(/\.(mp4|avi|mov|wmv|flv|webm|mkv|3gp|m4v)$/i, '.jpg');
           console.log(`✅ Video thumbnail: ${thumbnail}`);
+          return thumbnail;
+        }
+
+        if (fileType === 'document' && extension === 'pdf') {
+          const thumbnail = url.replace('/upload/', '/upload/w_150,h_150,c_fill,f_jpg,pg_1,q_auto/');
+          console.log(`✅ PDF thumbnail from first page: ${thumbnail}`);
           return thumbnail;
         }
       }
@@ -1618,7 +1625,7 @@ export default function App() {
   const startUpload = useCallback((selectedFiles, metadata) => {
     console.log('🔄 App: Starting upload process...', { files: selectedFiles.length, metadata });
     setIsUploading(true);
-    setUploads(selectedFiles.map(file => ({ name: file.name, progress: 0 })));
+    setUploads(selectedFiles.map(file => ({ name: file.name, progress: 0 }));
     setShowUploadForm(false);
     const uploadProcess = async () => {
       try {
@@ -2022,11 +2029,3 @@ export default function App() {
     </div>
   );
 }
-```
-
-```.env
-REACT_APP_AIRTABLE_BASE_ID=appTK2fgCwe039t5J
-REACT_APP_AIRTABLE_API_KEY=patbQMUOfJRtJ1S5d.be54ccdaf03c795c8deca53ae7c05ddbda8efe584e9a07a613a79fd0f0c04dc9
-REACT_APP_CLOUDINARY_CLOUD_NAME=dzrw8nopf
-REACT_APP_CLOUDINARY_UPLOAD_PRESET=HIBF_MASTER
-```
