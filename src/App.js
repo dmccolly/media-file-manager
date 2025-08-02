@@ -3,6 +3,9 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 // =============================================
 // AIRTABLE SERVICE CLASS - FIXED
 // =============================================
+
+// AIRTABLE SERVICE CLASS - FIXED
+// =============================================
 class AirtableService {
   constructor() {
     this.baseId = process.env.REACT_APP_AIRTABLE_BASE_ID || 'appTK2fgCwe039t5J';
@@ -1801,3 +1804,222 @@ export default function App() {
         alert('File deleted successfully!');
       } catch (error) {
         console.error('❌ App: Error deleting file
+:', error);
+        alert('Error deleting file: ' + error.message);
+      }
+    }
+  }, [airtableService, loadFiles]);
+
+  // Batch Operations Handlers
+  const handleBatchUpdate = useCallback(async (updates) => {
+    try {
+      await airtableService.updateMultipleFiles(updates);
+      await loadFiles();
+      setSelectedFiles([]);
+      setShowBatchPanel(false);
+      alert(`${updates.length} files updated successfully!`);
+    } catch (error) {
+      console.error('❌ App: Error updating files:', error);
+      alert('Error updating files: ' + error.message);
+    }
+  }, [airtableService, loadFiles]);
+
+  const handleBatchDelete = useCallback(async (filesToDelete) => {
+    if (confirm(`Are you sure you want to delete ${filesToDelete.length} files?`)) {
+      try {
+        const recordIds = filesToDelete.map(file => file.id);
+        await airtableService.deleteMultipleFiles(recordIds);
+        await loadFiles();
+        setSelectedFiles([]);
+        setShowBatchPanel(false);
+        alert(`${filesToDelete.length} files deleted successfully!`);
+      } catch (error) {
+        console.error('❌ App: Error deleting files:', error);
+        alert('Error deleting files: ' + error.message);
+      }
+    }
+  }, [airtableService, loadFiles]);
+
+  const handleBatchMove = useCallback(async (filesToMove, newCategory) => {
+    try {
+      const updates = filesToMove.map(file => ({
+        id: file.id,
+        fields: { 'Category': newCategory }
+      }));
+      await airtableService.updateMultipleFiles(updates);
+      await loadFiles();
+      setSelectedFiles([]);
+      setShowBatchPanel(false);
+      alert(`${filesToMove.length} files moved to ${newCategory}!`);
+    } catch (error) {
+      console.error('❌ App: Error moving files:', error);
+      alert('Error moving files: ' + error.message);
+    }
+  }, [airtableService, loadFiles]);
+
+  // Create Folder Handler
+  const handleCreateFolder = useCallback(() => {
+    const folderName = prompt('Enter folder name:');
+    if (folderName && !folderTree[folderName]) {
+      setCurrentFolder(folderName);
+      // Note: Folder will be created when first file is uploaded to it
+    }
+  }, [folderTree]);
+
+  // Render Loading State
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-6xl mb-4">⏳</div>
+          <p className="text-xl font-semibold text-gray-700">Loading files...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Render Error State
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-6xl mb-4">❌</div>
+          <p className="text-xl font-semibold text-red-600 mb-4">Error loading files</p>
+          <p className="text-gray-600 mb-4">{error}</p>
+          <button
+            onClick={loadFiles}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            🔄 Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Main App Render
+  return (
+    <div 
+      className="min-h-screen bg-gray-100 flex flex-col"
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
+      {/* Header */}
+      <header className="bg-white border-b shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            <div className="flex items-center">
+              <h1 className="text-2xl font-bold text-gray-900">📁 File Manager</h1>
+              <div className="ml-4 text-sm text-gray-500">
+                {currentFiles.length} files in {currentFolder}
+              </div>
+            </div>
+            
+            <div className="flex items-center space-x-4">
+              {/* View Mode Toggle */}
+              <div className="flex items-center bg-gray-100 rounded-lg p-1">
+                <button
+                  onClick={() => setViewMode('grid')}
+                  className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
+                    viewMode === 'grid' 
+                      ? 'bg-white text-gray-900 shadow-sm' 
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  🔲 Grid
+                </button>
+                <button
+                  onClick={() => setViewMode('list')}
+                  className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
+                    viewMode === 'list' 
+                      ? 'bg-white text-gray-900 shadow-sm' 
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  📋 List
+                </button>
+              </div>
+              
+              {/* Upload Button */}
+              <UploadButton 
+                onFileSelect={handleFileSelect} 
+                isUploading={isUploading} 
+              />
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <div className="flex-1 flex">
+        {/* Sidebar - Folder Tree */}
+        <FolderTree
+          folderTree={folderTree}
+          currentFolder={currentFolder}
+          setCurrentFolder={setCurrentFolder}
+          expandedFolders={expandedFolders}
+          setExpandedFolders={setExpandedFolders}
+          setContextMenu={setContextMenu}
+          onCreateFolder={handleCreateFolder}
+        />
+
+        {/* File Grid/List */}
+        <FileGrid
+          files={currentFiles}
+          viewMode={viewMode}
+          onFileRightClick={handleFileRightClick}
+          onFileClick={handleFileClick}
+          selectedFiles={selectedFiles}
+          onFileSelect={handleFileSelectToggle}
+          onSelectAll={handleSelectAll}
+          onClearSelection={handleClearSelection}
+        />
+      </div>
+
+      {/* Modals and Overlays */}
+      <DragDropOverlay isDragOver={isDragOver} />
+      
+      <ProgressBar 
+        uploads={uploads} 
+        onClose={() => setUploads([])} 
+      />
+
+      <UploadMetadataForm
+        isOpen={showUploadForm}
+        onClose={() => {
+          setShowUploadForm(false);
+          setPendingFiles([]);
+        }}
+        onSubmit={handleUploadSubmit}
+        initialData={{ category: currentFolder }}
+      />
+
+      <FileDetailsModal
+        file={selectedFile}
+        isOpen={showFileDetails}
+        onClose={() => {
+          setShowFileDetails(false);
+          setSelectedFile(null);
+        }}
+        onUpdate={handleFileUpdate}
+        onDelete={handleFileDelete}
+      />
+
+      <BatchOperationsPanel
+        selectedFiles={selectedFiles}
+        onClose={() => setShowBatchPanel(false)}
+        onBatchUpdate={handleBatchUpdate}
+        onBatchDelete={handleBatchDelete}
+        onBatchMove={handleBatchMove}
+      />
+
+      <ContextMenu
+        contextMenu={contextMenu}
+        onClose={closeContextMenu}
+        onAction={handleContextAction}
+      />
+    </div>
+  );
+}
+
