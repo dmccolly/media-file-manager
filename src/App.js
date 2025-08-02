@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 // SERVICES AND UTILITY IMPORTS
 // =============================================
 // You will need to uncomment these lines as you test
-// import { AirtableService } from './airtableService';
+import { AirtableService } from './airtableService';
 // import { CloudinaryService } from './cloudinaryService';
 // import { getFileIcon, formatFileSize, formatDate } from './utils';
 // import FolderTree from './components/FolderTree';
