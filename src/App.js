@@ -1803,8 +1803,7 @@ export default function App() {
         setShowFileDetails(false);
         alert('File deleted successfully!');
       } catch (error) {
-        console.error('❌ App: Error deleting file
-:', error);
+        console.error('❌ App: Error deleting file:', error);
         alert('Error deleting file: ' + error.message);
       }
     }
