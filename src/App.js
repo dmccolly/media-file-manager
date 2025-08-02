@@ -62,28 +62,86 @@ class AirtableService {
     const processedFiles = records.map(record => {
       const fields = record.fields || {};
       
+      // DEBUG: Log all available fields to understand Airtable structure
+      console.log('🔍 DEBUG: Available fields for record:', record.id, Object.keys(fields));
+      console.log('🔍 DEBUG: Full fields object:', fields);
+      
       // Enhanced URL extraction - handle Airtable attachment fields
       let url = '';
       let fileSize = 0;
       let actualFilename = '';
       
-      // Try different field names and formats
-      if (fields['URL']) {
+      // Try different field names and formats with extensive debugging
+      console.log('🔍 Checking URL field:', fields['URL']);
+      console.log('🔍 Checking File URL field:', fields['File URL']);
+      console.log('🔍 Checking Attachments field:', fields['Attachments']);
+      console.log('🔍 Checking File field:', fields['File']);
+      console.log('🔍 Checking Image field:', fields['Image']);
+      console.log('🔍 Checking Media field:', fields['Media']);
+      console.log('🔍 Checking Link field:', fields['Link']);
+      
+      if (fields['URL'] && typeof fields['URL'] === 'string') {
         url = fields['URL'];
-      } else if (fields['File URL']) {
+        console.log('✅ Found URL in URL field:', url);
+      } else if (fields['File URL'] && typeof fields['File URL'] === 'string') {
         url = fields['File URL'];
+        console.log('✅ Found URL in File URL field:', url);
+      } else if (fields['Link'] && typeof fields['Link'] === 'string') {
+        url = fields['Link'];
+        console.log('✅ Found URL in Link field:', url);
       } else if (fields['Attachments'] && Array.isArray(fields['Attachments']) && fields['Attachments'].length > 0) {
         // Handle Airtable attachment field
         const attachment = fields['Attachments'][0];
         url = attachment.url || '';
         fileSize = attachment.size || 0;
         actualFilename = attachment.filename || '';
+        console.log('✅ Found URL in Attachments field:', { url, fileSize, actualFilename });
       } else if (fields['File'] && Array.isArray(fields['File']) && fields['File'].length > 0) {
         // Alternative attachment field name
         const attachment = fields['File'][0];
         url = attachment.url || '';
         fileSize = attachment.size || 0;
         actualFilename = attachment.filename || '';
+        console.log('✅ Found URL in File field:', { url, fileSize, actualFilename });
+      } else if (fields['Image'] && Array.isArray(fields['Image']) && fields['Image'].length > 0) {
+        // Image attachment field
+        const attachment = fields['Image'][0];
+        url = attachment.url || '';
+        fileSize = attachment.size || 0;
+        actualFilename = attachment.filename || '';
+        console.log('✅ Found URL in Image field:', { url, fileSize, actualFilename });
+      } else if (fields['Media'] && Array.isArray(fields['Media']) && fields['Media'].length > 0) {
+        // Media attachment field
+        const attachment = fields['Media'][0];
+        url = attachment.url || '';
+        fileSize = attachment.size || 0;
+        actualFilename = attachment.filename || '';
+        console.log('✅ Found URL in Media field:', { url, fileSize, actualFilename });
+      } else {
+        // Try to find any field that looks like a URL
+        for (const [fieldName, fieldValue] of Object.entries(fields)) {
+          if (typeof fieldValue === 'string' && (
+            fieldValue.startsWith('http://') || 
+            fieldValue.startsWith('https://') ||
+            fieldValue.includes('cloudinary.com') ||
+            fieldValue.includes('airtable.com')
+          )) {
+            url = fieldValue;
+            console.log(`✅ Found URL-like value in field '${fieldName}':`, url);
+            break;
+          } else if (Array.isArray(fieldValue) && fieldValue.length > 0 && fieldValue[0].url) {
+            const attachment = fieldValue[0];
+            url = attachment.url || '';
+            fileSize = attachment.size || 0;
+            actualFilename = attachment.filename || '';
+            console.log(`✅ Found attachment in field '${fieldName}':`, { url, fileSize, actualFilename });
+            break;
+          }
+        }
+      }
+      
+      if (!url) {
+        console.warn('⚠️ No URL found for record:', record.id, 'Available fields:', Object.keys(fields));
       }
       
       console.log(`📁 File processing: ${fields['Title']}, URL: ${url}, Size: ${fileSize}, Filename: ${actualFilename}`);
