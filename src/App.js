@@ -61,19 +61,68 @@ class AirtableService {
    
     const processedFiles = records.map(record => {
       const fields = record.fields || {};
-      const url = fields['URL'] || fields['File URL'] || '';
+      
+      // Enhanced URL extraction - handle Airtable attachment fields
+      let url = '';
+      let fileSize = 0;
+      let actualFilename = '';
+      
+      // Try different field names and formats
+      if (fields['URL']) {
+        url = fields['URL'];
+      } else if (fields['File URL']) {
+        url = fields['File URL'];
+      } else if (fields['Attachments'] && Array.isArray(fields['Attachments']) && fields['Attachments'].length > 0) {
+        // Handle Airtable attachment field
+        const attachment = fields['Attachments'][0];
+        url = attachment.url || '';
+        fileSize = attachment.size || 0;
+        actualFilename = attachment.filename || '';
+      } else if (fields['File'] && Array.isArray(fields['File']) && fields['File'].length > 0) {
+        // Alternative attachment field name
+        const attachment = fields['File'][0];
+        url = attachment.url || '';
+        fileSize = attachment.size || 0;
+        actualFilename = attachment.filename || '';
+      }
+      
+      console.log(`📁 File processing: ${fields['Title']}, URL: ${url}, Size: ${fileSize}, Filename: ${actualFilename}`);
      
-      // Better file type detection
-      const detectedType = this.detectFileTypeFromUrl(url);
-      console.log(`🔍 File type detection for ${fields['Title']}: ${detectedType} from URL: ${url}`);
+      // Enhanced file type detection with multiple fallbacks
+      let detectedType = this.detectFileTypeFromUrl(url);
+      
+      // Fallback: try to detect from filename if URL detection fails
+      if (detectedType === 'unknown' && actualFilename) {
+        detectedType = this.detectFileTypeFromUrl(actualFilename);
+        console.log(`🔄 Fallback type detection from filename: ${detectedType}`);
+      }
+      
+      // Fallback: try to detect from title
+      if (detectedType === 'unknown') {
+        detectedType = this.detectFileTypeFromUrl(fields['Title'] || '');
+        console.log(`🔄 Fallback type detection from title: ${detectedType}`);
+      }
+      
+      // Final fallback: use category or default to 'file'
+      if (detectedType === 'unknown') {
+        const category = fields['Category'] || '';
+        if (category.toLowerCase().includes('image')) detectedType = 'image';
+        else if (category.toLowerCase().includes('video')) detectedType = 'video';
+        else if (category.toLowerCase().includes('audio')) detectedType = 'audio';
+        else if (category.toLowerCase().includes('document')) detectedType = 'document';
+        else detectedType = 'file';
+        console.log(`🔄 Final fallback type from category: ${detectedType}`);
+      }
+      
+      console.log(`🔍 Final file type for ${fields['Title']}: ${detectedType} from URL: ${url}`);
      
-      // Generate thumbnail with better logic
+      // Generate thumbnail with enhanced logic
       const thumbnail = this.generateThumbnailFromUrl(url, detectedType);
       console.log(`🖼️ Thumbnail generated for ${fields['Title']}: ${thumbnail}`);
      
       const processedFile = {
         id: record.id,
-        title: fields['Title'] || fields['Name'] || 'Untitled',
+        title: fields['Title'] || fields['Name'] || actualFilename || 'Untitled',
         url: url,
         category: fields['Category'] || 'uncategorized',
         type: detectedType,
@@ -83,9 +132,10 @@ class AirtableService {
         tags: fields['Tags'] || '',
         uploadDate: fields['Upload Date'] || fields['Created'] || new Date().toISOString(),
         thumbnail: thumbnail,
-        fileSize: fields['File Size'] || 0,
+        fileSize: fileSize || fields['File Size'] || 0,
         duration: fields['Duration'] || '',
-        originalRecord: record
+        originalRecord: record,
+        filename: actualFilename
       };
      
       console.log('✅ Processed file:', processedFile);
@@ -96,106 +146,140 @@ class AirtableService {
   }
   // Enhanced file type detection from URL
   detectFileTypeFromUrl(url) {
-    if (!url) {
-      console.log('⚠️ No URL provided for file type detection');
+    if (!url || typeof url !== 'string') {
+      console.log('⚠️ No valid URL provided for file type detection:', url);
       return 'unknown';
     }
    
     console.log(`🔍 Detecting file type from URL: ${url}`);
    
-    // Extract extension from URL (handle query parameters)
-    const urlParts = url.split('?')[0]; // Remove query params
-    const extension = urlParts.split('.').pop()?.toLowerCase();
-   
-    console.log(`📄 Extracted extension: ${extension}`);
-   
-    const typeMap = {
-      // Images
-      'jpg': 'image', 'jpeg': 'image', 'png': 'image', 'gif': 'image',
-      'webp': 'image', 'svg': 'image', 'bmp': 'image', 'tiff': 'image', 'tif': 'image',
+    try {
+      // Extract extension from URL (handle query parameters and fragments)
+      const urlParts = url.split('?')[0].split('#')[0]; // Remove query params and fragments
+      const pathParts = urlParts.split('/');
+      const filename = pathParts[pathParts.length - 1];
+      const extension = filename.includes('.') ? filename.split('.').pop()?.toLowerCase() : '';
      
-      // Videos
-      'mp4': 'video', 'avi': 'video', 'mov': 'video', 'wmv': 'video',
-      'flv': 'video', 'webm': 'video', 'mkv': 'video', '3gp': 'video', 'm4v': 'video',
+      console.log(`📄 Extracted filename: ${filename}, extension: ${extension}`);
      
-      // Audio
-      'mp3': 'audio', 'wav': 'audio', 'flac': 'audio', 'aac': 'audio',
-      'ogg': 'audio', 'm4a': 'audio', 'wma': 'audio',
+      if (!extension) {
+        console.log('⚠️ No extension found in URL');
+        return 'unknown';
+      }
      
-      // Documents
-      'pdf': 'document', 'doc': 'document', 'docx': 'document',
-      'txt': 'document', 'rtf': 'document',
+      const typeMap = {
+        // Images
+        'jpg': 'image', 'jpeg': 'image', 'png': 'image', 'gif': 'image',
+        'webp': 'image', 'svg': 'image', 'bmp': 'image', 'tiff': 'image', 'tif': 'image',
+        'ico': 'image', 'heic': 'image', 'heif': 'image',
+       
+        // Videos
+        'mp4': 'video', 'avi': 'video', 'mov': 'video', 'wmv': 'video',
+        'flv': 'video', 'webm': 'video', 'mkv': 'video', '3gp': 'video', 'm4v': 'video',
+        'mpg': 'video', 'mpeg': 'video', 'ogv': 'video',
+       
+        // Audio
+        'mp3': 'audio', 'wav': 'audio', 'flac': 'audio', 'aac': 'audio',
+        'ogg': 'audio', 'm4a': 'audio', 'wma': 'audio', 'opus': 'audio',
+       
+        // Documents
+        'pdf': 'document', 'doc': 'document', 'docx': 'document',
+        'txt': 'document', 'rtf': 'document', 'odt': 'document',
+       
+        // Spreadsheets
+        'xls': 'spreadsheet', 'xlsx': 'spreadsheet', 'csv': 'spreadsheet',
+        'ods': 'spreadsheet',
+       
+        // Presentations
+        'ppt': 'presentation', 'pptx': 'presentation', 'odp': 'presentation',
+       
+        // Archives
+        'zip': 'archive', 'rar': 'archive', '7z': 'archive', 'tar': 'archive', 
+        'gz': 'archive', 'bz2': 'archive'
+      };
      
-      // Spreadsheets
-      'xls': 'spreadsheet', 'xlsx': 'spreadsheet', 'csv': 'spreadsheet',
+      const detectedType = typeMap[extension] || 'file';
+      console.log(`✅ File type detected: ${detectedType} for extension: ${extension}`);
      
-      // Presentations
-      'ppt': 'presentation', 'pptx': 'presentation',
-     
-      // Archives
-      'zip': 'archive', 'rar': 'archive', '7z': 'archive', 'tar': 'archive', 'gz': 'archive'
-    };
-   
-    const detectedType = typeMap[extension] || 'file';
-    console.log(`✅ File type detected: ${detectedType} for extension: ${extension}`);
-   
-    return detectedType;
+      return detectedType;
+    } catch (error) {
+      console.error('❌ Error in file type detection:', error);
+      return 'unknown';
+    }
   }
   // Enhanced thumbnail generation
   generateThumbnailFromUrl(url, fileType) {
-    if (!url) {
-      console.log('⚠️ No URL provided for thumbnail generation');
+    if (!url || typeof url !== 'string') {
+      console.log('⚠️ No valid URL provided for thumbnail generation');
       return '';
     }
 
     console.log(`🖼️ Generating thumbnail for URL: ${url}, type: ${fileType}`);
 
-    const extension = url.split('?')[0].split('.').pop()?.toLowerCase();
-    const isCloudinaryUrl = url.includes('res.cloudinary.com') || url.includes('cloudinary.com');
-
     try {
+      const extension = url.split('?')[0].split('#')[0].split('.').pop()?.toLowerCase();
+      const isCloudinaryUrl = url.includes('res.cloudinary.com') || url.includes('cloudinary.com');
+      const isDirectImageUrl = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'tiff', 'tif'].includes(extension);
+
       let thumbnail = '';
 
       if (isCloudinaryUrl) {
         console.log('📸 Cloudinary URL detected, generating thumbnail...');
-        thumbnail = url; // Default to original URL as a fallback
-
-        if (fileType === 'image') {
+        
+        if (fileType === 'image' || isDirectImageUrl) {
           thumbnail = url.replace('/upload/', '/upload/w_150,h_150,c_fill,f_auto,q_auto/');
           console.log(`✅ Image thumbnail: ${thumbnail}`);
         } else if (fileType === 'video') {
           thumbnail = url.replace('/upload/', '/upload/w_150,h_150,c_fill,f_auto,q_auto,so_0/')
-                        .replace(/\.(mp4|avi|mov|wmv|flv|webm|mkv|3gp|m4v)$/i, '.jpg');
+                        .replace(/\.(mp4|avi|mov|wmv|flv|webm|mkv|3gp|m4v|mpg|mpeg)$/i, '.jpg');
           if (thumbnail === url) {
             console.warn('⚠️ Video thumbnail generation failed, using placeholder');
-            thumbnail = 'https://via.placeholder.com/150?text=Video'; // Placeholder if transformation fails
+            thumbnail = 'https://via.placeholder.com/150x150/4A90E2/FFFFFF?text=VIDEO';
           }
           console.log(`✅ Video thumbnail: ${thumbnail}`);
         } else if (fileType === 'document' && extension === 'pdf') {
           thumbnail = url.replace('/upload/', '/upload/w_150,h_150,c_fill,f_jpg,pg_1,q_auto/');
           if (thumbnail === url) {
             console.warn('⚠️ PDF thumbnail generation failed, using placeholder');
-            thumbnail = 'https://via.placeholder.com/150?text=PDF'; // Placeholder if transformation fails
+            thumbnail = 'https://via.placeholder.com/150x150/E74C3C/FFFFFF?text=PDF';
           }
           console.log(`✅ PDF thumbnail from first page: ${thumbnail}`);
         } else {
-          console.log(`ℹ️ No thumbnail transformation for type: ${fileType}, falling back to icon`);
-          return '';
+          console.log(`ℹ️ No thumbnail transformation for type: ${fileType}, using type-specific placeholder`);
+          thumbnail = this.getPlaceholderThumbnail(fileType);
         }
-      } else if (fileType === 'image') {
+      } else if (fileType === 'image' || isDirectImageUrl) {
         console.log(`✅ Direct image URL (non-Cloudinary): ${url}`);
-        return url;
+        return url; // Use original URL for direct images
       } else {
-        console.log(`ℹ️ Non-Cloudinary URL or unsupported type: ${fileType}, falling back to icon`);
-        return '';
+        console.log(`ℹ️ Non-Cloudinary URL for type: ${fileType}, using placeholder`);
+        thumbnail = this.getPlaceholderThumbnail(fileType);
       }
 
       return thumbnail;
 
     } catch (error) {
       console.error('❌ Error generating thumbnail:', error);
-      return fileType === 'image' ? url : ''; // Fallback to original URL for images, empty for others
+      // Return type-specific placeholder on error
+      return this.getPlaceholderThumbnail(fileType);
     }
+  }
+  
+  // Get placeholder thumbnail based on file type
+  getPlaceholderThumbnail(fileType) {
+    const placeholders = {
+      'image': 'https://via.placeholder.com/150x150/2ECC71/FFFFFF?text=IMAGE',
+      'video': 'https://via.placeholder.com/150x150/4A90E2/FFFFFF?text=VIDEO',
+      'audio': 'https://via.placeholder.com/150x150/9B59B6/FFFFFF?text=AUDIO',
+      'document': 'https://via.placeholder.com/150x150/E74C3C/FFFFFF?text=DOC',
+      'spreadsheet': 'https://via.placeholder.com/150x150/27AE60/FFFFFF?text=SHEET',
+      'presentation': 'https://via.placeholder.com/150x150/F39C12/FFFFFF?text=SLIDES',
+      'archive': 'https://via.placeholder.com/150x150/95A5A6/FFFFFF?text=ZIP',
+      'file': 'https://via.placeholder.com/150x150/7F8C8D/FFFFFF?text=FILE',
+      'unknown': 'https://via.placeholder.com/150x150/BDC3C7/FFFFFF?text=UNKNOWN'
+    };
+    
+    return placeholders[fileType] || placeholders['unknown'];
   }
   // Save new file to Airtable
   async saveFile(fileData) {
