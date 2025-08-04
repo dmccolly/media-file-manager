@@ -77,6 +77,17 @@ class WebflowAPI:
             logger.error(f"Error fetching Webflow collections: {e}")
             return None
     
+    def get_collection_items(self, collection_id):
+        """Get all items from a collection"""
+        try:
+            url = f"{self.base_url}/collections/{collection_id}/items"
+            response = requests.get(url, headers=self.headers)
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            logger.error(f"Error fetching collection items: {e}")
+            return None
+    
     def create_collection_item(self, collection_id, item_data):
         """Create a new item in a collection"""
         try:
@@ -91,6 +102,20 @@ class WebflowAPI:
             logger.error(f"Error creating Webflow item: {e}")
             return None
     
+    def update_collection_item(self, collection_id, item_id, item_data):
+        """Update an existing item in a collection"""
+        try:
+            url = f"{self.base_url}/collections/{collection_id}/items/{item_id}"
+            payload = {
+                "fields": item_data
+            }
+            response = requests.put(url, headers=self.headers, json=payload)
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            logger.error(f"Error updating Webflow item: {e}")
+            return None
+    
     def delete_collection_item(self, collection_id, item_id):
         """Delete an item from a collection"""
         try:
@@ -101,6 +126,21 @@ class WebflowAPI:
         except Exception as e:
             logger.error(f"Error deleting Webflow item: {e}")
             return False
+    
+    def publish_site(self, domain_names=None):
+        """Publish the site to make changes live"""
+        try:
+            url = f"{self.base_url}/sites/{self.site_id}/publish"
+            payload = {}
+            if domain_names:
+                payload["domains"] = domain_names
+            
+            response = requests.post(url, headers=self.headers, json=payload)
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            logger.error(f"Error publishing Webflow site: {e}")
+            return None
 
 # Initialize Webflow API client
 webflow_api = None
@@ -288,6 +328,144 @@ def webflow_collections():
     collections = webflow_api.get_collections()
     return jsonify(collections)
 
+@app.route('/webflow/sync/<int:media_id>')
+def sync_media_to_webflow(media_id):
+    """Manually sync a specific media item to Webflow"""
+    try:
+        if not supabase:
+            return jsonify({'error': 'Database not available'}), 500
+        
+        # Get media item from Supabase
+        result = supabase.table('media_assets').select("*").eq('id', media_id).execute()
+        
+        if not result.data:
+            return jsonify({'error': 'Media not found'}), 404
+        
+        media_data = result.data[0]
+        
+        # Sync to Webflow
+        webflow_id = sync_to_webflow(media_data)
+        
+        if webflow_id:
+            # Update Supabase with Webflow ID
+            supabase.table('media_assets').update({'webflow_item_id': webflow_id}).eq('id', media_id).execute()
+            
+            return jsonify({
+                'success': True,
+                'message': 'Media synced to Webflow successfully',
+                'webflow_id': webflow_id
+            })
+        else:
+            return jsonify({'error': 'Failed to sync to Webflow'}), 500
+            
+    except Exception as e:
+        logger.error(f"Sync error: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/webflow/publish')
+def publish_webflow_site():
+    """Publish Webflow site to make changes live"""
+    if not webflow_api:
+        return jsonify({'error': 'Webflow not configured'}), 400
+    
+    result = webflow_api.publish_site()
+    
+    if result:
+        return jsonify({
+            'success': True,
+            'message': 'Site published successfully',
+            'result': result
+        })
+    else:
+        return jsonify({'error': 'Failed to publish site'}), 500
+
+@app.route('/api/media')
+def api_media():
+    """API endpoint to get all media as JSON"""
+    try:
+        if not supabase:
+            return jsonify({'error': 'Database connection not available'}), 500
+        
+        result = supabase.table('media_assets').select("*").order('upload_date', desc=True).execute()
+        return jsonify(result.data)
+        
+    except Exception as e:
+        logger.error(f"API error: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/media/<int:media_id>')
+def api_media_item(media_id):
+    """API endpoint to get specific media item"""
+    try:
+        if not supabase:
+            return jsonify({'error': 'Database connection not available'}), 500
+        
+        result = supabase.table('media_assets').select("*").eq('id', media_id).execute()
+        
+        if result.data:
+            return jsonify(result.data[0])
+        else:
+            return jsonify({'error': 'Media not found'}), 404
+            
+    except Exception as e:
+        logger.error(f"API error: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/delete/<int:media_id>', methods=['DELETE'])
+def delete_media(media_id):
+    """Delete media item from Supabase, Cloudinary, and Webflow"""
+    try:
+        if not supabase:
+            return jsonify({'error': 'Database connection not available'}), 500
+        
+        # Get media item first
+        result = supabase.table('media_assets').select("*").eq('id', media_id).execute()
+        
+        if not result.data:
+            return jsonify({'error': 'Media not found'}), 404
+        
+        media_item = result.data[0]
+        
+        # Delete from Webflow if synced
+        if media_item.get('webflow_item_id') and webflow_api and WEBFLOW_COLLECTION_ID:
+            webflow_api.delete_collection_item(WEBFLOW_COLLECTION_ID, media_item['webflow_item_id'])
+            logger.info(f"Deleted from Webflow: {media_item['webflow_item_id']}")
+        
+        # Delete from Cloudinary
+        if media_item.get('cloudinary_public_id'):
+            cloudinary_delete_url = f"https://api.cloudinary.com/v1_1/{CLOUDINARY_CLOUD_NAME}/image/destroy"
+            
+            import hashlib
+            import hmac
+            
+            timestamp = str(int(datetime.now( ).timestamp()))
+            params_to_sign = f"public_id={media_item['cloudinary_public_id']}&timestamp={timestamp}"
+            signature = hmac.new(
+                CLOUDINARY_API_SECRET.encode('utf-8'),
+                params_to_sign.encode('utf-8'),
+                hashlib.sha1
+            ).hexdigest()
+            
+            delete_data = {
+                'public_id': media_item['cloudinary_public_id'],
+                'api_key': CLOUDINARY_API_KEY,
+                'timestamp': timestamp,
+                'signature': signature
+            }
+            
+            requests.post(cloudinary_delete_url, data=delete_data)
+            logger.info(f"Deleted from Cloudinary: {media_item['cloudinary_public_id']}")
+        
+        # Delete from Supabase
+        supabase.table('media_assets').delete().eq('id', media_id).execute()
+        logger.info(f"Deleted from Supabase: {media_id}")
+        
+        return jsonify({'success': True, 'message': 'Media deleted from all systems successfully'})
+        
+    except Exception as e:
+        logger.error(f"Delete error: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/test')
 def test_config():
     """Test configuration and connections"""
@@ -303,7 +481,8 @@ def test_config():
         'webflow_site_id': WEBFLOW_SITE_ID,
         'webflow_collection_id': WEBFLOW_COLLECTION_ID,
         'webflow_connection': 'Connected' if webflow_api else 'Not connected',
-        'cors_enabled': True
+        'cors_enabled': True,
+        'max_content_length': app.config.get('MAX_CONTENT_LENGTH')
     }
     
     # Test Supabase connection
@@ -341,6 +520,17 @@ def health_check():
             'webflow': bool(webflow_api)
         }
     })
+
+@app.errorhandler(404)
+def not_found(error):
+    """Handle 404 errors"""
+    return jsonify({'success': False, 'error': 'Endpoint not found'}), 404
+
+@app.errorhandler(500)
+def internal_error(error):
+    """Handle internal server errors"""
+    logger.error(f"Internal server error: {error}")
+    return jsonify({'success': False, 'error': 'Internal server error'}), 500
 
 if __name__ == '__main__':
     # Check if required environment variables are set
