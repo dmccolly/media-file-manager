@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Idaho Broadcasting Media Upload System - Debug Version
+Idaho Broadcasting Media Upload System - Fixed Version
 Flask application for uploading and managing media files
 """
 
@@ -157,18 +157,22 @@ def index():
 def debug_credentials():
     """Debug the actual credential values"""
     return jsonify({
-        'api_key': repr(CLOUDINARY_API_KEY),  # This will show hidden characters
+        'api_key_clean': CLOUDINARY_API_KEY,  # Clean version without repr()
         'api_key_length': len(CLOUDINARY_API_KEY),
-        'api_key_bytes': [ord(c) for c in CLOUDINARY_API_KEY],  # Show ASCII values
-        'cloud_name': repr(CLOUDINARY_CLOUD_NAME),
+        'cloud_name_clean': CLOUDINARY_CLOUD_NAME,  # Clean version
+        'cloud_name_length': len(CLOUDINARY_CLOUD_NAME),
         'secret_length': len(CLOUDINARY_API_SECRET) if CLOUDINARY_API_SECRET else 0,
         'configured': CLOUDINARY_CONFIGURED
     })
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
-    """Handle file upload to Cloudinary using unsigned upload"""
+    """Handle file upload to Cloudinary with proper signed upload"""
     try:
+        # Check if Cloudinary is configured
+        if not CLOUDINARY_CONFIGURED:
+            return jsonify({'success': False, 'error': 'Cloudinary not configured'}), 500
+        
         if 'file' not in request.files:
             return jsonify({'success': False, 'error': 'No file selected'}), 400
         
@@ -187,6 +191,7 @@ def upload_file():
         # Get form data
         title = request.form.get('title', '').strip()
         category = request.form.get('category', '').strip()
+        tags = request.form.get('tags', '').strip()
         
         # Validate required fields
         if not title:
@@ -199,28 +204,62 @@ def upload_file():
         # Reset file stream position
         file.stream.seek(0)
         
-        # Use unsigned upload (no API key/signature needed)
+        # Upload to Cloudinary with proper signature
         cloudinary_url = f"https://api.cloudinary.com/v1_1/{CLOUDINARY_CLOUD_NAME}/upload"
         
-        data = {
-            'upload_preset': 'ml_default',  # Default unsigned preset
-            'folder': 'idaho_broadcasting'
+        # Prepare upload parameters
+        timestamp = str(int(datetime.now().timestamp()))
+        tags_value = tags if tags else category
+        
+        # Only include parameters that we're actually sending
+        upload_params = {
+            'timestamp': timestamp,
+            'folder': 'idaho_broadcasting',
+            'tags': tags_value
         }
         
+        # Create signature string (parameters in alphabetical order)
+        params_to_sign = f"folder={upload_params['folder']}&tags={upload_params['tags']}&timestamp={upload_params['timestamp']}"
+        
+        logger.info(f"Signing string: {params_to_sign}")
+        
+        # Generate signature
+        signature = hmac.new(
+            CLOUDINARY_API_SECRET.encode('utf-8'),
+            params_to_sign.encode('utf-8'),
+            hashlib.sha1
+        ).hexdigest()
+        
+        # Prepare data for upload (include api_key for the request, but it wasn't in signature)
+        data = {
+            'api_key': CLOUDINARY_API_KEY,
+            'timestamp': timestamp,
+            'folder': 'idaho_broadcasting',
+            'tags': tags_value,
+            'signature': signature
+        }
+        
+        logger.info(f"Upload data keys: {list(data.keys())}")
+        logger.info(f"Generated signature: {signature}")
+        
+        # Prepare file for upload
         files = {'file': (file.filename, file, file.content_type)}
         
-        logger.info(f"Trying unsigned upload to: {cloudinary_url}")
-        logger.info(f"Upload data: {data}")
-        
+        # Make the request
         response = requests.post(cloudinary_url, files=files, data=data)
         
-        logger.info(f"Response status: {response.status_code}")
-        logger.info(f"Response: {response.text}")
+        logger.info(f"Cloudinary response status: {response.status_code}")
+        logger.info(f"Cloudinary response: {response.text}")
         
         if response.status_code != 200:
-            return jsonify({'success': False, 'error': f'Upload failed: {response.text}'}), 500
+            return jsonify({
+                'success': False, 
+                'error': f'Cloudinary error: {response.text}',
+                'status_code': response.status_code
+            }), 500
         
         cloudinary_response = response.json()
+        logger.info(f"Upload successful: {cloudinary_response.get('public_id')}")
         
         return jsonify({
             'success': True,
@@ -255,7 +294,7 @@ def health_check():
     return jsonify({
         'status': 'healthy',
         'timestamp': datetime.now().isoformat(),
-        'version': '1.3.0',
+        'version': '1.4.0',
         'cloudinary_configured': CLOUDINARY_CONFIGURED
     })
 
