@@ -209,6 +209,7 @@ def upload_file():
         
         # Prepare upload parameters
         timestamp = str(int(datetime.now().timestamp()))
+        tags_value = tags if tags else category  # Define tags_value here
         
         # Basic parameters - let's start minimal and add more later
         upload_params = {
