@@ -211,15 +211,20 @@ def upload_file():
         timestamp = str(int(datetime.now().timestamp()))
         tags_value = tags if tags else category
         
-        # Only include parameters that we're actually sending
+        # Prepare all parameters for upload (except signature and api_key for signing)
         upload_params = {
-            'timestamp': timestamp,
             'folder': 'idaho_broadcasting',
-            'tags': tags_value
+            'tags': tags_value,
+            'timestamp': timestamp
         }
         
-        # Create signature string (parameters in alphabetical order)
-        params_to_sign = f"folder={upload_params['folder']}&tags={upload_params['tags']}&timestamp={upload_params['timestamp']}"
+        # Create signature string - parameters must be in alphabetical order
+        # and URL-encoded if necessary
+        params_list = []
+        for key in sorted(upload_params.keys()):
+            params_list.append(f"{key}={upload_params[key]}")
+        
+        params_to_sign = "&".join(params_list)
         
         logger.info(f"Signing string: {params_to_sign}")
         
@@ -230,14 +235,10 @@ def upload_file():
             hashlib.sha1
         ).hexdigest()
         
-        # Prepare data for upload (include api_key for the request, but it wasn't in signature)
-        data = {
-            'api_key': CLOUDINARY_API_KEY,
-            'timestamp': timestamp,
-            'folder': 'idaho_broadcasting',
-            'tags': tags_value,
-            'signature': signature
-        }
+        # Prepare final data for upload (add api_key which is not signed)
+        data = upload_params.copy()
+        data['api_key'] = CLOUDINARY_API_KEY
+        data['signature'] = signature
         
         logger.info(f"Upload data keys: {list(data.keys())}")
         logger.info(f"Generated signature: {signature}")
