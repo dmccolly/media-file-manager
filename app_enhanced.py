@@ -68,11 +68,14 @@ def index():
                 body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
                 .form-group { margin-bottom: 15px; }
                 label { display: block; margin-bottom: 5px; font-weight: bold; }
-                input, select, textarea { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; }
-                button { background: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; }
+                input, select, textarea { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
+                button { background: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; width: 100%; font-size: 16px; }
                 button:hover { background: #0056b3; }
-                .error { color: red; margin-top: 10px; }
-                .success { color: green; margin-top: 10px; }
+                .error { color: red; margin-top: 10px; padding: 10px; background-color: #f8d7da; border: 1px solid #f5c6cb; border-radius: 4px; }
+                .success { color: green; margin-top: 10px; padding: 10px; background-color: #d4edda; border: 1px solid #c3e6cb; border-radius: 4px; }
+                .footer-links { margin-top: 30px; text-align: center; padding: 20px; border-top: 1px solid #ddd; }
+                .footer-links a { color: #007bff; text-decoration: none; margin: 0 15px; }
+                .footer-links a:hover { text-decoration: underline; }
             </style>
         </head>
         <body>
@@ -117,9 +120,15 @@ def index():
                     <label for="notes">Notes:</label>
                     <textarea id="notes" name="notes" rows="3"></textarea>
                 </div>
-                <button type="submit">Upload File</button>
+                <button type="submit">Upload Media</button>
             </form>
             <div id="message"></div>
+            
+            <div class="footer-links">
+                <a href="/health">System Status</a>
+                <a href="/debug-credentials">Debug Info</a>
+                <a href="https://cloudinary.com/console" target="_blank">Cloudinary Console</a>
+            </div>
             
             <script>
                 document.getElementById('uploadForm').addEventListener('submit', async function(e) {
