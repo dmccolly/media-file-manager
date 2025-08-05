@@ -103,7 +103,7 @@ def index():
                 </div>
                 <div class="form-group">
                     <label for="station">Station:</label>
-                    <input type="text" id="station" name="station">
+                    <input type="text" id="station" name="station" placeholder="Station identifier">
                 </div>
                 <div class="form-group">
                     <label for="submitted_by">Submitted By:</label>
@@ -219,14 +219,19 @@ def upload_file():
         }
         
         # Create signature string - parameters must be in alphabetical order
-        # and URL-encoded if necessary
+        # URL encode values that might contain special characters
+        from urllib.parse import quote_plus
+        
         params_list = []
         for key in sorted(upload_params.keys()):
-            params_list.append(f"{key}={upload_params[key]}")
+            # URL encode the value
+            encoded_value = quote_plus(str(upload_params[key]))
+            params_list.append(f"{key}={encoded_value}")
         
         params_to_sign = "&".join(params_list)
         
         logger.info(f"Signing string: {params_to_sign}")
+        logger.info(f"Tags value: '{tags_value}'")
         
         # Generate signature
         signature = hmac.new(
@@ -236,9 +241,14 @@ def upload_file():
         ).hexdigest()
         
         # Prepare final data for upload (add api_key which is not signed)
-        data = upload_params.copy()
-        data['api_key'] = CLOUDINARY_API_KEY
-        data['signature'] = signature
+        # Use original values, not URL-encoded ones for the actual request
+        data = {
+            'api_key': CLOUDINARY_API_KEY,
+            'folder': 'idaho_broadcasting',
+            'tags': tags_value,
+            'timestamp': timestamp,
+            'signature': signature
+        }
         
         logger.info(f"Upload data keys: {list(data.keys())}")
         logger.info(f"Generated signature: {signature}")
