@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Idaho Broadcasting Media Upload System - Corrected Version
+Idaho Broadcasting Media Upload System - Final Corrected Version
 Flask application for uploading and managing media files
 """
 
@@ -9,6 +9,7 @@ import logging
 import hashlib
 import hmac
 from datetime import datetime
+from urllib.parse import quote
 from flask import Flask, request, render_template, jsonify
 from flask_cors import CORS
 import requests
@@ -201,25 +202,30 @@ def upload_file():
         # Prepare upload data with metadata
         timestamp = str(int(datetime.now().timestamp()))
         
-        # Create context with form data
-        context = f"title={title}|category={category}"
+        # Create context with form data (URL encode special characters)
+        context_parts = [f"title={quote(title)}", f"category={quote(category)}"]
         if description:
-            context += f"|description={description}"
+            context_parts.append(f"description={quote(description)}")
         if station:
-            context += f"|station={station}"
+            context_parts.append(f"station={quote(station)}")
         if submitted_by:
-            context += f"|submitted_by={submitted_by}"
+            context_parts.append(f"submitted_by={quote(submitted_by)}")
         
+        context = "|".join(context_parts)
+        tags_value = tags if tags else category
+        
+        # Prepare data dictionary with all parameters
         data = {
             'api_key': CLOUDINARY_API_KEY,
             'timestamp': timestamp,
             'folder': 'idaho_broadcasting',
             'context': context,
-            'tags': tags if tags else category
+            'tags': tags_value
         }
         
-        # Generate signature with correct parameters (including api_key)
-        params_to_sign = f"api_key={CLOUDINARY_API_KEY}&context={context}&folder=idaho_broadcasting&tags={data['tags']}&timestamp={timestamp}"
+        # Generate signature with exactly the parameters being sent (alphabetically ordered)
+        params_to_sign = f"api_key={data['api_key']}&context={data['context']}&folder={data['folder']}&tags={data['tags']}&timestamp={data['timestamp']}"
+        
         signature = hmac.new(
             CLOUDINARY_API_SECRET.encode('utf-8'),
             params_to_sign.encode('utf-8'),
@@ -230,6 +236,8 @@ def upload_file():
         
         # Prepare file for upload
         files = {'file': (file.filename, file, file.content_type)}
+        
+        logger.info(f"Uploading to Cloudinary with params: {list(data.keys())}")
         
         response = requests.post(cloudinary_url, files=files, data=data)
         
@@ -273,7 +281,7 @@ def health_check():
     return jsonify({
         'status': 'healthy',
         'timestamp': datetime.now().isoformat(),
-        'version': '1.1.0',
+        'version': '1.2.0',
         'cloudinary_configured': CLOUDINARY_CONFIGURED
     })
 
