@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Idaho Broadcasting Media Upload System - Final Corrected Version
+Idaho Broadcasting Media Upload System - Debug Version
 Flask application for uploading and managing media files
 """
 
@@ -24,9 +24,9 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Environment variables validation
-CLOUDINARY_CLOUD_NAME = os.getenv('CLOUDINARY_CLOUD_NAME')
-CLOUDINARY_API_KEY = os.getenv('CLOUDINARY_API_KEY')
-CLOUDINARY_API_SECRET = os.getenv('CLOUDINARY_API_SECRET')
+CLOUDINARY_CLOUD_NAME = os.getenv('CLOUDINARY_CLOUD_NAME', '').strip()
+CLOUDINARY_API_KEY = os.getenv('CLOUDINARY_API_KEY', '').strip()
+CLOUDINARY_API_SECRET = os.getenv('CLOUDINARY_API_SECRET', '').strip()
 
 # Validate Cloudinary credentials at startup
 if not all([CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET]):
@@ -153,14 +153,22 @@ def index():
         </html>
         '''
 
+@app.route('/debug-credentials')
+def debug_credentials():
+    """Debug the actual credential values"""
+    return jsonify({
+        'api_key': repr(CLOUDINARY_API_KEY),  # This will show hidden characters
+        'api_key_length': len(CLOUDINARY_API_KEY),
+        'api_key_bytes': [ord(c) for c in CLOUDINARY_API_KEY],  # Show ASCII values
+        'cloud_name': repr(CLOUDINARY_CLOUD_NAME),
+        'secret_length': len(CLOUDINARY_API_SECRET) if CLOUDINARY_API_SECRET else 0,
+        'configured': CLOUDINARY_CONFIGURED
+    })
+
 @app.route('/upload', methods=['POST'])
 def upload_file():
-    """Handle file upload to Cloudinary"""
+    """Handle file upload to Cloudinary using unsigned upload"""
     try:
-        # Check if Cloudinary is configured
-        if not CLOUDINARY_CONFIGURED:
-            return jsonify({'success': False, 'error': 'Cloudinary not configured'}), 500
-        
         if 'file' not in request.files:
             return jsonify({'success': False, 'error': 'No file selected'}), 400
         
@@ -178,12 +186,7 @@ def upload_file():
         
         # Get form data
         title = request.form.get('title', '').strip()
-        description = request.form.get('description', '').strip()
         category = request.form.get('category', '').strip()
-        station = request.form.get('station', '').strip()
-        submitted_by = request.form.get('submitted_by', '').strip()
-        tags = request.form.get('tags', '').strip()
-        notes = request.form.get('notes', '').strip()
         
         # Validate required fields
         if not title:
@@ -196,71 +199,42 @@ def upload_file():
         # Reset file stream position
         file.stream.seek(0)
         
-        # Upload to Cloudinary
+        # Use unsigned upload (no API key/signature needed)
         cloudinary_url = f"https://api.cloudinary.com/v1_1/{CLOUDINARY_CLOUD_NAME}/upload"
         
-        # Prepare upload data with metadata
-        timestamp = str(int(datetime.now().timestamp()))
-        
-        # Create context with form data (URL encode special characters)
-        context_parts = [f"title={quote(title)}", f"category={quote(category)}"]
-        if description:
-            context_parts.append(f"description={quote(description)}")
-        if station:
-            context_parts.append(f"station={quote(station)}")
-        if submitted_by:
-            context_parts.append(f"submitted_by={quote(submitted_by)}")
-        
-        context = "|".join(context_parts)
-        tags_value = tags if tags else category
-        
-        # Prepare data dictionary with all parameters
         data = {
-            'api_key': CLOUDINARY_API_KEY,
-            'timestamp': timestamp,
-            'folder': 'idaho_broadcasting',
-            'context': context,
-            'tags': tags_value
+            'upload_preset': 'ml_default',  # Default unsigned preset
+            'folder': 'idaho_broadcasting'
         }
         
-        # Generate signature with exactly the parameters being sent (alphabetically ordered)
-        params_to_sign = f"api_key={data['api_key']}&context={data['context']}&folder={data['folder']}&tags={data['tags']}&timestamp={data['timestamp']}"
-        
-        signature = hmac.new(
-            CLOUDINARY_API_SECRET.encode('utf-8'),
-            params_to_sign.encode('utf-8'),
-            hashlib.sha1
-        ).hexdigest()
-        
-        data['signature'] = signature
-        
-        # Prepare file for upload
         files = {'file': (file.filename, file, file.content_type)}
         
-        logger.info(f"Uploading to Cloudinary with params: {list(data.keys())}")
+        logger.info(f"Trying unsigned upload to: {cloudinary_url}")
+        logger.info(f"Upload data: {data}")
         
         response = requests.post(cloudinary_url, files=files, data=data)
         
+        logger.info(f"Response status: {response.status_code}")
+        logger.info(f"Response: {response.text}")
+        
         if response.status_code != 200:
-            logger.error(f"Cloudinary upload failed: {response.text}")
-            return jsonify({'success': False, 'error': 'Upload to Cloudinary failed'}), 500
+            return jsonify({'success': False, 'error': f'Upload failed: {response.text}'}), 500
         
         cloudinary_response = response.json()
-        logger.info(f"Cloudinary upload successful: {cloudinary_response.get('public_id')}")
         
-        response_data = {
+        return jsonify({
             'success': True,
             'message': 'File uploaded successfully',
             'cloudinary_url': cloudinary_response.get('secure_url'),
             'public_id': cloudinary_response.get('public_id'),
             'title': title,
             'category': category
-        }
-        
-        return jsonify(response_data)
+        })
         
     except Exception as e:
         logger.error(f"Upload error: {str(e)}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/test')
@@ -281,7 +255,7 @@ def health_check():
     return jsonify({
         'status': 'healthy',
         'timestamp': datetime.now().isoformat(),
-        'version': '1.2.0',
+        'version': '1.3.0',
         'cloudinary_configured': CLOUDINARY_CONFIGURED
     })
 
@@ -302,4 +276,3 @@ if __name__ == '__main__':
     # Use PORT environment variable for Heroku
     port = int(os.environ.get('PORT', 5001))
     app.run(debug=False, host='0.0.0.0', port=port)
-
