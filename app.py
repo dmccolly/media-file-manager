@@ -190,7 +190,7 @@ def sync_to_webflow(media_data):
 @app.route('/')
 def index():
     """Home page with upload form"""
-    return render_template('index_enhanced.html')
+    return render_template('index.html')
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
