@@ -209,29 +209,29 @@ def upload_file():
         
         # Prepare upload parameters
         timestamp = str(int(datetime.now().timestamp()))
-        tags_value = tags if tags else category
         
-        # Prepare all parameters for upload (except signature and api_key for signing)
+        # Basic parameters - let's start minimal and add more later
         upload_params = {
-            'folder': 'idaho_broadcasting',
-            'tags': tags_value,
             'timestamp': timestamp
         }
         
-        # Create signature string - parameters must be in alphabetical order
-        # URL encode values that might contain special characters
-        from urllib.parse import quote_plus
+        # Only add folder and tags if they have values
+        if tags_value:
+            upload_params['tags'] = tags_value
         
+        upload_params['folder'] = 'idaho_broadcasting'
+        
+        # Create signature string - Cloudinary expects specific format
+        # Parameters must be in alphabetical order, no URL encoding for signature
         params_list = []
         for key in sorted(upload_params.keys()):
-            # URL encode the value
-            encoded_value = quote_plus(str(upload_params[key]))
-            params_list.append(f"{key}={encoded_value}")
+            params_list.append(f"{key}={upload_params[key]}")
         
         params_to_sign = "&".join(params_list)
         
         logger.info(f"Signing string: {params_to_sign}")
         logger.info(f"Tags value: '{tags_value}'")
+        logger.info(f"All upload params: {upload_params}")
         
         # Generate signature
         signature = hmac.new(
@@ -240,15 +240,17 @@ def upload_file():
             hashlib.sha1
         ).hexdigest()
         
-        # Prepare final data for upload (add api_key which is not signed)
-        # Use original values, not URL-encoded ones for the actual request
+        # Prepare final data for upload
         data = {
             'api_key': CLOUDINARY_API_KEY,
-            'folder': 'idaho_broadcasting',
-            'tags': tags_value,
             'timestamp': timestamp,
+            'folder': 'idaho_broadcasting',
             'signature': signature
         }
+        
+        # Only add tags if we have them
+        if tags_value:
+            data['tags'] = tags_value
         
         logger.info(f"Upload data keys: {list(data.keys())}")
         logger.info(f"Generated signature: {signature}")
