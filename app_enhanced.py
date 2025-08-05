@@ -209,7 +209,7 @@ def upload_file():
         
         # Use unsigned upload with our custom preset
         data = {
-            'upload_preset': 'idaho_broadcasting_unsigned',  # Our custom preset
+            'upload_preset': 'idaho-broadcasting-unsigned',  # Match the actual preset name
             'context': f'title={title}|category={category}'
         }
         
@@ -219,7 +219,7 @@ def upload_file():
         else:
             data['tags'] = category
         
-        logger.info(f"Trying unsigned upload with preset: idaho_broadcasting_unsigned")
+        logger.info(f"Trying unsigned upload with preset: idaho-broadcasting-unsigned")
         logger.info(f"Upload data: {data}")
         
         # Prepare file for upload
