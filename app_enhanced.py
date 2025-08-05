@@ -103,7 +103,7 @@ def index():
                 </div>
                 <div class="form-group">
                     <label for="station">Station:</label>
-                    <input type="text" id="station" name="station" placeholder="Station identifier">
+                    <input type="text" id="station" name="station" placeholder="Enter station identifier">
                 </div>
                 <div class="form-group">
                     <label for="submitted_by">Submitted By:</label>
