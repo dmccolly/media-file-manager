@@ -207,10 +207,9 @@ def upload_file():
         # Try unsigned upload first (recommended for most use cases)
         cloudinary_url = f"https://api.cloudinary.com/v1_1/{CLOUDINARY_CLOUD_NAME}/upload"
         
-        # Use unsigned upload with a default preset
+        # Use unsigned upload with our custom preset
         data = {
-            'upload_preset': 'ml_default',  # Cloudinary's default unsigned preset
-            'folder': 'idaho_broadcasting',
+            'upload_preset': 'idaho_broadcasting_unsigned',  # Our custom preset
             'context': f'title={title}|category={category}'
         }
         
@@ -220,7 +219,8 @@ def upload_file():
         else:
             data['tags'] = category
         
-        logger.info(f"Trying unsigned upload with data: {data}")
+        logger.info(f"Trying unsigned upload with preset: idaho_broadcasting_unsigned")
+        logger.info(f"Upload data: {data}")
         
         # Prepare file for upload
         files = {'file': (file.filename, file, file.content_type)}
@@ -228,62 +228,37 @@ def upload_file():
         # Make the request
         response = requests.post(cloudinary_url, files=files, data=data)
         
-        logger.info(f"Cloudinary response status: {response.status_code}")
-        logger.info(f"Cloudinary response: {response.text}")
+        logger.info(f"Unsigned upload response status: {response.status_code}")
+        logger.info(f"Unsigned upload response: {response.text}")
         
-        # If unsigned upload fails, try signed upload as fallback
+        # If unsigned upload fails, try with ml_default as fallback
         if response.status_code != 200:
-            logger.info("Unsigned upload failed, trying signed upload...")
+            logger.info("Custom preset failed, trying ml_default...")
             
             # Reset file stream
             file.stream.seek(0)
             
-            # Signed upload approach
-            timestamp = str(int(datetime.now().timestamp()))
-            tags_value = tags if tags else category
-            
-            # Minimal signed parameters
-            upload_params = {
-                'timestamp': timestamp,
+            # Try with ml_default
+            data_fallback = {
+                'upload_preset': 'ml_default',
                 'folder': 'idaho_broadcasting'
             }
             
-            # Create signature string
-            params_to_sign = f"folder=idaho_broadcasting&timestamp={timestamp}"
-            
-            logger.info(f"Signing string: {params_to_sign}")
-            
-            # Generate signature
-            signature = hmac.new(
-                CLOUDINARY_API_SECRET.encode('utf-8'),
-                params_to_sign.encode('utf-8'),
-                hashlib.sha1
-            ).hexdigest()
-            
-            # Prepare signed data
-            signed_data = {
-                'api_key': CLOUDINARY_API_KEY,
-                'timestamp': timestamp,
-                'folder': 'idaho_broadcasting',
-                'signature': signature
-            }
-            
-            # Add tags separately (not in signature to avoid issues)
-            if tags_value:
-                signed_data['tags'] = tags_value
-            
-            logger.info(f"Trying signed upload with signature: {signature}")
+            if tags:
+                data_fallback['tags'] = tags
+            else:
+                data_fallback['tags'] = category
             
             files = {'file': (file.filename, file, file.content_type)}
-            response = requests.post(cloudinary_url, files=files, data=signed_data)
+            response = requests.post(cloudinary_url, files=files, data=data_fallback)
             
-            logger.info(f"Signed upload response status: {response.status_code}")
-            logger.info(f"Signed upload response: {response.text}")
+            logger.info(f"ml_default response status: {response.status_code}")
+            logger.info(f"ml_default response: {response.text}")
         
         if response.status_code != 200:
             return jsonify({
                 'success': False, 
-                'error': f'Cloudinary error: {response.text}',
+                'error': f'Both unsigned uploads failed: {response.text}',
                 'status_code': response.status_code
             }), 500
         
