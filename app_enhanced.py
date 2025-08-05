@@ -80,6 +80,7 @@ def index():
         </head>
         <body>
             <h1>Idaho Broadcasting Media Upload</h1>
+            <p style="color: #666; font-size: 12px; margin-bottom: 20px;">Version 1.5.0 - Updated UI</p>
             <form id="uploadForm" enctype="multipart/form-data">
                 <div class="form-group">
                     <label for="file">Select Media File:</label>
