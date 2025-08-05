@@ -79,7 +79,11 @@ def index():
             '<style>'
             'body { font-family: Arial, sans-serif; max-width:800px; margin:0 auto; padding:20px; }'
             '.form-group { margin-bottom:15px; }'
-            'label { display:block; margin-bottom:5px; font-weight:bold; }'
+            'label { display:block; margin-bottom:5px; font-weight:bold;                 '<div class="form-group"><label for="submitted_by">Submitted By:</label><input type="text" id="submitted_by" name="submitted_by" placeholder="Your name"></div>' +
+                '<div class="form-group"><label for="station">Station:</label><select id="station" name="station"><option value="">Select station</option><option value="KBOI">KBOI</option><option value="KTIK">KTIK</option><option value="KQFC">KQFC</option><option value="KIZN">KIZN</option></select></div>' +
+                '<div class="form-group"><label for="tags">Tags:</label><input type="text" id="tags" name="tags" placeholder="Comma-separated tags"></div>' +
+                '<div class="form-group"><label for="priority">Priority:</label><select id="priority" name="priority"><option value="normal">Normal</option><option value="high">High</option><option value="urgent">Urgent</option></select></div>' +
+                '<div class="form-group"><label for="notes">Notes:</label><textarea id="notes" name="notes" rows="2" placeholder="Additional notes or comments"></textarea></div>' +'
             'input, select, textarea { width:100%; padding:8px; border:1px solid #ddd; border-radius:4px; }'
             'button { background:#007bff; color:#fff; padding:10px 20px; border:none; border-radius:4px; cursor:pointer; width:100%; font-size:16px; }'
             'button:hover { background:#0056b3; }'
@@ -97,6 +101,7 @@ def index():
             '<div class="form-group"><label for="category">Category:</label><select id="category" name="category" required>'
             '<option value="">Select category</option><option value="audio">Audio</option>'
             '<option value="video">Video</option><option value="photo">Photo</option>'
+            
             '<option value="document">Document</option><option value="other">Other</option>'
             '</select></div>'
             '<button type="submit">Upload Media</button></form>'
