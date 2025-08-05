@@ -273,7 +273,7 @@ def upload_file():
             }), 500
         
         cloudinary_response = response.json()
-        logger.info(f"Upload successful: {cloudinary_response.get('public_id')}"
+        logger.info(f"Upload successful: {cloudinary_response.get('public_id')})"
         
         # Sync to Webflow CMS Media Assets
         try:
