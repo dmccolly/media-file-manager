@@ -273,7 +273,47 @@ def upload_file():
             }), 500
         
         cloudinary_response = response.json()
-        logger.info(f"Upload successful: {cloudinary_response.get('public_id')}")
+        logger.info(f"Upload successful: {cloudinary_response.get('public_id')}"
+        
+        # Sync to Webflow CMS Media Assets
+        try:
+            webflow_api_token = os.getenv('WEBFLOW_API_TOKEN')
+            webflow_site_id = os.getenv('WEBFLOW_SITE_ID')
+            
+            if webflow_api_token and webflow_site_id:
+                # Create asset in Webflow CMS
+                webflow_headers = {
+                    'Authorization': f'Bearer {webflow_api_token}',
+                    'Content-Type': 'application/json'
+                }
+                
+                webflow_data = {
+                    'fields': {
+                        'name': title,
+                        'alt': title,
+                        'url': cloudinary_response.get('secure_url'),
+                        'file-size': cloudinary_response.get('bytes', 0),
+                        'mime-type': file.content_type,
+                        'width': cloudinary_response.get('width'),
+                        'height': cloudinary_response.get('height'),
+                        'category': category,
+                        'tags': tags if tags else '',
+                        'cloudinary-public-id': cloudinary_response.get('public_id')
+                    }
+                }
+                
+                webflow_url = f'https://api.webflow.com/v2/sites/{webflow_site_id}/cms/collections/media-assets/items'
+                webflow_response = requests.post(webflow_url, headers=webflow_headers, json=webflow_data)
+                
+                if webflow_response.status_code == 201:
+                    logger.info(f"Successfully synced to Webflow CMS: {webflow_response.json()}")
+                else:
+                    logger.error(f"Failed to sync to Webflow CMS: {webflow_response.status_code} - {webflow_response.text}")
+            else:
+                logger.warning("Webflow API credentials not configured - skipping CMS sync")
+        except Exception as webflow_error:
+            logger.error(f"Webflow sync error: {str(webflow_error)}")
+            # Don't fail the upload if Webflow sync fails
         
         return jsonify({
             'success': True,
