@@ -121,7 +121,8 @@ class WebflowAPI:
         try:
             url = f"{self.base_url}/collections/{collection_id}/items/{item_id}"
             response = requests.delete(url, headers=self.headers)
-            response.raise_for_status()
+ # Force rebuild - enhanced templates deployed
+            
             return True
         except Exception as e:
             logger.error(f"Error deleting Webflow item: {e}")
