@@ -176,6 +176,7 @@ def upload_file():
                     'alt': title,
                     'media-url': cloudinary_response.get('secure_url'),
                     'file-size': cloudinary_response.get('bytes', 0),
+
                     
                     'mime-type': file.content_type,
                     'width': cloudinary_response.get('width'),
