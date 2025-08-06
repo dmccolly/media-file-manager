@@ -186,7 +186,8 @@ def upload_file():
         # Sync to Webflow CMS
         webflow_token = os.getenv('WEBFLOW_API_TOKEN')
         webflow_site = os.getenv('WEBFLOW_SITE_ID')
-        if webflow_token and webflow_site:
+        webflow_collection = os.getenv('WEBFLOW_COLLECTION_ID')
+        if webflow_token and webflow_site and webflow_collection:
             wf_headers = {'Authorization': f'Bearer {webflow_token}', 'Content-Type': 'application/json'}
             wf_data = {
                 'fields': {
@@ -207,7 +208,7 @@ def upload_file():
                     'description': description or ''
                 }
             }
-            wf_url = f'https://api.webflow.com/v2/sites/{webflow_site}/cms/collections/media-assets/items'
+            wf_url = f'https://api.webflow.com/v2/sites/{webflow_site}/cms/collections/{webflow_collection}/items'
             wf_resp = requests.post(wf_url, headers=wf_headers, json=wf_data)
             if wf_resp.status_code == 201:
                 logger.info(f"Synced to Webflow CMS: {wf_resp.json()}")
