@@ -87,7 +87,10 @@ def index():
             '<option value="document">Document</option><option value="other">Other</option>'
             '</select></div>'
             '<div class="form-group"><label for="submitted_by">Submitted By:</label><input type="text" id="submitted_by" name="submitted_by" placeholder="Your name"></div>'
-            '<div class="form-group"><label for="station">Station:</label><input type="text" id="station" name="station" placeholder="Comma-separated stations (e.g., KBOI, KTIK)"></div>'
+            '<div class="form-group"><label for="station">Station:</label><select id="station" name="station">'
+            '<option value="">Select station</option><option value="KBOI">KBOI</option>'
+            '<option value="KTIK">KTIK</option><option value="KQFC">KQFC</option>'
+            '<option value="KIZN">KIZN</option></select></div>'
             '<div class="form-group"><label for="tags">Tags:</label><input type="text" id="tags" name="tags" placeholder="Comma-separated tags"></div>'
             '<div class="form-group"><label for="priority">Priority:</label><select id="priority" name="priority">'
             '<option value="normal">Normal</option><option value="high">High</option>'
@@ -96,7 +99,7 @@ def index():
             '<button type="submit">Upload Media</button></form>'
             '<div id="message"></div>'
             '<div class="footer-links">'
-            'a href="/health">System Status</a><a href="/debug-credentials">Debug Info</a>'
+            '<a href="/health">System Status</a><a href="/debug-credentials">Debug Info</a>'
             '<a href="https://cloudinary.com/console" target="_blank">Cloudinary Console</a>'
             '</div>'
             '<script>'
@@ -136,22 +139,38 @@ def upload_file():
         if not validate_file_size(file):
             return jsonify({'success': False, 'error': 'File size too large (max 50MB)'}), 400
 
+        # Get form data
         title = request.form.get('title', '').strip()
-        description = request.form.get('description', '').strip()
         category = request.form.get('category', '').strip()
+        tags = request.form.get('tags', '').strip()
         submitted_by = request.form.get('submitted_by', '').strip()
         station = request.form.get('station', '').strip()
-        tags = request.form.get('tags', '').strip()
         priority = request.form.get('priority', 'normal').strip()
         notes = request.form.get('notes', '').strip()
+        description = request.form.get('description', '').strip()
+        
         if not title or not category:
             return jsonify({'success': False, 'error': 'Title and category are required'}), 400
 
         logger.info(f"Processing upload: {file.filename}")
         file.stream.seek(0)
+        
+        # Build context string with all metadata
+        context_parts = [f'title={title}', f'category={category}']
+        if submitted_by:
+            context_parts.append(f'submitted_by={submitted_by}')
+        if station:
+            context_parts.append(f'station={station}')
+        if priority:
+            context_parts.append(f'priority={priority}')
+        
         cloudinary_url = f"https://api.cloudinary.com/v1_1/{CLOUDINARY_CLOUD_NAME}/upload"
-        data = {'upload_preset': 'idaho-broadcasting-unsigned', 'context': f'title={title}|category={category}'}
+        data = {
+            'upload_preset': 'idaho-broadcasting-unsigned', 
+            'context': '|'.join(context_parts)
+        }
         data['tags'] = tags if tags else category
+        
         response = requests.post(cloudinary_url, files={'file': (file.filename, file, file.content_type)}, data=data)
         if response.status_code != 200:
             file.stream.seek(0)
@@ -167,17 +186,14 @@ def upload_file():
         # Sync to Webflow CMS
         webflow_token = os.getenv('WEBFLOW_API_TOKEN')
         webflow_site = os.getenv('WEBFLOW_SITE_ID')
-        webflow_collection = os.getenv('WEBFLOW_COLLECTION_ID')
-        if webflow_token and webflow_site and webflow_collection:
+        if webflow_token and webflow_site:
             wf_headers = {'Authorization': f'Bearer {webflow_token}', 'Content-Type': 'application/json'}
             wf_data = {
                 'fields': {
                     'name': title,
                     'alt': title,
-                    'media-url': cloudinary_response.get('secure_url'),
+                    'url': cloudinary_response.get('secure_url'),
                     'file-size': cloudinary_response.get('bytes', 0),
-
-                    
                     'mime-type': file.content_type,
                     'width': cloudinary_response.get('width'),
                     'height': cloudinary_response.get('height'),
@@ -191,12 +207,15 @@ def upload_file():
                     'description': description or ''
                 }
             }
-            wf_url = f'https://api.webflow.com/v2/collections/{webflow_collection}/items'
+            wf_url = f'https://api.webflow.com/v2/sites/{webflow_site}/cms/collections/media-assets/items'
             wf_resp = requests.post(wf_url, headers=wf_headers, json=wf_data)
-            if wf_resp.status_code == 201:
+            if wf_resp.status_code == 201 or wf_resp.status_code == 200:
                 logger.info(f"Synced to Webflow CMS: {wf_resp.json()}")
             else:
-                logger.error(f"Webflow sync failed: {wf_resp.status_code} - {wf_resp.text}")
+                logger.error(f"Webflow sync failed: {wf_resp.status_code}")
+                logger.error(f"Webflow response: {wf_resp.text}")
+                logger.error(f"Webflow URL used: {wf_url}")
+                logger.error(f"Webflow data sent: {wf_data}")
 
         return jsonify({'success': True, 'cloudinary_url': cloudinary_response.get('secure_url')}), 200
     except Exception as e:
