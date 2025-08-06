@@ -6,6 +6,7 @@ Flask application for uploading and managing media files
 
 import os
 import logging
+import json
 from datetime import datetime
 from flask import Flask, request, render_template, jsonify
 from flask_cors import CORS
@@ -221,6 +222,90 @@ def upload_file():
     except Exception as e:
         logger.error(f"Upload error: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/webflow-diagnostic')
+def webflow_diagnostic():
+    """Diagnostic endpoint to check Webflow configuration"""
+    import requests
+    import json
+    
+    results = []
+    
+    webflow_token = os.getenv('WEBFLOW_API_TOKEN')
+    webflow_collection = os.getenv('WEBFLOW_COLLECTION_ID')
+    
+    if not webflow_token or not webflow_collection:
+        return jsonify({'error': 'Missing Webflow credentials'}), 500
+    
+    headers = {'Authorization': f'Bearer {webflow_token}', 'accept': 'application/json'}
+    
+    # Get collection schema
+    schema_url = f"https://api.webflow.com/v2/collections/{webflow_collection}"
+    response = requests.get(schema_url, headers=headers)
+    
+    if response.status_code == 200:
+        schema = response.json()
+        fields = []
+        for field in schema.get('fields', []):
+            fields.append({
+                'name': field.get('displayName'),
+                'slug': field.get('slug'),
+                'type': field.get('type'),
+                'required': field.get('required', False)
+            })
+        results.append({
+            'test': 'Collection Schema',
+            'status': 'success',
+            'collection_name': schema.get('displayName'),
+            'fields': fields
+        })
+    else:
+        results.append({
+            'test': 'Collection Schema',
+            'status': 'failed',
+            'error': response.text
+        })
+    
+    # Test minimal item creation
+    test_data = {
+        'isArchived': False,
+        'isDraft': False,
+        'fieldData': {
+            'name': 'Diagnostic Test Item',
+            'slug': 'diagnostic-test-item'
+        }
+    }
+    
+    create_url = f"https://api.webflow.com/v2/collections/{webflow_collection}/items/live"
+    headers_post = {**headers, 'Content-Type': 'application/json'}
+    
+    response = requests.post(create_url, headers=headers_post, json=test_data)
+    
+    if response.status_code in [200, 201, 202]:
+        results.append({
+            'test': 'Create Item',
+            'status': 'success',
+            'response': response.json()
+        })
+        # Delete the test item if created
+        try:
+            item_id = response.json().get('id')
+            if item_id:
+                delete_url = f"https://api.webflow.com/v2/collections/{webflow_collection}/items/{item_id}"
+                requests.delete(delete_url, headers=headers)
+        except:
+            pass
+    else:
+        results.append({
+            'test': 'Create Item',
+            'status': 'failed',
+            'code': response.status_code,
+            'error': response.text,
+            'test_data_sent': test_data
+        })
+    
+    return jsonify({'diagnostic_results': results}), 200
 
 
 @app.route('/health')
