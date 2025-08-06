@@ -174,8 +174,9 @@ def upload_file():
                 'fields': {
                     'name': title,
                     'alt': title,
-                    'url': cloudinary_response.get('secure_url'),
+                    'media-url': cloudinary_response.get('secure_url'),
                     'file-size': cloudinary_response.get('bytes', 0),
+                    
                     'mime-type': file.content_type,
                     'width': cloudinary_response.get('width'),
                     'height': cloudinary_response.get('height'),
