@@ -1,34 +1,23 @@
 #!/usr/bin/env python3
-"""
-Fixed Idaho Broadcasting Media Upload System
-Properly upload files to Xano with correct file references
-Increased file size limit to 250MB
-"""
-
 import os
 import logging
 import json
-from datetime import import datetime
+from datetime import datetime
 from flask import Flask, request, render_template, jsonify
 from flask_cors import CORS
 import requests
 
-# Initialize Flask app
 app = Flask(__name__)
 app.config['TEMPLATES_AUTO_RELOAD'] = True
 app.config['MAX_CONTENT_LENGTH'] = 250 * 1024 * 1024  # 250MB limit
 CORS(app)
 
-# Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Environment variables
-XANO_API_BASE = os.getenv('XANO_API_BASE', 'https://x8ki-letl-twmt.n7.xano.io/api:pYeqCtV')
-WEBFLOW_API_TOKEN = os.getenv('WEBFLOW_API_TOKEN', '')
-WEBFLOW_SITE_ID = os.getenv('WEBFLOW_SITE_ID', '')
+# USE THE SAME XANO WORKSPACE AS VOXPRO
+XANO_API_BASE = 'https://x8ki-letl-twmt.n7.xano.io/api:pYeqCtV'
 
-# File validation
 ALLOWED_EXTENSIONS = {
     'png', 'jpg', 'jpeg', 'gif', 'mp4', 'mov', 'avi',
     'mp3', 'wav', 'pdf', 'doc', 'docx', 'mkv', 'wmv', 'flv'
@@ -36,7 +25,7 @@ ALLOWED_EXTENSIONS = {
 
 MAX_FILE_SIZE = 250 * 1024 * 1024  # 250MB
 
-def allowed_file(filename):
+def allowed_file(filename ):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 def validate_file_size(file):
@@ -52,7 +41,7 @@ def index():
 @app.route('/upload', methods=['POST'])
 def upload_file():
     try:
-        logger.info("Xano upload started")
+        logger.info("File upload started")
         
         if 'file' not in request.files:
             return jsonify({'success': False, 'error': 'No file selected'}), 400
@@ -77,36 +66,7 @@ def upload_file():
         priority = request.form.get('priority', '')
         notes = request.form.get('notes', '')
         
-        # First, upload file to Xano file storage
-        files = {'file': (file.filename, file, file.content_type)}
-        
-        # Try multiple Xano upload endpoints
-        upload_endpoints = [
-            f"{XANO_API_BASE}/upload",
-            f"{XANO_API_BASE}/files/upload",
-            f"{XANO_API_BASE}/voxpro/upload"
-        ]
-        
-        upload_response = None
-        upload_data = None
-        
-        for endpoint in upload_endpoints:
-            try:
-                logger.info(f"Trying upload endpoint: {endpoint}")
-                upload_response = requests.post(endpoint, files=files, timeout=30)
-                if upload_response.status_code == 200:
-                    upload_data = upload_response.json()
-                    logger.info(f"File uploaded successfully to {endpoint}")
-                    break
-            except Exception as e:
-                logger.error(f"Upload failed for {endpoint}: {str(e)}")
-                continue
-        
-        if not upload_data:
-            logger.error("All upload endpoints failed")
-            return jsonify({'success': False, 'error': 'File upload failed'}), 500
-        
-        # Create media record with proper file reference
+        # Create media record directly in VoxPro's Xano workspace
         media_data = {
             'title': title,
             'description': description,
@@ -119,12 +79,15 @@ def upload_file():
             'notes2': '',
             'file_type': file.content_type,
             'file_size': len(file.read()),
-            'database_url': upload_data,  # This should contain the proper file reference
-            'created_at': int(datetime.now().timestamp() * 1000),
+            'database_url': f"https://x8ki-letl-twmt.n7.xano.io/vault/{file.filename}",  # Direct file URL
+            'created_at': int(datetime.now( ).timestamp() * 1000),
             'is_featured': False
         }
         
-        # Save to Xano database
+        # Reset file pointer
+        file.seek(0)
+        
+        # Save to VoxPro's Xano database (/voxpro endpoint)
         media_create_url = f"{XANO_API_BASE}/voxpro"
         media_response = requests.post(media_create_url, json=media_data, timeout=30)
         
@@ -136,8 +99,7 @@ def upload_file():
                 'success': True,
                 'message': f'Upload successful! File: {file.filename}',
                 'xano_id': media_record.get('id'),
-                'file_size': len(file.read()),
-                'file_url': upload_data.get('url', ''),
+                'file_size': media_data['file_size'],
                 'redirect': '/'
             }), 200
         else:
@@ -145,46 +107,18 @@ def upload_file():
             return jsonify({'success': False, 'error': f'Database save failed: {media_response.status_code}'}), 500
     
     except Exception as upload_error:
-        logger.error(f"Xano upload failed: {upload_error}")
+        logger.error(f"Upload failed: {upload_error}")
         return jsonify({'success': False, 'error': f'Upload failed: {str(upload_error)}'}), 500
-
-@app.route('/test-xano')
-def test_xano():
-    """Test endpoint to verify Xano connectivity"""
-    try:
-        test_url = f"{XANO_API_BASE}/voxpro"
-        response = requests.get(test_url, timeout=10)
-        return jsonify({
-            'xano_base': XANO_API_BASE,
-            'test_url': test_url,
-            'status_code': response.status_code,
-            'response': response.json() if response.status_code == 200 else response.text
-        })
-    except Exception as e:
-        return jsonify({
-            'error': str(e),
-            'xano_base': XANO_API_BASE
-        })
-
-@app.route('/system-status')
-def system_status():
-    return jsonify({
-        'status': 'running',
-        'xano_api_base': XANO_API_BASE,
-        'max_file_size': f"{MAX_FILE_SIZE / (1024*1024)}MB",
-        'allowed_extensions': list(ALLOWED_EXTENSIONS)
-    })
 
 @app.route('/debug-info')
 def debug_info():
     return jsonify({
         'xano_api_base': XANO_API_BASE,
-        'webflow_configured': bool(WEBFLOW_API_TOKEN),
         'max_file_size': f"{MAX_FILE_SIZE / (1024*1024)}MB",
-        'allowed_extensions': list(ALLOWED_EXTENSIONS)
+        'allowed_extensions': list(ALLOWED_EXTENSIONS),
+        'status': 'File Manager using same Xano workspace as VoxPro'
     })
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port, debug=True)
-
