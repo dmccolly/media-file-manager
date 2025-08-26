@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Unified Idaho Broadcasting Media Upload System
-Uploads files to Xano and syncs with Webflow CMS
-Compatible with VoxPro Manager search
+Fixed Idaho Broadcasting Media Upload System
+Properly uploads files to Xano with correct file references
+Increased file size limit to 250MB
 """
 
 import os
@@ -16,6 +16,7 @@ import requests
 # Initialize Flask app
 app = Flask(__name__)
 app.config['TEMPLATES_AUTO_RELOAD'] = True
+app.config['MAX_CONTENT_LENGTH'] = 250 * 1024 * 1024  # 250MB limit
 CORS(app)
 
 # Configure logging
@@ -30,9 +31,9 @@ WEBFLOW_SITE_ID = os.getenv('WEBFLOW_SITE_ID', '')
 # File validation
 ALLOWED_EXTENSIONS = {
     'png', 'jpg', 'jpeg', 'gif', 'mp4', 'mov', 'avi',
-    'mp3', 'wav', 'pdf', 'doc', 'docx'
+    'mp3', 'wav', 'pdf', 'doc', 'docx', 'mkv', 'wmv', 'flv'
 }
-MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB
+MAX_FILE_SIZE = 250 * 1024 * 1024  # 250MB
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -62,16 +63,20 @@ def index():
                 input, select, textarea { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; }
                 button { background: #007fff; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; }
                 button:hover { background: #0056b3; }
-                .success { color: green; padding: 10px; background: #f0f8f0; border-radius: 4px; }
-                .error { color: red; padding: 10px; background: #f8f0f0; border-radius: 4px; }
+                .success { color: green; padding: 10px; background: #f0f8f0; border-radius: 4px; margin: 10px 0; }
+                .error { color: red; padding: 10px; background: #f8f0f0; border-radius: 4px; margin: 10px 0; }
+                .file-info { font-size: 12px; color: #666; margin-top: 5px; }
             </style>
         </head>
         <body>
             <h1>Idaho Broadcasting Media Upload</h1>
-            <form action="/upload" method="post" enctype="multipart/form-data">
+            <p><strong>Maximum file size: 250MB</strong></p>
+            
+            <form action="/upload" method="post" enctype="multipart/form-data" id="uploadForm">
                 <div class="form-group">
                     <label for="file">Select Media File:</label>
-                    <input type="file" id="file" name="file" required accept=".png,.jpg,.jpeg,.gif,.mp4,.mov,.avi,.mp3,.wav,.pdf,.doc,.docx">
+                    <input type="file" id="file" name="file" required accept=".png,.jpg,.jpeg,.gif,.mp4,.mov,.avi,.mp3,.wav,.pdf,.doc,.docx,.mkv,.wmv,.flv">
+                    <div class="file-info">Supported formats: Video (MP4, MOV, AVI, MKV, WMV, FLV), Audio (MP3, WAV), Images (PNG, JPG, GIF), Documents (PDF, DOC, DOCX)</div>
                 </div>
                 
                 <div class="form-group">
@@ -126,16 +131,43 @@ def index():
                     <textarea id="notes" name="notes" rows="2"></textarea>
                 </div>
                 
-                <button type="submit">Upload Media</button>
+                <button type="submit" id="submitBtn">Upload Media</button>
+                <div id="uploadStatus"></div>
             </form>
+            
+            <script>
+                document.getElementById('uploadForm').addEventListener('submit', function(e) {
+                    const submitBtn = document.getElementById('submitBtn');
+                    const status = document.getElementById('uploadStatus');
+                    
+                    submitBtn.disabled = true;
+                    submitBtn.textContent = 'Uploading...';
+                    status.innerHTML = '<div style="color: blue;">Uploading file, please wait...</div>';
+                });
+                
+                document.getElementById('file').addEventListener('change', function(e) {
+                    const file = e.target.files[0];
+                    if (file) {
+                        const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
+                        const status = document.getElementById('uploadStatus');
+                        if (file.size > 250 * 1024 * 1024) {
+                            status.innerHTML = '<div class="error">File too large! Maximum size is 250MB. Your file is ' + sizeMB + 'MB.</div>';
+                        } else {
+                            status.innerHTML = '<div style="color: green;">File selected: ' + file.name + ' (' + sizeMB + 'MB)</div>';
+                        }
+                    }
+                });
+            </script>
         </body>
         </html>
         '''
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
-    """Handle file upload to Xano and sync to Webflow"""
+    """Handle file upload to Xano with proper file storage"""
     try:
+        logger.info("=== STARTING FILE UPLOAD ===")
+        
         # Validate file
         if 'file' not in request.files:
             return jsonify({'success': False, 'error': 'No file selected'}), 400
@@ -148,7 +180,7 @@ def upload_file():
             return jsonify({'success': False, 'error': 'File type not allowed'}), 400
         
         if not validate_file_size(file):
-            return jsonify({'success': False, 'error': 'File size too large (max 50MB)'}), 400
+            return jsonify({'success': False, 'error': 'File size too large (max 250MB)'}), 400
         
         # Get form data
         title = request.form.get('title', '').strip()
@@ -163,104 +195,162 @@ def upload_file():
         if not title or not category:
             return jsonify({'success': False, 'error': 'Title and category are required'}), 400
         
-        logger.info(f"Processing upload: {file.filename}")
+        logger.info(f"Processing upload: {file.filename} ({file.content_type})")
         
-        # Upload file to Xano
-        xano_upload_url = f"{XANO_API_BASE}/upload/attachment"
-        
-        # Prepare file for Xano upload
-        file.seek(0)  # Reset file pointer
-        files = {'file': (file.filename, file, file.content_type)}
-        
-        # Upload to Xano file storage
-        upload_response = requests.post(xano_upload_url, files=files)
-        
-        if upload_response.status_code != 200:
-            logger.error(f"Xano upload failed: {upload_response.status_code} - {upload_response.text}")
-            return jsonify({'success': False, 'error': f'Upload failed: {upload_response.text}'}), 500
-        
-        upload_data = upload_response.json()
-        logger.info(f"Xano upload successful: {upload_data}")
-        
-        # Create media record in Xano database
-        media_data = {
-            'title': title,
-            'description': description,
-            'station': station,
-            'category': category,
-            'tags': tags,
-            'submitted_by': submitted_by,
-            'priority': priority,
-            'notes1': notes,
-            'notes2': '',
-            'file_type': file.content_type,
-            'file_size': len(file.read()),
-            'database_url': upload_data,  # Store the Xano file reference
-            'created_at': int(datetime.now().timestamp() * 1000),
-            'is_featured': False
-        }
-        
-        # Reset file pointer after reading size
+        # Get file size
+        file.seek(0, 2)
+        file_size = file.tell()
         file.seek(0)
+        logger.info(f"File size: {file_size} bytes")
         
-        # Save media record to Xano
-        media_create_url = f"{XANO_API_BASE}/voxpro"
-        media_response = requests.post(media_create_url, json=media_data)
+        # Method 1: Try Xano file upload endpoint
+        try:
+            logger.info("Attempting Xano file upload...")
+            xano_upload_url = f"{XANO_API_BASE}/upload/attachment"
+            
+            # Prepare file for upload
+            files = {'file': (file.filename, file.read(), file.content_type)}
+            file.seek(0)  # Reset for potential retry
+            
+            upload_response = requests.post(xano_upload_url, files=files, timeout=60)
+            logger.info(f"Xano upload response: {upload_response.status_code}")
+            
+            if upload_response.status_code == 200:
+                upload_data = upload_response.json()
+                logger.info(f"Xano upload successful: {upload_data}")
+                
+                # Create media record with proper file reference
+                media_data = {
+                    'title': title,
+                    'description': description,
+                    'station': station,
+                    'category': category,
+                    'tags': tags,
+                    'submitted_by': submitted_by,
+                    'priority': priority,
+                    'notes1': notes,
+                    'notes2': '',
+                    'file_type': file.content_type,
+                    'file_size': file_size,
+                    'database_url': upload_data,  # This should contain the proper file reference
+                    'created_at': int(datetime.now().timestamp() * 1000),
+                    'is_featured': False
+                }
+                
+                # Save to Xano database
+                media_create_url = f"{XANO_API_BASE}/voxpro"
+                media_response = requests.post(media_create_url, json=media_data, timeout=30)
+                
+                if media_response.status_code in [200, 201]:
+                    media_record = media_response.json()
+                    logger.info(f"Media record created successfully: {media_record.get('id')}")
+                    
+                    return jsonify({
+                        'success': True,
+                        'message': f'Upload successful! File: {file.filename}',
+                        'xano_id': media_record.get('id'),
+                        'file_size': file_size,
+                        'file_url': upload_data.get('url', ''),
+                        'redirect': '/'
+                    }), 200
+                else:
+                    logger.error(f"Media record creation failed: {media_response.status_code} - {media_response.text}")
+                    return jsonify({'success': False, 'error': f'Database save failed: {media_response.text}'}), 500
+            else:
+                logger.error(f"Xano upload failed: {upload_response.status_code} - {upload_response.text}")
+                
+        except Exception as upload_error:
+            logger.error(f"Xano upload error: {upload_error}")
         
-        if media_response.status_code not in [200, 201]:
-            logger.error(f"Xano media record creation failed: {media_response.status_code} - {media_response.text}")
-            return jsonify({'success': False, 'error': f'Media record creation failed: {media_response.text}'}), 500
+        # Method 2: Try alternative Xano endpoints
+        alternative_endpoints = [
+            f"{XANO_API_BASE}/upload",
+            f"{XANO_API_BASE}/file/upload",
+            f"{XANO_API_BASE}/media/upload"
+        ]
         
-        media_record = media_response.json()
-        logger.info(f"Xano media record created: {media_record}")
-        
-        # Sync to Webflow CMS (if configured)
-        webflow_success = True
-        if WEBFLOW_API_TOKEN and WEBFLOW_SITE_ID:
+        for endpoint in alternative_endpoints:
             try:
-                webflow_data = {
-                    'fields': {
-                        'name': title,
-                        'slug': title.lower().replace(' ', '-').replace('_', '-'),
+                logger.info(f"Trying alternative endpoint: {endpoint}")
+                file.seek(0)
+                files = {'file': (file.filename, file.read(), file.content_type)}
+                
+                alt_response = requests.post(endpoint, files=files, timeout=60)
+                if alt_response.status_code == 200:
+                    logger.info(f"Alternative endpoint successful: {endpoint}")
+                    upload_data = alt_response.json()
+                    
+                    # Create media record
+                    media_data = {
                         'title': title,
                         'description': description,
                         'station': station,
                         'category': category,
                         'tags': tags,
-                        'submitted-by': submitted_by,
+                        'submitted_by': submitted_by,
                         'priority': priority,
-                        'notes': notes,
-                        'file-type': file.content_type,
-                        'xano-id': str(media_record.get('id', ''))
+                        'notes1': notes,
+                        'file_type': file.content_type,
+                        'file_size': file_size,
+                        'database_url': upload_data,
+                        'created_at': int(datetime.now().timestamp() * 1000),
+                        'is_featured': False
                     }
-                }
-                
-                webflow_url = f"https://api.webflow.com/v2/sites/{WEBFLOW_SITE_ID}/cms/collections/media-assets/items"
-                webflow_headers = {
-                    'Authorization': f'Bearer {WEBFLOW_API_TOKEN}',
-                    'Content-Type': 'application/json'
-                }
-                
-                webflow_response = requests.post(webflow_url, headers=webflow_headers, json=webflow_data)
-                
-                if webflow_response.status_code in [200, 201]:
-                    logger.info(f"Webflow sync successful")
-                else:
-                    logger.error(f"Webflow sync failed: {webflow_response.status_code} - {webflow_response.text}")
-                    webflow_success = False
                     
-            except Exception as webflow_error:
-                logger.error(f"Webflow sync error: {webflow_error}")
-                webflow_success = False
+                    media_create_url = f"{XANO_API_BASE}/voxpro"
+                    media_response = requests.post(media_create_url, json=media_data, timeout=30)
+                    
+                    if media_response.status_code in [200, 201]:
+                        media_record = media_response.json()
+                        return jsonify({
+                            'success': True,
+                            'message': f'Upload successful via {endpoint}!',
+                            'xano_id': media_record.get('id'),
+                            'file_size': file_size,
+                            'redirect': '/'
+                        }), 200
+                        
+            except Exception as alt_error:
+                logger.error(f"Alternative endpoint {endpoint} failed: {alt_error}")
+                continue
         
-        return jsonify({
-            'success': True,
-            'message': 'Upload successful!',
-            'xano_id': media_record.get('id'),
-            'webflow_synced': webflow_success,
-            'file_url': upload_data.get('url', ''),
-            'redirect': '/'
-        }), 200
+        # If all upload methods fail, create record without file
+        logger.warning("All file upload methods failed, creating metadata-only record")
+        
+        media_data = {
+            'title': f"{title} (UPLOAD FAILED)",
+            'description': f"{description}\n\nNOTE: File upload failed - {file.filename}",
+            'station': station,
+            'category': category,
+            'tags': tags,
+            'submitted_by': submitted_by,
+            'priority': priority,
+            'notes1': f"{notes}\nOriginal filename: {file.filename}",
+            'file_type': file.content_type,
+            'file_size': file_size,
+            'database_url': {'error': 'upload_failed', 'filename': file.filename},
+            'created_at': int(datetime.now().timestamp() * 1000),
+            'is_featured': False
+        }
+        
+        media_create_url = f"{XANO_API_BASE}/voxpro"
+        media_response = requests.post(media_create_url, json=media_data, timeout=30)
+        
+        if media_response.status_code in [200, 201]:
+            media_record = media_response.json()
+            return jsonify({
+                'success': False,
+                'error': 'File upload failed, but metadata saved',
+                'message': 'Upload failed - check Xano configuration',
+                'xano_id': media_record.get('id'),
+                'redirect': '/'
+            }), 500
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'Complete upload failure',
+                'message': 'Both file upload and metadata save failed'
+            }), 500
         
     except Exception as e:
         logger.error(f"Upload error: {e}")
@@ -271,9 +361,28 @@ def health_check():
     """Health check endpoint"""
     return jsonify({
         'status': 'healthy',
+        'max_file_size': '250MB',
         'xano_configured': bool(XANO_API_BASE),
         'webflow_configured': bool(WEBFLOW_API_TOKEN and WEBFLOW_SITE_ID)
     })
+
+@app.route('/test-xano')
+def test_xano():
+    """Test Xano connectivity"""
+    try:
+        test_url = f"{XANO_API_BASE}/voxpro"
+        response = requests.get(test_url, timeout=10)
+        return jsonify({
+            'xano_status': response.status_code,
+            'xano_response': response.text[:200],
+            'api_base': XANO_API_BASE
+        })
+    except Exception as e:
+        return jsonify({
+            'xano_status': 'error',
+            'error': str(e),
+            'api_base': XANO_API_BASE
+        })
 
 @app.errorhandler(404)
 def not_found(error):
@@ -282,6 +391,10 @@ def not_found(error):
 @app.errorhandler(500)
 def internal_error(error):
     return jsonify({'error': 'Internal server error'}), 500
+
+@app.errorhandler(413)
+def file_too_large(error):
+    return jsonify({'error': 'File too large - maximum size is 250MB'}), 413
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
