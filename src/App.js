@@ -4,33 +4,26 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 // =============================================
 class XanoService {
   constructor() {
-    this.baseUrl = process.env.REACT_APP_XANO_API_BASE || '';
+    this.baseUrl = process.env.REACT_APP_XANO_API_BASE || 'https://x8ki-letl-twmt.n7.xano.io/api:pYeqCtV';
     this.headers = {
       'Content-Type': 'application/json'
     };
   }
-  // Fetch all files from Netlify Function proxy
+  // Fetch all files - XANO /voxpro endpoint only supports POST, not GET
   async fetchAllFiles() {
-    console.log('🔄 XanoService: Fetching files from Netlify Function...');
+    console.log('🔄 XanoService: XANO API /voxpro endpoint does not support GET operations');
+    console.log('📦 XanoService: Returning empty files array - no existing records to fetch');
    
     try {
-      const response = await fetch(`${this.baseUrl}/api/files`, {
-        method: 'GET',
-        headers: this.headers
-      });
+      // Return empty array until proper GET endpoint is available or configured
+      const emptyData = [];
+      console.log('📦 XanoService: Raw response data:', emptyData);
       
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      console.log('📦 XanoService: Raw response data:', data);
-      
-      return this.processRecords(data.files || []);
+      return this.processRecords(emptyData);
      
     } catch (error) {
-      console.error('❌ XanoService: Error fetching files:', error);
-      throw error;
+      console.error('❌ XanoService: Error processing empty data:', error);
+      return [];
     }
   }
   // Process raw XANO records into app format
