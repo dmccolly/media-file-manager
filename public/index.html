@@ -9,7 +9,99 @@
       name="description"
       content="Media File Manager - Upload and manage media files with metadata"
     />
-    <script crossorigin src="https://polyfill.io/v3/polyfill.min.js?features=es6%2Ces2015%2Ces2016%2Ces2017%2Ces2018%2Ces2019%2Ces2020%2CArray.prototype.includes%2CObject.assign%2CPromise"></script>
+    <script>
+      // Global error handler to catch JavaScript execution failures
+      window.addEventListener('error', function(e) {
+        console.error('Global JavaScript error:', e.error, e.filename, e.lineno);
+        document.body.innerHTML = '<div style="padding: 20px; color: red; background: #1a1a1a; font-family: Arial, sans-serif; min-height: 100vh;"><h2>JavaScript Error Detected</h2><p>Error: ' + e.message + '</p><p>File: ' + e.filename + '</p><p>Line: ' + e.lineno + '</p><p>Please refresh the page or contact support.</p></div>';
+      });
+      
+      // Local polyfills for better browser compatibility
+      if (!Array.prototype.includes) {
+        Array.prototype.includes = function(searchElement) {
+          return this.indexOf(searchElement) !== -1;
+        };
+      }
+      if (!Object.assign) {
+        Object.assign = function(target) {
+          for (var i = 1; i < arguments.length; i++) {
+            var source = arguments[i];
+            for (var key in source) {
+              if (Object.prototype.hasOwnProperty.call(source, key)) {
+                target[key] = source[key];
+              }
+            }
+          }
+          return target;
+        };
+      }
+      if (!window.Promise) {
+        window.Promise = function(executor) {
+          var self = this;
+          self.state = 'pending';
+          self.value = undefined;
+          self.handlers = [];
+          
+          function resolve(result) {
+            if (self.state === 'pending') {
+              self.state = 'fulfilled';
+              self.value = result;
+              self.handlers.forEach(handle);
+              self.handlers = null;
+            }
+          }
+          
+          function reject(error) {
+            if (self.state === 'pending') {
+              self.state = 'rejected';
+              self.value = error;
+              self.handlers.forEach(handle);
+              self.handlers = null;
+            }
+          }
+          
+          function handle(handler) {
+            if (self.state === 'pending') {
+              self.handlers.push(handler);
+            } else {
+              if (self.state === 'fulfilled' && typeof handler.onFulfilled === 'function') {
+                handler.onFulfilled(self.value);
+              }
+              if (self.state === 'rejected' && typeof handler.onRejected === 'function') {
+                handler.onRejected(self.value);
+              }
+            }
+          }
+          
+          this.then = function(onFulfilled, onRejected) {
+            return new Promise(function(resolve, reject) {
+              handle({
+                onFulfilled: function(result) {
+                  try {
+                    resolve(onFulfilled ? onFulfilled(result) : result);
+                  } catch (ex) {
+                    reject(ex);
+                  }
+                },
+                onRejected: function(error) {
+                  try {
+                    resolve(onRejected ? onRejected(error) : error);
+                  } catch (ex) {
+                    reject(ex);
+                  }
+                }
+              });
+            });
+          };
+          
+          try {
+            executor(resolve, reject);
+          } catch (ex) {
+            reject(ex);
+          }
+        };
+      }
+    </script>
     <title>Media File Manager</title>
   </head>
   <body>
@@ -20,12 +112,59 @@
       </div>
     </noscript>
     <div id="root">
-      <div style="padding: 20px; color: white; font-family: Arial, sans-serif; background: #1a1a1a; min-height: 100vh; display: flex; align-items: center; justify-content: center;">
+      <div id="loading-indicator" style="padding: 20px; color: white; font-family: Arial, sans-serif; background: #1a1a1a; min-height: 100vh; display: flex; align-items: center; justify-content: center;">
         <div style="text-align: center;">
+          <div style="border: 4px solid #333; border-top: 4px solid #4f46e5; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto 20px;"></div>
           <h2>Loading Media File Manager...</h2>
           <p>Please wait while the application loads.</p>
+          <p id="loading-timer" style="font-size: 12px; color: #888;">Loading for <span id="timer-count">0</span> seconds</p>
+          <div id="loading-status" style="font-size: 10px; color: #666; margin-top: 10px;">
+            <div>✓ HTML loaded</div>
+            <div id="js-status">⏳ Loading JavaScript...</div>
+            <div id="react-status">⏳ Starting React...</div>
+          </div>
         </div>
       </div>
     </div>
+    <style>
+      @keyframes spin { 
+        0% { transform: rotate(0deg); } 
+        100% { transform: rotate(360deg); } 
+      }
+    </style>
+    <script>
+      var startTime = Date.now();
+      var timerInterval = setInterval(function() {
+        var elapsed = Math.floor((Date.now() - startTime) / 1000);
+        var timerElement = document.getElementById('timer-count');
+        if (timerElement) {
+          timerElement.textContent = elapsed;
+          if (elapsed > 10) {
+            document.getElementById('loading-timer').innerHTML = '<span style="color: red;">Loading is taking longer than expected. Please check your internet connection or try refreshing.</span>';
+          }
+          if (elapsed > 20) {
+            document.getElementById('loading-status').innerHTML = '<div style="color: red;">⚠️ Application failed to load. Please refresh the page.</div>';
+          }
+        }
+      }, 1000);
+      
+      window.addEventListener('load', function() {
+        document.getElementById('js-status').innerHTML = '✓ JavaScript loaded';
+        clearInterval(timerInterval);
+      });
+      
+      // Mark React as starting when scripts begin executing
+      window.reactStarting = function() {
+        var statusEl = document.getElementById('react-status');
+        if (statusEl) statusEl.innerHTML = '⏳ React mounting...';
+      };
+      
+      // Mark React as mounted successfully
+      window.reactMounted = function() {
+        var statusEl = document.getElementById('react-status');
+        if (statusEl) statusEl.innerHTML = '✓ React mounted successfully';
+        clearInterval(timerInterval);
+      };
+    </script>
   </body>
 </html>
