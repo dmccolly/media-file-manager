@@ -177,7 +177,7 @@ class XanoService {
       console.log('✅ Processed file:', processedFile);
       return processedFile;
     });
-    console.log('✅ AirtableService: All processed files:', processedFiles);
+    console.log('✅ XanoService: All processed files:', processedFiles);
     return processedFiles;
   }
   // Enhanced file type detection from URL
@@ -317,9 +317,9 @@ class XanoService {
     
     return placeholders[fileType] || placeholders['unknown'];
   }
-  // Save new file to Airtable
+  // Save new file to Flask backend
   async saveFile(fileData) {
-    console.log('🔄 AirtableService: Saving file to Airtable:', fileData);
+    console.log('🔄 XanoService: Saving file to Flask backend:', fileData);
    
     try {
       const airtableData = {
@@ -337,7 +337,7 @@ class XanoService {
           'Thumbnail': fileData.thumbnail || fileData.url
         }
       };
-      console.log('📡 AirtableService: Sending to Airtable:', airtableData);
+      console.log('📡 XanoService: Sending to Flask backend:', airtableData);
       const response = await fetch(this.baseUrl, {
         method: 'POST',
         headers: this.headers,
@@ -345,21 +345,21 @@ class XanoService {
       });
       if (!response.ok) {
         const errorData = await response.json();
-        console.error('❌ AirtableService: Airtable error:', errorData);
-        throw new Error(`Airtable error: ${errorData.error?.message || response.statusText}`);
+        console.error('❌ XanoService: Flask backend error:', errorData);
+        throw new Error(`Backend error: ${errorData.error?.message || response.statusText}`);
       }
       const result = await response.json();
-      console.log('✅ AirtableService: File saved successfully:', result);
+      console.log('✅ XanoService: File saved successfully:', result);
       return result;
      
     } catch (error) {
-      console.error('❌ AirtableService: Error saving file:', error);
+      console.error('❌ XanoService: Error saving file:', error);
       throw error;
     }
   }
-  // Update existing file in Airtable
+  // Update existing file via Flask backend
   async updateFile(recordId, updates) {
-    console.log('🔄 AirtableService: Updating file:', { recordId, updates });
+    console.log('🔄 XanoService: Updating file:', { recordId, updates });
    
     try {
       const response = await fetch(`${this.baseUrl}/${recordId}`, {
@@ -373,17 +373,17 @@ class XanoService {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       const result = await response.json();
-      console.log('✅ AirtableService: File updated successfully:', result);
+      console.log('✅ XanoService: File updated successfully:', result);
       return result;
      
     } catch (error) {
-      console.error('❌ AirtableService: Error updating file:', error);
+      console.error('❌ XanoService: Error updating file:', error);
       throw error;
     }
   }
   // Update multiple files at once
   async updateMultipleFiles(updates) {
-    console.log('🔄 AirtableService: Updating multiple files:', updates);
+    console.log('🔄 XanoService: Updating multiple files:', updates);
    
     try {
       const records = updates.map(update => ({
@@ -401,17 +401,17 @@ class XanoService {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       const result = await response.json();
-      console.log('✅ AirtableService: Multiple files updated successfully:', result);
+      console.log('✅ XanoService: Multiple files updated successfully:', result);
       return result;
      
     } catch (error) {
-      console.error('❌ AirtableService: Error updating multiple files:', error);
+      console.error('❌ XanoService: Error updating multiple files:', error);
       throw error;
     }
   }
-  // Delete file from Airtable
+  // Delete file via Flask backend
   async deleteFile(recordId) {
-    console.log('🔄 AirtableService: Deleting file:', recordId);
+    console.log('🔄 XanoService: Deleting file:', recordId);
    
     try {
       const response = await fetch(`${this.baseUrl}/${recordId}`, {
