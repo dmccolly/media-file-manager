@@ -1958,74 +1958,248 @@ export default function App() {
     >
       {/* Header */}
       <header className="bg-gray-800 border-b border-gray-700 shadow-lg">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center">
-              <h1 className="text-2xl font-bold text-white">📁 File Manager</h1>
-              <div className="ml-4 text-sm text-gray-300">
-                {currentFiles.length} files in {currentFolder}
-              </div>
+        <div className="flex items-center justify-between px-6 py-4">
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <span className="text-2xl">📁</span>
+              <h1 className="text-xl font-bold text-white">HOIBF File Manager</h1>
             </div>
-            
-            <div className="flex items-center space-x-4">
-              {/* View Mode Toggle */}
-              <div className="flex items-center bg-gray-700 rounded-lg p-1">
-                <button
-                  onClick={() => setViewMode('grid')}
-                  className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
-                    viewMode === 'grid' 
-                      ? 'bg-gray-800 text-white shadow-sm' 
-                      : 'text-gray-300 hover:text-white'
-                  }`}
-                >
-                  🔲 Grid
-                </button>
-                <button
-                  onClick={() => setViewMode('list')}
-                  className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
-                    viewMode === 'list' 
-                      ? 'bg-gray-800 text-white shadow-sm' 
-                      : 'text-gray-300 hover:text-white'
-                  }`}
-                >
-                  📋 List
-                </button>
-              </div>
-              
-              {/* Upload Button */}
-              <UploadButton 
-                onFileSelect={handleFileSelect} 
-                isUploading={isUploading} 
-              />
+            <div className="flex items-center gap-2 text-sm text-gray-400">
+              <span>Home / Media Library / All Files</span>
+              <span className="bg-red-600 text-white px-2 py-1 rounded text-xs font-medium">FINAL v3.0 - CLOUDINARY FIXED</span>
             </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <input 
+              type="text" 
+              placeholder="Search files..." 
+              className="input-dark px-3 py-2 rounded-lg w-64 text-sm"
+            />
+            <UploadButton 
+              onFileSelect={handleFileSelect} 
+              isUploading={isUploading} 
+            />
+            <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+              🔁 VoxPro
+            </button>
           </div>
         </div>
       </header>
 
-      {/* Main Content */}
+      {/* Main Layout - 3 Panel */}
       <div className="flex-1 flex">
-        {/* Sidebar - Folder Tree */}
-        <FolderTree
-          folderTree={folderTree}
-          currentFolder={currentFolder}
-          setCurrentFolder={setCurrentFolder}
-          expandedFolders={expandedFolders}
-          setExpandedFolders={setExpandedFolders}
-          setContextMenu={setContextMenu}
-          onCreateFolder={handleCreateFolder}
-        />
+        {/* Left Sidebar */}
+        <div className="w-64 bg-gray-900 border-r border-gray-700 flex flex-col">
+          <div className="p-4">
+            <div className="mb-6">
+              <h3 className="text-white font-medium mb-2 text-sm">Storage Used</h3>
+              <div className="text-sm text-gray-400">45.18 MB of 10 GB</div>
+              <div className="w-full bg-gray-700 rounded-full h-2 mt-2">
+                <div className="bg-blue-600 h-2 rounded-full" style={{width: '0.45%'}}></div>
+              </div>
+            </div>
 
-        {/* File Grid/List */}
-        <FileGrid
-          files={currentFiles}
-          viewMode={viewMode}
-          onFileRightClick={handleFileRightClick}
-          onFileClick={handleFileClick}
-          selectedFiles={selectedFiles}
-          onFileSelect={handleFileSelectToggle}
-          onSelectAll={handleSelectAll}
-          onClearSelection={handleClearSelection}
-        />
+            <div className="mb-6">
+              <h3 className="text-gray-400 font-medium mb-3 text-xs uppercase tracking-wider">QUICK ACCESS</h3>
+              <div className="space-y-1">
+                <div className="flex items-center gap-3 text-white hover:bg-gray-800 p-2 rounded cursor-pointer text-sm">
+                  <span className="text-blue-400">📄</span>
+                  <span>All Files</span>
+                  <span className="ml-auto text-gray-400 text-xs bg-gray-700 px-2 py-1 rounded">0</span>
+                </div>
+                <div className="flex items-center gap-3 text-white hover:bg-gray-800 p-2 rounded cursor-pointer text-sm">
+                  <span className="text-green-400">🎵</span>
+                  <span>Audio</span>
+                  <span className="ml-auto text-gray-400 text-xs bg-gray-700 px-2 py-1 rounded">0</span>
+                </div>
+                <div className="flex items-center gap-3 text-white hover:bg-gray-800 p-2 rounded cursor-pointer text-sm">
+                  <span className="text-purple-400">🎬</span>
+                  <span>Video</span>
+                  <span className="ml-auto text-gray-400 text-xs bg-gray-700 px-2 py-1 rounded">0</span>
+                </div>
+                <div className="flex items-center gap-3 text-white hover:bg-gray-800 p-2 rounded cursor-pointer text-sm">
+                  <span className="text-yellow-400">🖼️</span>
+                  <span>Images</span>
+                  <span className="ml-auto text-gray-400 text-xs bg-gray-700 px-2 py-1 rounded">0</span>
+                </div>
+                <div className="flex items-center gap-3 text-white hover:bg-gray-800 p-2 rounded cursor-pointer text-sm">
+                  <span className="text-red-400">📄</span>
+                  <span>Documents</span>
+                  <span className="ml-auto text-gray-400 text-xs bg-gray-700 px-2 py-1 rounded">0</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="mb-6">
+              <h3 className="text-gray-400 font-medium mb-3 text-xs uppercase tracking-wider">CATEGORIES</h3>
+              <div className="space-y-1">
+                <div className="flex items-center gap-3 text-white hover:bg-gray-800 p-2 rounded cursor-pointer text-sm">
+                  <span className="text-orange-400">🏷️</span>
+                  <span>Commercial</span>
+                  <span className="ml-auto text-gray-400 text-xs bg-gray-700 px-2 py-1 rounded">0</span>
+                </div>
+                <div className="flex items-center gap-3 text-white hover:bg-gray-800 p-2 rounded cursor-pointer text-sm">
+                  <span className="text-teal-400">🏷️</span>
+                  <span>Working II</span>
+                  <span className="ml-auto text-gray-400 text-xs bg-gray-700 px-2 py-1 rounded">0</span>
+                </div>
+                <div className="flex items-center gap-3 text-white hover:bg-gray-800 p-2 rounded cursor-pointer text-sm">
+                  <span className="text-pink-400">🏷️</span>
+                  <span>Image I</span>
+                  <span className="ml-auto text-gray-400 text-xs bg-gray-700 px-2 py-1 rounded">0</span>
+                </div>
+                <div className="flex items-center gap-3 text-white hover:bg-gray-800 p-2 rounded cursor-pointer text-sm">
+                  <span className="text-indigo-400">🏷️</span>
+                  <span>Music</span>
+                  <span className="ml-auto text-gray-400 text-xs bg-gray-700 px-2 py-1 rounded">0</span>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <h3 className="text-gray-400 font-medium mb-3 text-xs uppercase tracking-wider">COLLECTIONS</h3>
+              <div className="text-gray-500 text-sm">No collections</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Main Content Area */}
+        <div className="flex-1 flex flex-col">
+          {/* Toolbar */}
+          <div className="flex items-center justify-between p-4 bg-gray-800 border-b border-gray-700">
+            <div className="flex items-center gap-2">
+              <button className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded text-sm font-medium transition-colors">
+                ✓ Select All
+              </button>
+              <button className="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded text-sm font-medium transition-colors">
+                🗑️ Delete Selected
+              </button>
+              <button 
+                onClick={loadFiles}
+                className="bg-gray-600 hover:bg-gray-700 text-white px-3 py-2 rounded text-sm font-medium transition-colors"
+              >
+                🔄 Refresh
+              </button>
+            </div>
+            <div className="flex items-center gap-2">
+              <button className="bg-gray-600 hover:bg-gray-700 text-white px-3 py-2 rounded text-sm font-medium transition-colors">
+                Details
+              </button>
+              <button 
+                onClick={() => setViewMode('grid')}
+                className={`px-3 py-2 rounded text-sm font-medium transition-colors ${
+                  viewMode === 'grid' ? 'bg-blue-600 text-white' : 'bg-gray-600 hover:bg-gray-700 text-white'
+                }`}
+              >
+                Small
+              </button>
+              <button 
+                onClick={() => setViewMode('list')}
+                className={`px-3 py-2 rounded text-sm font-medium transition-colors ${
+                  viewMode === 'list' ? 'bg-blue-600 text-white' : 'bg-gray-600 hover:bg-gray-700 text-white'
+                }`}
+              >
+                Medium
+              </button>
+              <button className="bg-gray-600 hover:bg-gray-700 text-white px-3 py-2 rounded text-sm font-medium transition-colors">
+                ☰
+              </button>
+            </div>
+          </div>
+
+          {/* File Table Header */}
+          <div className="grid grid-cols-6 gap-4 p-4 bg-gray-800 border-b border-gray-700 text-gray-300 font-medium text-sm">
+            <div>TITLE</div>
+            <div>SIZE</div>
+            <div>DURATION</div>
+            <div>STATION</div>
+            <div>MODIFIED</div>
+            <div>ACTIONS</div>
+          </div>
+
+          {/* File Content Area */}
+          <div className="flex-1 bg-gray-900">
+            {currentFiles.length === 0 ? (
+              <div className="flex items-center justify-center h-full">
+                <div className="text-center">
+                  <div className="text-gray-400 text-lg mb-2">No files found</div>
+                  <div className="text-gray-500 text-sm">Drag files here or use the upload button</div>
+                </div>
+              </div>
+            ) : (
+              <FileGrid
+                files={currentFiles}
+                viewMode={viewMode}
+                onFileRightClick={handleFileRightClick}
+                onFileClick={handleFileClick}
+                selectedFiles={selectedFiles}
+                onFileSelect={handleFileSelectToggle}
+                onSelectAll={handleSelectAll}
+                onClearSelection={handleClearSelection}
+              />
+            )}
+          </div>
+        </div>
+
+        {/* Right Sidebar - File Details */}
+        <div className="w-80 bg-gray-900 border-l border-gray-700 flex flex-col">
+          <div className="p-4">
+            <h3 className="text-white font-medium mb-4">File Details</h3>
+            
+            <div className="mb-6">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-white font-medium text-sm">Media Preview</span>
+                <div className="flex gap-2">
+                  <button className="text-gray-400 hover:text-white text-sm">⛶</button>
+                  <button className="text-gray-400 hover:text-white text-sm">📥</button>
+                </div>
+              </div>
+              <div className="bg-gray-800 rounded-lg p-8 text-center border border-gray-700">
+                <div className="text-4xl mb-3 text-gray-500">📄</div>
+                <div className="text-gray-400 text-sm">Select a file to preview</div>
+              </div>
+            </div>
+
+            <div>
+              <h4 className="text-gray-400 font-medium mb-4 text-xs uppercase tracking-wider">BASIC INFORMATION</h4>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-gray-400 text-sm mb-2">TITLE</label>
+                  <input 
+                    type="text" 
+                    className="input-dark w-full px-3 py-2 rounded text-sm" 
+                    placeholder="Enter title..."
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-400 text-sm mb-2">DESCRIPTION</label>
+                  <textarea 
+                    className="input-dark w-full px-3 py-2 rounded h-20 resize-none text-sm" 
+                    placeholder="Enter description..."
+                  ></textarea>
+                </div>
+                <div>
+                  <label className="block text-gray-400 text-sm mb-2">STATION</label>
+                  <input 
+                    type="text" 
+                    className="input-dark w-full px-3 py-2 rounded text-sm" 
+                    placeholder="Enter station..."
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-400 text-sm mb-2">CATEGORY</label>
+                  <select className="input-dark w-full px-3 py-2 rounded text-sm">
+                    <option>No Category</option>
+                    <option>Commercial</option>
+                    <option>Working II</option>
+                    <option>Image I</option>
+                    <option>Music</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Modals and Overlays */}
