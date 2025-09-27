@@ -3,16 +3,29 @@
   <head>
     <meta charset="utf-8" />
     <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
     <meta name="theme-color" content="#000000" />
     <meta
       name="description"
       content="Media File Manager - Upload and manage media files with metadata"
     />
+    <script crossorigin src="https://polyfill.io/v3/polyfill.min.js?features=es6%2Ces2015%2Ces2016%2Ces2017%2Ces2018%2Ces2019%2Ces2020%2CArray.prototype.includes%2CObject.assign%2CPromise"></script>
     <title>Media File Manager</title>
   </head>
   <body>
-    <noscript>You need to enable JavaScript to run this app.</noscript>
-    <div id="root"></div>
+    <noscript>
+      <div style="padding: 20px; color: red; font-family: Arial, sans-serif; background: #1a1a1a; min-height: 100vh;">
+        <h2>JavaScript Required</h2>
+        <p>You need to enable JavaScript to run this app.</p>
+      </div>
+    </noscript>
+    <div id="root">
+      <div style="padding: 20px; color: white; font-family: Arial, sans-serif; background: #1a1a1a; min-height: 100vh; display: flex; align-items: center; justify-content: center;">
+        <div style="text-align: center;">
+          <h2>Loading Media File Manager...</h2>
+          <p>Please wait while the application loads.</p>
+        </div>
+      </div>
+    </div>
   </body>
 </html>

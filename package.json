@@ -20,10 +20,17 @@
     "production": [
       ">0.2%",
       "not dead",
-      "not op_mini all"
+      "not op_mini all",
+      "ios >= 10",
+      "android >= 5",
+      "chrome >= 60",
+      "firefox >= 60",
+      "safari >= 10"
     ],
     "development": [
-      "last 1 chrome version"
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
     ]
   }
 }
