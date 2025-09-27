@@ -1,63 +1,41 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 
 // =============================================
-// AIRTABLE SERVICE CLASS - FIXED
 // =============================================
-
-// AIRTABLE SERVICE CLASS - FIXED
-// =============================================
-class AirtableService {
+class XanoService {
   constructor() {
-    this.baseId = process.env.REACT_APP_AIRTABLE_BASE_ID || 'appTK2fgCwe039t5J';
-    this.apiKey = process.env.REACT_APP_AIRTABLE_API_KEY || 'patbQMUOfJRtJ1S5d.be54ccdaf03c795c8deca53ae7c05ddbda8efe584e9a07a613a79fd0f0c04dc9';
-    this.baseUrl = `https://api.airtable.com/v0/${this.baseId}/Media%20Assets`; // Fixed with semicolon
+    this.baseUrl = process.env.REACT_APP_XANO_API_BASE || 'http://localhost:5000';
     this.headers = {
-      'Authorization': `Bearer ${this.apiKey}`,
       'Content-Type': 'application/json'
     };
   }
-  // Fetch all files from Airtable with pagination
+  // Fetch all files from Flask backend
   async fetchAllFiles() {
-    console.log('🔄 AirtableService: Fetching files from Airtable...');
+    console.log('🔄 XanoService: Fetching files from Flask backend...');
    
     try {
-      let allRecords = [];
-      let offset = null;
-     
-      do {
-        const url = offset
-          ? `${this.baseUrl}?offset=${offset}`
-          : this.baseUrl;
-       
-        console.log('📡 AirtableService: Fetching page...', { offset });
-       
-        const response = await fetch(url, {
-          method: 'GET',
-          headers: this.headers
-        });
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        const data = await response.json();
-        console.log('📦 AirtableService: Raw response data:', data);
-       
-        allRecords = allRecords.concat(data.records || []);
-        offset = data.offset;
-       
-        console.log(`📊 AirtableService: Page fetched. Records this page: ${data.records?.length || 0}, Total so far: ${allRecords.length}`);
-       
-      } while (offset);
-      console.log(`✅ AirtableService: Total records fetched: ${allRecords.length}`);
-      return this.processRecords(allRecords);
+      const response = await fetch(`${this.baseUrl}/api/files`, {
+        method: 'GET',
+        headers: this.headers
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      console.log('📦 XanoService: Raw response data:', data);
+      
+      return this.processRecords(data.files || []);
      
     } catch (error) {
-      console.error('❌ AirtableService: Error fetching files:', error);
+      console.error('❌ XanoService: Error fetching files:', error);
       throw error;
     }
   }
-  // Process raw Airtable records into app format
+  // Process raw XANO records into app format
   processRecords(records) {
-    console.log('🔄 AirtableService: Processing records...', records);
+    console.log('🔄 XanoService: Processing records...', records);
    
     const processedFiles = records.map(record => {
       const fields = record.fields || {};
@@ -1675,9 +1653,9 @@ const UploadMetadataForm = ({ isOpen, onClose, onSubmit, initialData = {} }) => 
 export default function App() {
   console.log('🚀 App: Starting Enhanced File Manager...');
   // Initialize services
-  const airtableService = useMemo(() => {
-    console.log('🔧 App: Initializing AirtableService...');
-    return new AirtableService();
+  const xanoService = useMemo(() => {
+    console.log('🔧 App: Initializing XanoService...');
+    return new XanoService();
   }, []);
   const cloudinaryService = useMemo(() => {
     console.log('🔧 App: Initializing CloudinaryService...');
@@ -1730,7 +1708,7 @@ export default function App() {
     setLoading(true);
     setError(null);
     try {
-      const loadedFiles = await airtableService.fetchAllFiles();
+      const loadedFiles = await xanoService.fetchAllFiles();
       console.log('✅ App: Files loaded successfully:', loadedFiles);
       setFiles(loadedFiles);
     } catch (err) {
@@ -1739,7 +1717,7 @@ export default function App() {
     } finally {
       setLoading(false);
     }
-  }, [airtableService]);
+  }, [xanoService]);
   // Initial load
   useEffect(() => {
     console.log('🔄 App: Component mounted, loading files...');
@@ -1772,7 +1750,7 @@ export default function App() {
         // Save successful uploads to Airtable
         const savePromises = result.successful.map(async (fileData) => {
           try {
-            await airtableService.saveFile(fileData);
+            await xanoService.saveFile(fileData);
             console.log('✅ App: File saved to database:', fileData.title);
           } catch (error) {
             console.error('❌ App: Error saving file to database:', error);
@@ -1800,7 +1778,7 @@ export default function App() {
       }
     };
     uploadProcess();
-  }, [cloudinaryService, airtableService, loadFiles]);
+  }, [cloudinaryService, xanoService, loadFiles]);
   // Handle File Selection
   const handleFileSelect = useCallback((selectedFiles) => {
     console.log('🔄 App: Files selected for upload:', selectedFiles.length);
@@ -1896,7 +1874,7 @@ export default function App() {
         case 'rename':
           const newTitle = prompt('Enter new name:', target.title);
           if (newTitle && newTitle !== target.title) {
-            await airtableService.updateFile(target.id, { 'Title': newTitle });
+            await xanoService.updateFile(target.id, { 'Title': newTitle });
             await loadFiles();
           }
           break;
@@ -1904,13 +1882,13 @@ export default function App() {
           const categories = ['Images', 'Video', 'Audio', 'Documents', 'Files', 'Product'];
           const newCategory = prompt('Move to category:\n' + categories.join(', '), target.category);
           if (newCategory && categories.includes(newCategory) && newCategory !== target.category) {
-            await airtableService.updateFile(target.id, { 'Category': newCategory });
+            await xanoService.updateFile(target.id, { 'Category': newCategory });
             await loadFiles();
           }
           break;
         case 'delete':
           if (confirm(`Are you sure you want to delete "${target.title}"?`)) {
-            await airtableService.deleteFile(target.id);
+            await xanoService.deleteFile(target.id);
             await loadFiles();
           }
           break;
@@ -1921,26 +1899,26 @@ export default function App() {
       console.error('❌ App: Context action failed:', error);
       alert('Action failed: ' + error.message);
     }
-  }, [airtableService, loadFiles]);
+  }, [xanoService, loadFiles]);
   const closeContextMenu = useCallback(() => {
     setContextMenu({ show: false, x: 0, y: 0, type: '', target: null });
   }, []);
   // File Update Handler
   const handleFileUpdate = useCallback(async (fileId, updates) => {
     try {
-      await airtableService.updateFile(fileId, updates);
+      await xanoService.updateFile(fileId, updates);
       await loadFiles();
       alert('File updated successfully!');
     } catch (error) {
       console.error('❌ App: Error updating file:', error);
       alert('Error updating file: ' + error.message);
     }
-  }, [airtableService, loadFiles]);
+  }, [xanoService, loadFiles]);
   // File Delete Handler
   const handleFileDelete = useCallback(async (file) => {
     if (confirm(`Are you sure you want to delete "${file.title}"?`)) {
       try {
-        await airtableService.deleteFile(file.id);
+        await xanoService.deleteFile(file.id);
         await loadFiles();
         setShowFileDetails(false);
         alert('File deleted successfully!');
@@ -1949,12 +1927,12 @@ export default function App() {
         alert('Error deleting file: ' + error.message);
       }
     }
-  }, [airtableService, loadFiles]);
+  }, [xanoService, loadFiles]);
 
   // Batch Operations Handlers
   const handleBatchUpdate = useCallback(async (updates) => {
     try {
-      await airtableService.updateMultipleFiles(updates);
+      await xanoService.updateMultipleFiles(updates);
       await loadFiles();
       setSelectedFiles([]);
       setShowBatchPanel(false);
@@ -1963,13 +1941,13 @@ export default function App() {
       console.error('❌ App: Error updating files:', error);
       alert('Error updating files: ' + error.message);
     }
-  }, [airtableService, loadFiles]);
+  }, [xanoService, loadFiles]);
 
   const handleBatchDelete = useCallback(async (filesToDelete) => {
     if (confirm(`Are you sure you want to delete ${filesToDelete.length} files?`)) {
       try {
         const recordIds = filesToDelete.map(file => file.id);
-        await airtableService.deleteMultipleFiles(recordIds);
+        await xanoService.deleteMultipleFiles(recordIds);
         await loadFiles();
         setSelectedFiles([]);
         setShowBatchPanel(false);
@@ -1979,7 +1957,7 @@ export default function App() {
         alert('Error deleting files: ' + error.message);
       }
     }
-  }, [airtableService, loadFiles]);
+  }, [xanoService, loadFiles]);
 
   const handleBatchMove = useCallback(async (filesToMove, newCategory) => {
     try {
@@ -1987,7 +1965,7 @@ export default function App() {
         id: file.id,
         fields: { 'Category': newCategory }
       }));
-      await airtableService.updateMultipleFiles(updates);
+      await xanoService.updateMultipleFiles(updates);
       await loadFiles();
       setSelectedFiles([]);
       setShowBatchPanel(false);
@@ -1996,7 +1974,7 @@ export default function App() {
       console.error('❌ App: Error moving files:', error);
       alert('Error moving files: ' + error.message);
     }
-  }, [airtableService, loadFiles]);
+  }, [xanoService, loadFiles]);
 
   // Create Folder Handler
   const handleCreateFolder = useCallback(() => {

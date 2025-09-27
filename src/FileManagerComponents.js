@@ -306,7 +306,7 @@ const ProgressBar = ({ uploads, onClose }) => {
 };
 
 export default function App() {
-  const airtableService = useMemo(() => new AirtableService(), []);
+  const xanoService = useMemo(() => new XanoService(), []);
   const cloudinaryService = useMemo(() => new CloudinaryService(), []);
   const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -340,14 +340,14 @@ export default function App() {
     setLoading(true);
     setError(null);
     try {
-      const loadedFiles = await airtableService.fetchAllFiles();
+      const loadedFiles = await xanoService.fetchAllFiles();
       setFiles(loadedFiles);
     } catch (err) {
       setError(err.message);
     } finally {
       setLoading(false);
     }
-  }, [airtableService]);
+  }, [xanoService]);
 
   useEffect(() => { loadFiles(); }, [loadFiles]);
   useEffect(() => { setSelectedFiles([]); setShowBatchPanel(false); }, [currentFolder]);
@@ -357,7 +357,7 @@ export default function App() {
     setShowUploadForm(false);
     try {
       const result = await cloudinaryService.uploadMultipleFiles(selectedFiles, metadata, (fileIndex, progress, fileName) => setUploads(prev => prev.map((upload, index) => index === fileIndex ? { ...upload, progress } : upload)));
-      const savePromises = result.successful.map(fileData => airtableService.saveFile(fileData));
+      const savePromises = result.successful.map(fileData => xanoService.saveFile(fileData));
       await Promise.all(savePromises);
       if (result.failed.length > 0) alert(`Upload complete! ${result.successful.length} files uploaded successfully, ${result.failed.length} failed.`);
       else alert(`All ${result.successful.length} files uploaded successfully!`);
@@ -369,7 +369,7 @@ export default function App() {
     } finally {
       setIsUploading(false);
     }
-  }, [cloudinaryService, airtableService, loadFiles]);
+  }, [cloudinaryService, xanoService, loadFiles]);
   const handleFileSelect = useCallback(files => { setPendingFiles(files); setShowUploadForm(true); }, []);
   const handleUploadSubmit = useCallback(metadata => { if (pendingFiles.length > 0) startUpload(pendingFiles, metadata); }, [pendingFiles, startUpload]);
   const handleFileSelectToggle = useCallback(file => setSelectedFiles(prev => prev.some(f => f.id === file.id) ? prev.filter(f => f.id !== file.id) : [...prev, file]), []);
@@ -386,18 +386,18 @@ export default function App() {
       switch (action) {
         case 'view': setSelectedFile(target); setShowFileDetails(true); break;
         case 'download': if (target.url) window.open(target.url, '_blank'); break;
-        case 'rename': { const newTitle = prompt('Enter new name:', target.title); if (newTitle && newTitle !== target.title) { await airtableService.updateFile(target.id, { 'Title': newTitle }); await loadFiles(); } break; }
-        case 'move': { const categories = ['Images', 'Video', 'Audio', 'Documents', 'Files', 'Product']; const newCategory = prompt('Move to category:\n' + categories.join(', '), target.category); if (newCategory && categories.includes(newCategory) && newCategory !== target.category) { await airtableService.updateFile(target.id, { 'Category': newCategory }); await loadFiles(); } break; }
-        case 'delete': if (confirm(`Are you sure you want to delete "${target.title}"?`)) { await airtableService.deleteFile(target.id); await loadFiles(); } break;
+        case 'rename': { const newTitle = prompt('Enter new name:', target.title); if (newTitle && newTitle !== target.title) { await xanoService.updateFile(target.id, { 'Title': newTitle }); await loadFiles(); } break; }
+        case 'move': { const categories = ['Images', 'Video', 'Audio', 'Documents', 'Files', 'Product']; const newCategory = prompt('Move to category:\n' + categories.join(', '), target.category); if (newCategory && categories.includes(newCategory) && newCategory !== target.category) { await xanoService.updateFile(target.id, { 'Category': newCategory }); await loadFiles(); } break; }
+        case 'delete': if (confirm(`Are you sure you want to delete "${target.title}"?`)) { await xanoService.deleteFile(target.id); await loadFiles(); } break;
       }
     } catch (error) { alert('Action failed: ' + error.message); }
-  }, [airtableService, loadFiles]);
+  }, [xanoService, loadFiles]);
   const closeContextMenu = useCallback(() => setContextMenu({ show: false, x: 0, y: 0, type: '', target: null }), []);
-  const handleFileUpdate = useCallback(async (fileId, updates) => { try { await airtableService.updateFile(fileId, updates); await loadFiles(); alert('File updated successfully!'); } catch (error) { alert('Error updating file: ' + error.message); } }, [airtableService, loadFiles]);
-  const handleFileDelete = useCallback(async file => { if (confirm(`Are you sure you want to delete "${file.title}"?`)) { try { await airtableService.deleteFile(file.id); await loadFiles(); setShowFileDetails(false); alert('File deleted successfully!'); } catch (error) { alert('Error deleting file: ' + error.message); } } }, [airtableService, loadFiles]);
-  const handleBatchUpdate = useCallback(async updates => { try { await airtableService.updateMultipleFiles(updates); await loadFiles(); setSelectedFiles([]); alert(`Successfully updated ${updates.length} files!`); } catch (error) { alert('Error updating files: ' + error.message); } }, [airtableService, loadFiles]);
-  const handleBatchDelete = useCallback(async filesToDelete => { if (confirm(`Are you sure you want to delete ${filesToDelete.length} files? This cannot be undone.`)) { try { const recordIds = filesToDelete.map(f => f.id); await airtableService.deleteMultipleFiles(recordIds); await loadFiles(); setSelectedFiles([]); alert(`Successfully deleted ${filesToDelete.length} files!`); } catch (error) { alert('Error deleting files: ' + error.message); } } }, [airtableService, loadFiles]);
-  const handleBatchMove = useCallback(async (filesToMove, newCategory) => { try { const updates = filesToMove.map(file => ({ id: file.id, fields: { 'Category': newCategory } })); await airtableService.updateMultipleFiles(updates); await loadFiles(); setSelectedFiles([]); alert(`Successfully moved ${filesToMove.length} files to ${newCategory}!`); } catch (error) { alert('Error moving files: ' + error.message); } }, [airtableService, loadFiles]);
+  const handleFileUpdate = useCallback(async (fileId, updates) => { try { await xanoService.updateFile(fileId, updates); await loadFiles(); alert('File updated successfully!'); } catch (error) { alert('Error updating file: ' + error.message); } }, [xanoService, loadFiles]);
+  const handleFileDelete = useCallback(async file => { if (confirm(`Are you sure you want to delete "${file.title}"?`)) { try { await xanoService.deleteFile(file.id); await loadFiles(); setShowFileDetails(false); alert('File deleted successfully!'); } catch (error) { alert('Error deleting file: ' + error.message); } } }, [xanoService, loadFiles]);
+  const handleBatchUpdate = useCallback(async updates => { try { await xanoService.updateMultipleFiles(updates); await loadFiles(); setSelectedFiles([]); alert(`Successfully updated ${updates.length} files!`); } catch (error) { alert('Error updating files: ' + error.message); } }, [xanoService, loadFiles]);
+  const handleBatchDelete = useCallback(async filesToDelete => { if (confirm(`Are you sure you want to delete ${filesToDelete.length} files? This cannot be undone.`)) { try { const recordIds = filesToDelete.map(f => f.id); await xanoService.deleteMultipleFiles(recordIds); await loadFiles(); setSelectedFiles([]); alert(`Successfully deleted ${filesToDelete.length} files!`); } catch (error) { alert('Error deleting files: ' + error.message); } } }, [xanoService, loadFiles]);
+  const handleBatchMove = useCallback(async (filesToMove, newCategory) => { try { const updates = filesToMove.map(file => ({ id: file.id, fields: { 'Category': newCategory } })); await xanoService.updateMultipleFiles(updates); await loadFiles(); setSelectedFiles([]); alert(`Successfully moved ${filesToMove.length} files to ${newCategory}!`); } catch (error) { alert('Error moving files: ' + error.message); } }, [xanoService, loadFiles]);
   const handleCreateFolder = useCallback(() => { const folderName = prompt('Enter folder name:'); if (folderName && folderName.trim() && !folderTree[folderName.trim()]) { setCurrentFolder(folderName.trim()); } }, [folderTree]);
 
   if (loading) { return (<div className="h-screen flex items-center justify-center bg-gray-50"><div className="text-center"><div className="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-600 mx-auto mb-4"></div><p className="text-gray-600 text-lg">Loading files...</p></div></div>); }
