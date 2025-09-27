@@ -4,17 +4,17 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 // =============================================
 class XanoService {
   constructor() {
-    this.baseUrl = process.env.REACT_APP_XANO_API_BASE || 'http://localhost:5000';
+    this.baseUrl = process.env.REACT_APP_XANO_API_BASE || 'https://x8ki-letl-twmt.n7.xano.io/api:pYeqCtV';
     this.headers = {
       'Content-Type': 'application/json'
     };
   }
-  // Fetch all files from Flask backend
+  // Fetch all files from XANO API
   async fetchAllFiles() {
-    console.log('🔄 XanoService: Fetching files from Flask backend...');
+    console.log('🔄 XanoService: Fetching files from XANO API...');
    
     try {
-      const response = await fetch(`${this.baseUrl}/api/files`, {
+      const response = await fetch(`${this.baseUrl}/voxpro`, {
         method: 'GET',
         headers: this.headers
       });
@@ -26,7 +26,7 @@ class XanoService {
       const data = await response.json();
       console.log('📦 XanoService: Raw response data:', data);
       
-      return this.processRecords(data.files || []);
+      return this.processRecords(Array.isArray(data) ? data : []);
      
     } catch (error) {
       console.error('❌ XanoService: Error fetching files:', error);
@@ -38,110 +38,42 @@ class XanoService {
     console.log('🔄 XanoService: Processing records...', records);
    
     const processedFiles = records.map(record => {
-      const fields = record.fields || {};
+      console.log('🔍 DEBUG: Available properties for record:', record.id, Object.keys(record));
+      console.log('🔍 DEBUG: Full record object:', record);
       
-      // DEBUG: Log all available fields to understand Airtable structure
-      console.log('🔍 DEBUG: Available fields for record:', record.id, Object.keys(fields));
-      console.log('🔍 DEBUG: Full fields object:', fields);
-      
-      // Enhanced URL extraction - handle Airtable attachment fields
+      // Enhanced URL extraction - handle XANO direct properties
       let url = '';
       let fileSize = 0;
       let actualFilename = '';
       
-      // Try different field names and formats with extensive debugging
-      console.log('🔍 Checking URL field:', fields['URL']);
-      console.log('🔍 Checking File URL field:', fields['File URL']);
-      console.log('🔍 Checking Attachments field:', fields['Attachments']);
-      console.log('🔍 Checking File field:', fields['File']);
-      console.log('🔍 Checking Image field:', fields['Image']);
-      console.log('🔍 Checking Media field:', fields['Media']);
-      console.log('🔍 Checking Link field:', fields['Link']);
+      // Try different property names for XANO records
+      console.log('🔍 Checking database_url property:', record.database_url);
+      console.log('🔍 Checking file_url property:', record.file_url);
+      console.log('🔍 Checking url property:', record.url);
       
-      if (fields['URL'] && typeof fields['URL'] === 'string') {
-        url = fields['URL'];
-        console.log('✅ Found URL in URL field:', url);
-      } else if (fields['File URL'] && typeof fields['File URL'] === 'string') {
-        url = fields['File URL'];
-        console.log('✅ Found URL in File URL field:', url);
-      } else if (fields['Link'] && typeof fields['Link'] === 'string') {
-        url = fields['Link'];
-        console.log('✅ Found URL in Link field:', url);
-      } else if (fields['Attachments'] && Array.isArray(fields['Attachments']) && fields['Attachments'].length > 0) {
-        // Handle Airtable attachment field
-        const attachment = fields['Attachments'][0];
-        url = attachment.url || '';
-        fileSize = attachment.size || 0;
-        actualFilename = attachment.filename || '';
-        console.log('✅ Found URL in Attachments field:', { url, fileSize, actualFilename });
-      } else if (fields['File'] && Array.isArray(fields['File']) && fields['File'].length > 0) {
-        // Alternative attachment field name
-        const attachment = fields['File'][0];
-        url = attachment.url || '';
-        fileSize = attachment.size || 0;
-        actualFilename = attachment.filename || '';
-        console.log('✅ Found URL in File field:', { url, fileSize, actualFilename });
-      } else if (fields['Image'] && Array.isArray(fields['Image']) && fields['Image'].length > 0) {
-        // Image attachment field
-        const attachment = fields['Image'][0];
-        url = attachment.url || '';
-        fileSize = attachment.size || 0;
-        actualFilename = attachment.filename || '';
-        console.log('✅ Found URL in Image field:', { url, fileSize, actualFilename });
-      } else if (fields['Media'] && Array.isArray(fields['Media']) && fields['Media'].length > 0) {
-        // Media attachment field
-        const attachment = fields['Media'][0];
-        url = attachment.url || '';
-        fileSize = attachment.size || 0;
-        actualFilename = attachment.filename || '';
-        console.log('✅ Found URL in Media field:', { url, fileSize, actualFilename });
+      if (record.database_url) {
+        url = record.database_url;
+        console.log('✅ Found URL in database_url property:', url);
+      } else if (record.file_url) {
+        url = record.file_url;
+        console.log('✅ Found URL in file_url property:', url);
+      } else if (record.url) {
+        url = record.url;
+        console.log('✅ Found URL in url property:', url);
       } else {
-        // Try to find any field that looks like a URL
-        for (const [fieldName, fieldValue] of Object.entries(fields)) {
-          if (typeof fieldValue === 'string' && (
-            fieldValue.startsWith('http://') || 
-            fieldValue.startsWith('https://') ||
-            fieldValue.includes('cloudinary.com') ||
-            fieldValue.includes('airtable.com')
-          )) {
-            url = fieldValue;
-            console.log(`✅ Found URL-like value in field '${fieldName}':`, url);
-            break;
-          } else if (Array.isArray(fieldValue) && fieldValue.length > 0 && fieldValue[0].url) {
-            const attachment = fieldValue[0];
-            url = attachment.url || '';
-            fileSize = attachment.size || 0;
-            actualFilename = attachment.filename || '';
-            console.log(`✅ Found attachment in field '${fieldName}':`, { url, fileSize, actualFilename });
-            break;
-          }
-        }
+        console.log('❌ No URL found in any expected property');
       }
       
-      if (!url) {
-        console.warn('⚠️ No URL found for record:', record.id, 'Available fields:', Object.keys(fields));
-      }
+      // Get file size and filename from XANO record
+      fileSize = record.file_size || 0;
+      actualFilename = record.title || record.filename || '';
       
-      console.log(`📁 File processing: ${fields['Title']}, URL: ${url}, Size: ${fileSize}, Filename: ${actualFilename}`);
-     
-      // Enhanced file type detection with multiple fallbacks
       let detectedType = this.detectFileTypeFromUrl(url);
+      console.log(`🔍 Detected type from URL: ${detectedType} for URL: ${url}`);
       
-      // Fallback: try to detect from filename if URL detection fails
-      if (detectedType === 'unknown' && actualFilename) {
-        detectedType = this.detectFileTypeFromUrl(actualFilename);
-        console.log(`🔄 Fallback type detection from filename: ${detectedType}`);
-      }
-      
-      // Fallback: try to detect from title
-      if (detectedType === 'unknown') {
-        detectedType = this.detectFileTypeFromUrl(fields['Title'] || '');
-        console.log(`🔄 Fallback type detection from title: ${detectedType}`);
-      }
-      
-      // Final fallback: use category or default to 'file'
-      if (detectedType === 'unknown') {
-        const category = fields['Category'] || '';
+      if (detectedType === 'unknown' || detectedType === 'file') {
+        const category = record.category || '';
+        console.log(`🔍 Trying category-based detection for category: ${category}`);
         if (category.toLowerCase().includes('image')) detectedType = 'image';
         else if (category.toLowerCase().includes('video')) detectedType = 'video';
         else if (category.toLowerCase().includes('audio')) detectedType = 'audio';
@@ -150,26 +82,26 @@ class XanoService {
         console.log(`🔄 Final fallback type from category: ${detectedType}`);
       }
       
-      console.log(`🔍 Final file type for ${fields['Title']}: ${detectedType} from URL: ${url}`);
+      console.log(`🔍 Final file type for ${record.title}: ${detectedType} from URL: ${url}`);
      
       // Generate thumbnail with enhanced logic
       const thumbnail = this.generateThumbnailFromUrl(url, detectedType);
-      console.log(`🖼️ Thumbnail generated for ${fields['Title']}: ${thumbnail}`);
+      console.log(`🖼️ Thumbnail generated for ${record.title}: ${thumbnail}`);
      
       const processedFile = {
         id: record.id,
-        title: fields['Title'] || fields['Name'] || actualFilename || 'Untitled',
+        title: record.title || record.name || actualFilename || 'Untitled',
         url: url,
-        category: fields['Category'] || 'uncategorized',
+        category: record.category || 'uncategorized',
         type: detectedType,
-        station: fields['Station'] || '',
-        description: fields['Description'] || '',
-        notes: fields['Notes'] || '',
-        tags: fields['Tags'] || '',
-        uploadDate: fields['Upload Date'] || fields['Created'] || new Date().toISOString(),
+        station: record.station || '',
+        description: record.description || '',
+        notes: record.notes || '',
+        tags: record.tags || '',
+        uploadDate: record.created_at ? new Date(record.created_at).toISOString() : new Date().toISOString(),
         thumbnail: thumbnail,
-        fileSize: fileSize || fields['File Size'] || 0,
-        duration: fields['Duration'] || '',
+        fileSize: fileSize,
+        duration: record.duration || '',
         originalRecord: record,
         filename: actualFilename
       };
@@ -317,36 +249,35 @@ class XanoService {
     
     return placeholders[fileType] || placeholders['unknown'];
   }
-  // Save new file to Flask backend
+  // Save new file to XANO API
   async saveFile(fileData) {
-    console.log('🔄 XanoService: Saving file to Flask backend:', fileData);
+    console.log('🔄 XanoService: Saving file to XANO API:', fileData);
    
     try {
-      const airtableData = {
-        fields: {
-          'Title': fileData.title || fileData.name,
-          'URL': fileData.url,
-          'Category': fileData.category,
-          'Type': fileData.type,
-          'Station': fileData.station || '',
-          'Description': fileData.description || '',
-          'Notes': fileData.notes || '',
-          'Tags': fileData.tags || '',
-          'Upload Date': new Date().toISOString().split('T')[0],
-          'File Size': fileData.size || 0,
-          'Thumbnail': fileData.thumbnail || fileData.url
-        }
+      const xanoData = {
+        title: fileData.title || fileData.name,
+        database_url: fileData.url,
+        category: fileData.category,
+        station: fileData.station || '',
+        description: fileData.description || '',
+        notes: fileData.notes || '',
+        tags: fileData.tags || '',
+        file_size: fileData.size || 0,
+        file_type: fileData.metadata?.mimeType || '',
+        submitted_by: 'File Manager',
+        created_at: Date.now(),
+        is_featured: false
       };
-      console.log('📡 XanoService: Sending to Flask backend:', airtableData);
-      const response = await fetch(this.baseUrl, {
+      console.log('📡 XanoService: Sending to XANO API:', xanoData);
+      const response = await fetch(`${this.baseUrl}/voxpro`, {
         method: 'POST',
         headers: this.headers,
-        body: JSON.stringify(airtableData)
+        body: JSON.stringify(xanoData)
       });
       if (!response.ok) {
         const errorData = await response.json();
-        console.error('❌ XanoService: Flask backend error:', errorData);
-        throw new Error(`Backend error: ${errorData.error?.message || response.statusText}`);
+        console.error('❌ XanoService: XANO API error:', errorData);
+        throw new Error(`XANO API error: ${errorData.error?.message || response.statusText}`);
       }
       const result = await response.json();
       console.log('✅ XanoService: File saved successfully:', result);
@@ -357,17 +288,21 @@ class XanoService {
       throw error;
     }
   }
-  // Update existing file via Flask backend
+  // Update existing file via XANO API
   async updateFile(recordId, updates) {
     console.log('🔄 XanoService: Updating file:', { recordId, updates });
    
     try {
-      const response = await fetch(`${this.baseUrl}/${recordId}`, {
+      const xanoUpdates = {};
+      if (updates.Title) xanoUpdates.title = updates.Title;
+      if (updates.Description) xanoUpdates.description = updates.Description;
+      if (updates.Category) xanoUpdates.category = updates.Category;
+      if (updates.Tags) xanoUpdates.tags = updates.Tags;
+      
+      const response = await fetch(`${this.baseUrl}/voxpro/${recordId}`, {
         method: 'PATCH',
         headers: this.headers,
-        body: JSON.stringify({
-          fields: updates
-        })
+        body: JSON.stringify(xanoUpdates)
       });
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -381,47 +316,51 @@ class XanoService {
       throw error;
     }
   }
-  // Update multiple files at once
+  // Update multiple files at once via XANO API
   async updateMultipleFiles(updates) {
     console.log('🔄 XanoService: Updating multiple files:', updates);
    
     try {
-      const records = updates.map(update => ({
-        id: update.id,
-        fields: update.fields
-      }));
-      const response = await fetch(this.baseUrl, {
-        method: 'PATCH',
-        headers: this.headers,
-        body: JSON.stringify({
-          records: records
-        })
+      const updatePromises = updates.map(update => {
+        const xanoUpdates = {};
+        if (update.fields.Title) xanoUpdates.title = update.fields.Title;
+        if (update.fields.Description) xanoUpdates.description = update.fields.Description;
+        if (update.fields.Category) xanoUpdates.category = update.fields.Category;
+        if (update.fields.Tags) xanoUpdates.tags = update.fields.Tags;
+        
+        return fetch(`${this.baseUrl}/voxpro/${update.id}`, {
+          method: 'PATCH',
+          headers: this.headers,
+          body: JSON.stringify(xanoUpdates)
+        });
       });
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+      
+      const responses = await Promise.all(updatePromises);
+      const allSuccessful = responses.every(r => r.ok);
+      if (!allSuccessful) {
+        throw new Error('Some updates failed');
       }
-      const result = await response.json();
-      console.log('✅ XanoService: Multiple files updated successfully:', result);
-      return result;
+      console.log('✅ XanoService: Multiple files updated successfully');
+      return { success: true };
      
     } catch (error) {
       console.error('❌ XanoService: Error updating multiple files:', error);
       throw error;
     }
   }
-  // Delete file via Flask backend
+  // Delete file via XANO API
   async deleteFile(recordId) {
     console.log('🔄 XanoService: Deleting file:', recordId);
    
     try {
-      const response = await fetch(`${this.baseUrl}/${recordId}`, {
+      const response = await fetch(`${this.baseUrl}/voxpro/${recordId}`, {
         method: 'DELETE',
         headers: this.headers
       });
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      console.log('✅ AirtableService: File deleted successfully');
+      console.log('✅ XanoService: File deleted successfully');
       return true;
      
     } catch (error) {
