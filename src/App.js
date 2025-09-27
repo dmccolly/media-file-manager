@@ -4,17 +4,17 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 // =============================================
 class XanoService {
   constructor() {
-    this.baseUrl = process.env.REACT_APP_XANO_API_BASE || 'https://x8ki-letl-twmt.n7.xano.io/api:pYeqCtV';
+    this.baseUrl = process.env.REACT_APP_XANO_API_BASE || 'http://localhost:5000';
     this.headers = {
       'Content-Type': 'application/json'
     };
   }
-  // Fetch all files from XANO API
+  // Fetch all files from Flask backend
   async fetchAllFiles() {
-    console.log('🔄 XanoService: Fetching files from XANO API...');
+    console.log('🔄 XanoService: Fetching files from Flask backend...');
    
     try {
-      const response = await fetch(`${this.baseUrl}/voxpro`, {
+      const response = await fetch(`${this.baseUrl}/api/files`, {
         method: 'GET',
         headers: this.headers
       });
@@ -26,7 +26,7 @@ class XanoService {
       const data = await response.json();
       console.log('📦 XanoService: Raw response data:', data);
       
-      return this.processRecords(Array.isArray(data) ? data : []);
+      return this.processRecords(data.files || []);
      
     } catch (error) {
       console.error('❌ XanoService: Error fetching files:', error);

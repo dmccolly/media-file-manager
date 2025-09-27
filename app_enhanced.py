@@ -110,6 +110,27 @@ def upload_file():
         logger.error(f"Upload failed: {upload_error}")
         return jsonify({'success': False, 'error': f'Upload failed: {str(upload_error)}'}), 500
 
+@app.route('/api/files', methods=['GET'])
+def get_all_files():
+    """Fetch all files from XANO voxpro table"""
+    try:
+        logger.info("Fetching all files from XANO voxpro table")
+        
+        fetch_url = f"{XANO_API_BASE}/voxpro"
+        response = requests.get(fetch_url, timeout=30)
+        
+        if response.status_code == 200:
+            files_data = response.json()
+            logger.info(f"Successfully fetched {len(files_data) if isinstance(files_data, list) else 'unknown'} files")
+            return jsonify({'files': files_data}), 200
+        else:
+            logger.error(f"Failed to fetch files from XANO: {response.status_code} - {response.text}")
+            return jsonify({'error': f'Failed to fetch files: {response.status_code}'}), 500
+            
+    except Exception as e:
+        logger.error(f"Error fetching files: {e}")
+        return jsonify({'error': f'Error fetching files: {str(e)}'}), 500
+
 @app.route('/debug-info')
 def debug_info():
     return jsonify({
