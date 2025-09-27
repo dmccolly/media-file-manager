@@ -1569,7 +1569,7 @@ const UploadMetadataForm = ({ isOpen, onClose, onSubmit, initialData = {} }) => 
             </button>
             <button
               type="submit"
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              className="button-primary px-4 py-2 rounded-lg transition-colors"
             >
               Upload Files
             </button>
@@ -1920,10 +1920,10 @@ export default function App() {
   // Render Loading State
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
         <div className="text-center">
           <div className="text-6xl mb-4">⏳</div>
-          <p className="text-xl font-semibold text-gray-700">Loading files...</p>
+          <p className="text-xl font-semibold text-white">Loading files...</p>
         </div>
       </div>
     );
@@ -1932,14 +1932,14 @@ export default function App() {
   // Render Error State
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
         <div className="text-center">
           <div className="text-6xl mb-4">❌</div>
           <p className="text-xl font-semibold text-red-600 mb-4">Error loading files</p>
-          <p className="text-gray-600 mb-4">{error}</p>
+          <p className="text-gray-300 mb-4">{error}</p>
           <button
             onClick={loadFiles}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className="button-primary px-4 py-2 rounded-lg transition-colors"
           >
             🔄 Retry
           </button>
@@ -1951,31 +1951,31 @@ export default function App() {
   // Main App Render
   return (
     <div 
-      className="min-h-screen bg-gray-100 flex flex-col"
+      className="file-manager-container min-h-screen bg-gray-900 text-white flex flex-col"
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
       {/* Header */}
-      <header className="bg-white border-b shadow-sm">
+      <header className="bg-gray-800 border-b border-gray-700 shadow-lg">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center">
-              <h1 className="text-2xl font-bold text-gray-900">📁 File Manager</h1>
-              <div className="ml-4 text-sm text-gray-500">
+              <h1 className="text-2xl font-bold text-white">📁 File Manager</h1>
+              <div className="ml-4 text-sm text-gray-300">
                 {currentFiles.length} files in {currentFolder}
               </div>
             </div>
             
             <div className="flex items-center space-x-4">
               {/* View Mode Toggle */}
-              <div className="flex items-center bg-gray-100 rounded-lg p-1">
+              <div className="flex items-center bg-gray-700 rounded-lg p-1">
                 <button
                   onClick={() => setViewMode('grid')}
                   className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
                     viewMode === 'grid' 
-                      ? 'bg-white text-gray-900 shadow-sm' 
-                      : 'text-gray-600 hover:text-gray-900'
+                      ? 'bg-gray-800 text-white shadow-sm' 
+                      : 'text-gray-300 hover:text-white'
                   }`}
                 >
                   🔲 Grid
@@ -1984,8 +1984,8 @@ export default function App() {
                   onClick={() => setViewMode('list')}
                   className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
                     viewMode === 'list' 
-                      ? 'bg-white text-gray-900 shadow-sm' 
-                      : 'text-gray-600 hover:text-gray-900'
+                      ? 'bg-gray-800 text-white shadow-sm' 
+                      : 'text-gray-300 hover:text-white'
                   }`}
                 >
                   📋 List

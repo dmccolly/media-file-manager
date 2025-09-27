@@ -29,22 +29,22 @@ const SelectionControls = ({ files, selectedFiles, onSelectAll, onClearSelection
 );
 
 const FolderTree = ({ folderTree, currentFolder, setCurrentFolder, expandedFolders, setExpandedFolders, setContextMenu, onCreateFolder }) => (
-  <div className="w-64 bg-gray-50 border-r p-4 overflow-y-auto">
+  <div className="w-64 sidebar-dark bg-gray-800 border-r border-gray-700 p-4 overflow-y-auto">
     <div className="flex items-center justify-between mb-4">
-      <h3 className="font-semibold text-gray-800">Folders</h3>
-      <button onClick={onCreateFolder} className="text-blue-600 hover:text-blue-800 text-sm font-medium" title="Create New Folder">+ New</button>
+      <h3 className="font-semibold text-white">Folders</h3>
+      <button onClick={onCreateFolder} className="text-blue-400 hover:text-blue-300 text-sm font-medium" title="Create New Folder">+ New</button>
     </div>
     <div className="space-y-1">
       {Object.entries(folderTree).map(([folder, count]) => (
         <div key={folder} className="group">
           <div
-            className={`flex items-center p-2 rounded cursor-pointer hover:bg-gray-200 transition-colors ${currentFolder === folder ? 'bg-blue-100 text-blue-800 font-medium' : 'text-gray-700'}`}
+            className={`flex items-center p-2 rounded cursor-pointer hover:bg-gray-700 transition-colors ${currentFolder === folder ? 'bg-blue-900 text-blue-300 font-medium' : 'text-gray-300'}`}
             onClick={() => setCurrentFolder(folder)}
             onContextMenu={e => setContextMenu({ show: true, x: e.clientX, y: e.clientY, type: 'folder', target: folder })}
           >
             <span className="w-4 h-4 mr-2">📁</span>
             <span className="flex-1 truncate">{folder}</span>
-            <span className="text-xs text-gray-500 ml-2 bg-gray-200 px-1 rounded">{count}</span>
+            <span className="text-xs text-gray-400 ml-2 bg-gray-700 px-1 rounded">{count}</span>
           </div>
         </div>
       ))}
@@ -61,7 +61,7 @@ const UploadButton = ({ onFileSelect, isUploading }) => {
   return (
     <div className="relative">
       <input type="file" multiple onChange={handleFileSelect} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" disabled={isUploading} />
-      <button className={`px-4 py-2 rounded-lg font-medium transition-colors ${isUploading ? 'bg-gray-400 cursor-not-allowed text-white' : 'bg-blue-600 hover:bg-blue-700 text-white shadow-sm'}`} disabled={isUploading}>
+      <button className={`px-4 py-2 rounded-lg font-medium transition-colors ${isUploading ? 'bg-gray-600 cursor-not-allowed text-gray-400' : 'button-primary shadow-sm'}`} disabled={isUploading}>
         {isUploading ? '⏳ Uploading...' : '📤 Upload Files'}
       </button>
     </div>
@@ -74,15 +74,15 @@ const FileGrid = ({ files, viewMode, onFileRightClick, onFileClick, selectedFile
   const isSelected = file => selectedFiles.some(f => f.id === file.id);
 
   if (files.length === 0) {
-    return (<div className="flex-1 flex items-center justify-center text-gray-500"><div className="text-center"><div className="text-6xl mb-4">📁</div><p className="text-lg font-medium mb-2">No files in this folder</p><p className="text-sm">Drag files here or use the upload button</p></div></div>);
+    return (<div className="flex-1 flex items-center justify-center text-gray-400"><div className="text-center"><div className="text-6xl mb-4">📁</div><p className="text-lg font-medium mb-2">No files in this folder</p><p className="text-sm">Drag files here or use the upload button</p></div></div>);
   }
   
   const SelectionControls = () => (
-    <div className="flex items-center gap-2 mb-4 p-2 bg-blue-50 rounded-lg">
-      <button onClick={onSelectAll} className="text-sm text-blue-600 hover:text-blue-800">Select All ({files.length})</button>
-      <span className="text-gray-400">|</span>
-      <button onClick={onClearSelection} className="text-sm text-gray-600 hover:text-gray-800">Clear Selection</button>
-      {selectedFiles.length > 0 && (<><span className="text-gray-400">|</span><span className="text-sm font-medium text-blue-800">{selectedFiles.length} selected</span></>)}
+    <div className="flex items-center gap-2 mb-4 p-2 bg-gray-800 rounded-lg">
+      <button onClick={onSelectAll} className="text-sm text-blue-400 hover:text-blue-300">Select All ({files.length})</button>
+      <span className="text-gray-500">|</span>
+      <button onClick={onClearSelection} className="text-sm text-gray-300 hover:text-white">Clear Selection</button>
+      {selectedFiles.length > 0 && (<><span className="text-gray-500">|</span><span className="text-sm font-medium text-blue-300">{selectedFiles.length} selected</span></>)}
     </div>
   );
 
@@ -90,35 +90,35 @@ const FileGrid = ({ files, viewMode, onFileRightClick, onFileClick, selectedFile
     return (
       <div className="flex-1 overflow-auto p-4">
         <SelectionControls />
-        <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
+        <div className="bg-gray-800 rounded-lg shadow-sm border border-gray-700 overflow-hidden">
           <table className="w-full">
-            <thead className="bg-gray-50">
+            <thead className="bg-gray-700">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"><input type="checkbox" checked={selectedFiles.length === files.length} onChange={selectedFiles.length === files.length ? onClearSelection : onSelectAll} className="rounded" /></th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Size</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider"><input type="checkbox" checked={selectedFiles.length === files.length} onChange={selectedFiles.length === files.length ? onClearSelection : onSelectAll} className="rounded" /></th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Name</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Type</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Size</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">Date</th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="bg-gray-800 divide-y divide-gray-700">
               {files.map(file => (
-                <tr key={file.id} className={`hover:bg-gray-50 cursor-pointer transition-colors ${isSelected(file) ? 'bg-blue-50' : ''}`} onContextMenu={e => onFileRightClick(e, file)} onClick={() => onFileClick(file)}>
+                <tr key={file.id} className={`hover:bg-gray-700 cursor-pointer transition-colors ${isSelected(file) ? 'bg-gray-600' : ''}`} onContextMenu={e => onFileRightClick(e, file)} onClick={() => onFileClick(file)}>
                   <td className="px-4 py-3"><input type="checkbox" checked={isSelected(file)} onChange={e => onFileSelect(file, e)} className="rounded" /></td>
                   <td className="px-4 py-3">
                     <div className="flex items-center">
                       <div className="mr-3">{getFileIcon(file.type, 'text-lg')}</div>
                       <div>
-                        <div className="font-medium text-gray-900 truncate" title={file.title}>{file.title}</div>
-                        {file.description && (<div className="text-xs text-gray-500 truncate">{file.description}</div>)}
+                        <div className="font-medium text-white truncate" title={file.title}>{file.title}</div>
+                        {file.description && (<div className="text-xs text-gray-400 truncate">{file.description}</div>)}
                       </div>
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-sm text-gray-600 capitalize">
-                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">{file.type}</span>
+                  <td className="px-4 py-3 text-sm text-gray-300 capitalize">
+                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-700 text-gray-200">{file.type}</span>
                   </td>
-                  <td className="px-4 py-3 text-sm text-gray-600">{formatFileSize(file.fileSize)}</td>
-                  <td className="px-4 py-3 text-sm text-gray-600">{formatDate(file.uploadDate)}</td>
+                  <td className="px-4 py-3 text-sm text-gray-300">{formatFileSize(file.fileSize)}</td>
+                  <td className="px-4 py-3 text-sm text-gray-300">{formatDate(file.uploadDate)}</td>
                 </tr>
               ))}
             </tbody>
@@ -133,9 +133,9 @@ const FileGrid = ({ files, viewMode, onFileRightClick, onFileClick, selectedFile
       <SelectionControls />
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4">
         {files.map(file => (
-          <div key={file.id} className={`relative bg-white border-2 rounded-lg p-3 hover:shadow-lg cursor-pointer transition-all duration-200 group ${isSelected(file) ? 'border-blue-500 bg-blue-50 shadow-md' : 'border-gray-200 hover:border-gray-300'}`} onContextMenu={e => onFileRightClick(e, file)} onClick={() => onFileClick(file)}>
+          <div key={file.id} className={`relative file-item-dark bg-gray-800 border-2 rounded-lg p-3 hover:shadow-lg cursor-pointer transition-all duration-200 group ${isSelected(file) ? 'border-blue-500 bg-gray-700 shadow-md' : 'border-gray-600 hover:border-gray-500'}`} onContextMenu={e => onFileRightClick(e, file)} onClick={() => onFileClick(file)}>
             <div className="absolute top-2 left-2 z-10"><input type="checkbox" checked={isSelected(file)} onChange={e => onFileSelect(file, e)} className="rounded shadow-sm" /></div>
-            <div className="aspect-square mb-2 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden">
+            <div className="aspect-square mb-2 bg-gray-700 rounded-lg flex items-center justify-center overflow-hidden">
               {file.thumbnail ? (
                 <img src={file.thumbnail} alt={file.title} className="w-full h-full object-cover rounded-lg" onError={() => handleImageError(file.id)} loading="lazy" />
               ) : (
@@ -143,13 +143,13 @@ const FileGrid = ({ files, viewMode, onFileRightClick, onFileClick, selectedFile
               )}
             </div>
             <div className="text-sm">
-              <p className="font-medium truncate text-gray-900" title={file.title}>{file.title}</p>
-              <p className="text-xs text-gray-500 truncate">{formatFileSize(file.fileSize)}</p>
-              {file.tags && (<p className="text-xs text-blue-600 truncate mt-1">{file.tags}</p>)}
+              <p className="font-medium truncate text-white" title={file.title}>{file.title}</p>
+              <p className="text-xs text-gray-400 truncate">{formatFileSize(file.fileSize)}</p>
+              {file.tags && (<p className="text-xs text-blue-400 truncate mt-1">{file.tags}</p>)}
             </div>
-            <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 rounded-lg transition-all duration-200 flex items-center justify-center opacity-0 group-hover:opacity-100">
+            <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 rounded-lg transition-all duration-200 flex items-center justify-center opacity-0 group-hover:opacity-100">
               <div className="flex gap-2">
-                <button onClick={e => {e.stopPropagation(); onFileRightClick(e, file);}} className="bg-white bg-opacity-90 hover:bg-opacity-100 p-2 rounded-full shadow-sm" title="More options">⋯</button>
+                <button onClick={e => {e.stopPropagation(); onFileRightClick(e, file);}} className="bg-gray-800 bg-opacity-90 hover:bg-opacity-100 text-white p-2 rounded-full shadow-sm" title="More options">⋯</button>
               </div>
             </div>
           </div>
@@ -236,7 +236,7 @@ const BatchOperationsPanel = ({ selectedFiles, onClose, onBatchUpdate, onBatchDe
         </div>
         {batchAction === 'update' && (<div className="space-y-2"><select value={batchData.category} onChange={e => setBatchData({...batchData, category: e.target.value})} className="w-full p-2 border border-gray-300 rounded text-sm"><option value="Images">Images</option><option value="Video">Video</option><option value="Audio">Audio</option><option value="Documents">Documents</option><option value="Files">Files</option></select><input type="text" placeholder="Tags (append/replace)" value={batchData.tags} onChange={e => setBatchData({...batchData, tags: e.target.value})} className="w-full p-2 border border-gray-300 rounded text-sm" /><input type="text" placeholder="Station" value={batchData.station} onChange={e => setBatchData({...batchData, station: e.target.value})} className="w-full p-2 border border-gray-300 rounded text-sm" /><button onClick={handleBatchUpdate} className="w-full px-3 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700">Update {selectedFiles.length} Files</button></div>)}
         {batchAction === 'move' && (<div className="space-y-2"><select value={batchData.category} onChange={e => setBatchData({...batchData, category: e.target.value})} className="w-full p-2 border border-gray-300 rounded text-sm"><option value="">Select Destination</option><option value="Images">Images</option><option value="Video">Video</option><option value="Audio">Audio</option><option value="Documents">Documents</option><option value="Files">Files</option></select><button onClick={() => onBatchMove(selectedFiles, batchData.category)} disabled={!batchData.category} className="w-full px-3 py-2 bg-green-600 text-white rounded text-sm hover:bg-green-700 disabled:bg-gray-400">Move {selectedFiles.length} Files</button></div>)}
-        {batchAction === 'delete' && (<div className="space-y-2"><p className="text-sm text-red-600">This will permanently delete {selectedFiles.length} files.</p><button onClick={() => onBatchDelete(selectedFiles)} className="w-full px-3 py-2 bg-red-600 text-white rounded text-sm hover:bg-red-700">🗑️ Delete {selectedFiles.length} Files</button></div></div>)}
+        {batchAction === 'delete' && (<div className="space-y-2"><p className="text-sm text-red-600">This will permanently delete {selectedFiles.length} files.</p><button onClick={() => onBatchDelete(selectedFiles)} className="w-full px-3 py-2 bg-red-600 text-white rounded text-sm hover:bg-red-700">🗑️ Delete {selectedFiles.length} Files</button></div>)}
       </div>
     </div>
   );
@@ -400,6 +400,62 @@ export default function App() {
   const handleBatchMove = useCallback(async (filesToMove, newCategory) => { try { const updates = filesToMove.map(file => ({ id: file.id, fields: { 'Category': newCategory } })); await xanoService.updateMultipleFiles(updates); await loadFiles(); setSelectedFiles([]); alert(`Successfully moved ${filesToMove.length} files to ${newCategory}!`); } catch (error) { alert('Error moving files: ' + error.message); } }, [xanoService, loadFiles]);
   const handleCreateFolder = useCallback(() => { const folderName = prompt('Enter folder name:'); if (folderName && folderName.trim() && !folderTree[folderName.trim()]) { setCurrentFolder(folderName.trim()); } }, [folderTree]);
 
-  if (loading) { return (<div className="h-screen flex items-center justify-center bg-gray-50"><div className="text-center"><div className="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-600 mx-auto mb-4"></div><p className="text-gray-600 text-lg">Loading files...</p></div></div>); }
-  if (error) { return (<div className="h-screen flex items-center justify-center bg-gray-50"><div className="text-center"><div className="text-red-500 text-6xl mb-4">❌</div><p className="text-red-600 mb-4 text-lg">Error loading files: {error}</p><button onClick={loadFiles} className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">Try Again</button></div></div>); }
-  return (<div className="h-screen flex flex-col bg-gray-50"
+  if (loading) { return (<div className="h-screen flex items-center justify-center bg-gray-900"><div className="text-center"><div className="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-500 mx-auto mb-4"></div><p className="text-white text-lg">Loading files...</p></div></div>); }
+  if (error) { return (<div className="h-screen flex items-center justify-center bg-gray-900"><div className="text-center"><div className="text-red-500 text-6xl mb-4">❌</div><p className="text-red-600 mb-4 text-lg">Error loading files: {error}</p><button onClick={loadFiles} className="button-primary px-6 py-3 rounded-lg transition-colors">Try Again</button></div></div>); }
+  return (<div className="h-screen flex flex-col bg-gray-900">
+    <div className="flex-1 flex">
+      <FolderTree
+        folderTree={folderTree}
+        currentFolder={currentFolder}
+        setCurrentFolder={setCurrentFolder}
+        expandedFolders={expandedFolders}
+        setExpandedFolders={setExpandedFolders}
+        setContextMenu={setContextMenu}
+        onCreateFolder={handleCreateFolder}
+      />
+      <FileGrid
+        files={currentFiles}
+        viewMode={viewMode}
+        onFileRightClick={handleFileRightClick}
+        onFileClick={handleFileClick}
+        selectedFiles={selectedFiles}
+        onFileSelect={handleFileSelectToggle}
+        onSelectAll={handleSelectAll}
+        onClearSelection={handleClearSelection}
+      />
+    </div>
+    <DragDropOverlay isDragOver={isDragOver} />
+    <ProgressBar uploads={uploads} onClose={() => setUploads([])} />
+    <UploadMetadataForm
+      isOpen={showUploadForm}
+      onClose={() => {
+        setShowUploadForm(false);
+        setPendingFiles([]);
+      }}
+      onSubmit={handleUploadSubmit}
+      initialData={{ category: currentFolder }}
+    />
+    <FileDetailsModal
+      file={selectedFile}
+      isOpen={showFileDetails}
+      onClose={() => {
+        setShowFileDetails(false);
+        setSelectedFile(null);
+      }}
+      onUpdate={handleFileUpdate}
+      onDelete={handleFileDelete}
+    />
+    <BatchOperationsPanel
+      selectedFiles={selectedFiles}
+      onClose={() => setShowBatchPanel(false)}
+      onBatchUpdate={handleBatchUpdate}
+      onBatchDelete={handleBatchDelete}
+      onBatchMove={handleBatchMove}
+    />
+    <ContextMenu
+      contextMenu={contextMenu}
+      onClose={closeContextMenu}
+      onAction={handleContextAction}
+    />
+  </div>);
+};

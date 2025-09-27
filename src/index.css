@@ -1,0 +1,76 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom styles for professional file manager interface */
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: #1a1a1a;
+  color: #ffffff;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+    monospace;
+}
+
+/* Dark theme overrides */
+.dark-theme {
+  background-color: #1a1a1a;
+  color: #ffffff;
+}
+
+/* Professional file manager styling */
+.file-manager-container {
+  background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+  min-height: 100vh;
+}
+
+.sidebar-dark {
+  background-color: #2d2d2d;
+  border-right: 1px solid #404040;
+}
+
+.file-grid-dark {
+  background-color: #1a1a1a;
+}
+
+.file-item-dark {
+  background-color: #2d2d2d;
+  border: 1px solid #404040;
+  transition: all 0.2s ease;
+}
+
+.file-item-dark:hover {
+  background-color: #3d3d3d;
+  border-color: #505050;
+}
+
+.button-primary {
+  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+  color: white;
+  border: none;
+  transition: all 0.2s ease;
+}
+
+.button-primary:hover {
+  background: linear-gradient(135deg, #4338ca 0%, #6d28d9 100%);
+  transform: translateY(-1px);
+}
+
+.input-dark {
+  background-color: #2d2d2d;
+  border: 1px solid #404040;
+  color: #ffffff;
+}
+
+.input-dark:focus {
+  border-color: #4f46e5;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.2);
+}
