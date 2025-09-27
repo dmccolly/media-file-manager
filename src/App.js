@@ -364,23 +364,23 @@ class XanoService {
       return true;
      
     } catch (error) {
-      console.error('❌ AirtableService: Error deleting file:', error);
+      console.error('❌ XanoService: Error deleting file:', error);
       throw error;
     }
   }
   // Delete multiple files at once
   async deleteMultipleFiles(recordIds) {
-    console.log('🔄 AirtableService: Deleting multiple files:', recordIds);
+    console.log('🔄 XanoService: Deleting multiple files:', recordIds);
    
     try {
       const deletePromises = recordIds.map(id => this.deleteFile(id));
       await Promise.all(deletePromises);
      
-      console.log('✅ AirtableService: Multiple files deleted successfully');
+      console.log('✅ XanoService: Multiple files deleted successfully');
       return true;
      
     } catch (error) {
-      console.error('❌ AirtableService: Error deleting multiple files:', error);
+      console.error('❌ XanoService: Error deleting multiple files:', error);
       throw error;
     }
   }
