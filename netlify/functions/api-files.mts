@@ -6,48 +6,29 @@ export default async (req: Request, context: Context) => {
   }
 
   try {
-    console.log('🔄 Netlify Function: Fetching files from XANO API...');
+    console.log('🔄 Netlify Function: XANO API does not support GET for /voxpro endpoint');
+    console.log('📦 Netlify Function: Returning empty files array for now');
     
-    const XANO_API_BASE = 'https://x8ki-letl-twmt.n7.xano.io/api:pYeqCtV';
-    const fetchUrl = `${XANO_API_BASE}/voxpro`;
-    
-    const response = await fetch(fetchUrl, {
-      method: 'GET',
+    // XANO /voxpro endpoint only supports POST (create) operations, not GET (fetch)
+    // Return empty array until proper GET endpoint is available or configured
+    return new Response(JSON.stringify({ 
+      files: [],
+      message: 'XANO API /voxpro endpoint does not support GET operations. No files to display.'
+    }), {
+      status: 200,
       headers: {
         'Content-Type': 'application/json'
       }
     });
     
-    if (response.ok) {
-      const data = await response.json();
-      console.log('📦 Netlify Function: Successfully fetched files from XANO');
-      
-      return new Response(JSON.stringify({ files: data }), {
-        status: 200,
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
-    } else {
-      console.error(`❌ Netlify Function: XANO API error: ${response.status}`);
-      
-      return new Response(JSON.stringify({ 
-        error: `Failed to fetch files: ${response.status}` 
-      }), {
-        status: 500,
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
-    }
-    
   } catch (error) {
-    console.error('❌ Netlify Function: Error fetching files:', error);
+    console.error('❌ Netlify Function: Error:', error);
     
     return new Response(JSON.stringify({ 
-      error: `Error fetching files: ${error.message}` 
+      files: [],
+      error: `Error in function: ${error.message}` 
     }), {
-      status: 500,
+      status: 200,
       headers: {
         'Content-Type': 'application/json'
       }
