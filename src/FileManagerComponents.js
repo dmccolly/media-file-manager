@@ -305,7 +305,23 @@ const ProgressBar = ({ uploads, onClose }) => {
   );
 };
 
-export default function App() {
+export {
+  getFileIcon,
+  formatFileSize,
+  formatDate,
+  SelectionControls,
+  FolderTree,
+  UploadButton,
+  FileGrid,
+  FileDetailsModal,
+  BatchOperationsPanel,
+  ContextMenu,
+  UploadMetadataForm,
+  DragDropOverlay,
+  ProgressBar
+};
+
+function UnusedDuplicateApp() {
   const xanoService = useMemo(() => new XanoService(), []);
   const cloudinaryService = useMemo(() => new CloudinaryService(), []);
   const [files, setFiles] = useState([]);
@@ -402,60 +418,5 @@ export default function App() {
 
   if (loading) { return (<div className="h-screen flex items-center justify-center bg-gray-900"><div className="text-center"><div className="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-500 mx-auto mb-4"></div><p className="text-white text-lg">Loading files...</p></div></div>); }
   if (error) { return (<div className="h-screen flex items-center justify-center bg-gray-900"><div className="text-center"><div className="text-red-500 text-6xl mb-4">❌</div><p className="text-red-600 mb-4 text-lg">Error loading files: {error}</p><button onClick={loadFiles} className="button-primary px-6 py-3 rounded-lg transition-colors">Try Again</button></div></div>); }
-  return (<div className="h-screen flex flex-col bg-gray-900">
-    <div className="flex-1 flex">
-      <FolderTree
-        folderTree={folderTree}
-        currentFolder={currentFolder}
-        setCurrentFolder={setCurrentFolder}
-        expandedFolders={expandedFolders}
-        setExpandedFolders={setExpandedFolders}
-        setContextMenu={setContextMenu}
-        onCreateFolder={handleCreateFolder}
-      />
-      <FileGrid
-        files={currentFiles}
-        viewMode={viewMode}
-        onFileRightClick={handleFileRightClick}
-        onFileClick={handleFileClick}
-        selectedFiles={selectedFiles}
-        onFileSelect={handleFileSelectToggle}
-        onSelectAll={handleSelectAll}
-        onClearSelection={handleClearSelection}
-      />
-    </div>
-    <DragDropOverlay isDragOver={isDragOver} />
-    <ProgressBar uploads={uploads} onClose={() => setUploads([])} />
-    <UploadMetadataForm
-      isOpen={showUploadForm}
-      onClose={() => {
-        setShowUploadForm(false);
-        setPendingFiles([]);
-      }}
-      onSubmit={handleUploadSubmit}
-      initialData={{ category: currentFolder }}
-    />
-    <FileDetailsModal
-      file={selectedFile}
-      isOpen={showFileDetails}
-      onClose={() => {
-        setShowFileDetails(false);
-        setSelectedFile(null);
-      }}
-      onUpdate={handleFileUpdate}
-      onDelete={handleFileDelete}
-    />
-    <BatchOperationsPanel
-      selectedFiles={selectedFiles}
-      onClose={() => setShowBatchPanel(false)}
-      onBatchUpdate={handleBatchUpdate}
-      onBatchDelete={handleBatchDelete}
-      onBatchMove={handleBatchMove}
-    />
-    <ContextMenu
-      contextMenu={contextMenu}
-      onClose={closeContextMenu}
-      onAction={handleContextAction}
-    />
-  </div>);
+  return null;
 };
