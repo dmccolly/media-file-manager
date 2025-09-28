@@ -190,9 +190,9 @@ const FileDetailsModal = ({ file, isOpen, onClose, onUpdate, onDelete }) => {
             {file.type === 'image' && file.url && (<img src={file.url} alt={file.title} className="max-w-full max-h-full object-contain rounded-lg shadow-sm" />)}
             {file.type === 'video' && file.url && (<video src={file.url} controls className="max-w-full max-h-full object-contain rounded-lg shadow-sm">Your browser does not support video playback.</video>)}
             {file.type === 'audio' && file.url && (<div className="text-center"><div className="text-6xl mb-4">🎵</div><audio src={file.url} controls className="w-full max-w-md">Your browser does not support audio playback.</audio></div>)}
-            {!['image', 'video', 'audio'].includes(file.type) && (<div className="text-center"><div className="text-6xl mb-4"><span className="text-6xl">{getFileIcon(file.type)}</span></div><p className="text-gray-600 mb-4">Preview not available for this file type</p>{file.url && (<a href={file.url} target="_blank" rel="noopener noreferrer" className="inline-block px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">📄 Open File</a>)}</div>)}
+            {!['image', 'video', 'audio'].includes(file.type) && (<div className="text-center"><div className="text-6xl mb-4"><span className="text-6xl">{getFileIcon(file.type)}</span></div><p className="text-gray-300 mb-4">Preview not available for this file type</p>{file.url && (<a href={file.url} target="_blank" rel="noopener noreferrer" className="inline-block px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">📄 Open File</a>)}</div>)}
           </div>
-          <div className="w-96 p-6 overflow-y-auto border-l bg-white">
+          <div className="w-96 p-6 overflow-y-auto border-l bg-gray-800">
             <h3 className="text-lg font-semibold mb-4 text-gray-100">File Details</h3>
             {isEditing ? (
               <div className="space-y-4">
@@ -254,8 +254,8 @@ const ContextMenu = ({ contextMenu, onClose, onAction }) => {
   const handleAction = (action) => { onAction(action, contextMenu.target); onClose(); };
   return (
     <div className="fixed inset-0 z-40" onClick={onClose}>
-      <div className="fixed bg-white border border-gray-300 rounded-lg shadow-xl py-2 z-50 min-w-48" style={{ left: contextMenu.x, top: contextMenu.y }}>
-        {contextMenu.type === 'file' ? (<><button className="w-full px-4 py-2 text-left hover:bg-gray-100 text-sm flex items-center gap-2" onClick={() => handleAction('view')}>👁️ View Details</button><button className="w-full px-4 py-2 text-left hover:bg-gray-100 text-sm flex items-center gap-2" onClick={() => handleAction('download')}>💾 Download</button><button className="w-full px-4 py-2 text-left hover:bg-gray-100 text-sm flex items-center gap-2" onClick={() => handleAction('rename')}>✏️ Rename</button><button className="w-full px-4 py-2 text-left hover:bg-gray-100 text-sm flex items-center gap-2" onClick={() => handleAction('move')}>📁 Move to Category</button><hr className="my-1" /><button className="w-full px-4 py-2 text-left hover:bg-red-50 text-sm text-red-600 flex items-center gap-2" onClick={() => handleAction('delete')}>🗑️ Delete</button></>) : (<><button className="w-full px-4 py-2 text-left hover:bg-gray-100 text-sm flex items-center gap-2" onClick={() => handleAction('rename')}>✏️ Rename Folder</button><button className="w-full px-4 py-2 text-left hover:bg-red-50 text-sm text-red-600 flex items-center gap-2" onClick={() => handleAction('delete')}>🗑️ Delete Folder</button></>)}
+      <div className="fixed bg-gray-800 border border-gray-600 rounded-lg shadow-xl py-2 z-50 min-w-48" style={{ left: contextMenu.x, top: contextMenu.y }}>
+        {contextMenu.type === 'file' ? (<><button className="w-full px-4 py-2 text-left hover:bg-gray-700 text-sm text-gray-100 flex items-center gap-2" onClick={() => handleAction('view')}>👁️ View Details</button><button className="w-full px-4 py-2 text-left hover:bg-gray-700 text-sm text-gray-100 flex items-center gap-2" onClick={() => handleAction('download')}>💾 Download</button><button className="w-full px-4 py-2 text-left hover:bg-gray-700 text-sm text-gray-100 flex items-center gap-2" onClick={() => handleAction('rename')}>✏️ Rename</button><button className="w-full px-4 py-2 text-left hover:bg-gray-700 text-sm text-gray-100 flex items-center gap-2" onClick={() => handleAction('move')}>📁 Move to Category</button><hr className="my-1 border-gray-600" /><button className="w-full px-4 py-2 text-left hover:bg-red-900 text-sm text-red-400 flex items-center gap-2" onClick={() => handleAction('delete')}>🗑️ Delete</button></>) : (<><button className="w-full px-4 py-2 text-left hover:bg-gray-700 text-sm text-gray-100 flex items-center gap-2" onClick={() => handleAction('rename')}>✏️ Rename Folder</button><button className="w-full px-4 py-2 text-left hover:bg-red-900 text-sm text-red-400 flex items-center gap-2" onClick={() => handleAction('delete')}>🗑️ Delete Folder</button></>)}
       </div>
     </div>
   );
@@ -287,10 +287,10 @@ const DragDropOverlay = ({ isDragOver }) => {
   if (!isDragOver) return null;
   return (
     <div className="fixed inset-0 bg-blue-600 bg-opacity-20 flex items-center justify-center z-50">
-      <div className="bg-white rounded-2xl p-12 shadow-2xl text-center border-4 border-dashed border-blue-400">
+      <div className="bg-gray-800 rounded-2xl p-12 shadow-2xl text-center border-4 border-dashed border-blue-400">
         <div className="text-6xl mb-4">📤</div>
-        <h3 className="text-2xl font-semibold text-gray-800 mb-2">Drop files to upload</h3>
-        <p className="text-gray-600">Release to start uploading to the current folder</p>
+        <h3 className="text-2xl font-semibold text-gray-100 mb-2">Drop files to upload</h3>
+        <p className="text-gray-300">Release to start uploading to the current folder</p>
       </div>
     </div>
   );
