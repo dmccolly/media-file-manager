@@ -27,11 +27,48 @@ if (!rootElement) {
     const hasLoadingIndicator = loadingIndicator && loadingIndicator.parentNode === rootElement;
     const hasLoadingText = rootContent.includes('Loading Media File Manager...');
     
-    console.log(`Mount check ${mountCheckAttempts}/${maxAttempts}: hasReactContent=${hasReactContent}, hasLoadingIndicator=${hasLoadingIndicator}, hasLoadingText=${hasLoadingText}`);
+    const hasRawHTML = rootContent.includes('<') && rootContent.includes('>') && 
+                      !hasReactContent && !hasLoadingText && !hasLoadingIndicator;
+    
+    console.log(`Mount check ${mountCheckAttempts}/${maxAttempts}: hasReactContent=${hasReactContent}, hasLoadingIndicator=${hasLoadingIndicator}, hasLoadingText=${hasLoadingText}, hasRawHTML=${hasRawHTML}`);
     console.log(`Root content length: ${rootContent.length}, first 200 chars: ${rootContent.substring(0, 200)}`);
     
     if (hasReactContent && !hasLoadingIndicator && !hasLoadingText) {
       console.log('✅ React mounted successfully with content verification');
+      return;
+    }
+    
+    if (hasRawHTML) {
+      console.error(`🚨 Raw HTML detected instead of React content - this is the reported issue!`);
+      console.error(`Raw HTML content: ${rootContent.substring(0, 1000)}`);
+      
+      if (mountCheckAttempts < maxAttempts) {
+        console.log(`Attempting to fix raw HTML issue (attempt ${mountCheckAttempts + 1}/${maxAttempts})...`);
+        setTimeout(() => {
+          try {
+            rootElement.innerHTML = '';
+            setTimeout(() => {
+              rootElement.innerHTML = '<div id="loading-indicator" style="padding: 20px; color: white; background: #1a1a1a; text-align: center;">Fixing React mounting...</div>';
+              
+              if (typeof ReactDOM.createRoot !== 'undefined') {
+                const newRoot = ReactDOM.createRoot(rootElement);
+                newRoot.render(<React.StrictMode><App /></React.StrictMode>);
+              } else if (typeof ReactDOM.render !== 'undefined') {
+                ReactDOM.render(<React.StrictMode><App /></React.StrictMode>, rootElement);
+              } else {
+                throw new Error('No React rendering method available');
+              }
+              
+              setTimeout(checkReactMount, 3000);
+            }, 500);
+          } catch (retryError) {
+            console.error('React retry failed:', retryError);
+            showFallbackUI();
+          }
+        }, 1000);
+      } else {
+        showFallbackUI();
+      }
       return;
     }
     
