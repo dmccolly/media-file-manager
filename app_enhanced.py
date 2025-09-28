@@ -6,6 +6,9 @@ from datetime import datetime
 from flask import Flask, request, render_template, jsonify
 from flask_cors import CORS
 import requests
+import cloudinary
+import cloudinary.uploader
+from cloudinary.utils import cloudinary_url
 
 app = Flask(__name__)
 app.config['TEMPLATES_AUTO_RELOAD'] = True
@@ -18,15 +21,63 @@ logger = logging.getLogger(__name__)
 # USE THE SAME XANO WORKSPACE AS VOXPRO
 XANO_API_BASE = 'https://x8ki-letl-twmt.n7.xano.io/api:pYeqCtV'
 
-ALLOWED_EXTENSIONS = {
-    'png', 'jpg', 'jpeg', 'gif', 'mp4', 'mov', 'avi',
-    'mp3', 'wav', 'pdf', 'doc', 'docx', 'mkv', 'wmv', 'flv'
-}
+cloudinary.config(
+    cloud_name=os.environ.get('CLOUDINARY_CLOUD_NAME', 'dzrw8nopf'),
+    api_key=os.environ.get('CLOUDINARY_API_KEY'),
+    api_secret=os.environ.get('CLOUDINARY_API_SECRET')
+)
+
+WEBFLOW_API_KEY = os.environ.get('WEBFLOW_API_KEY')
+WEBFLOW_SITE_ID = os.environ.get('WEBFLOW_SITE_ID', 'default-site-id')
+
+def sync_to_webflow(media_record, cloudinary_url):
+    """Sync media record to Webflow CMS"""
+    if not WEBFLOW_API_KEY:
+        return False
+    
+    try:
+        webflow_headers = {
+            'Authorization': f'Bearer {WEBFLOW_API_KEY}',
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+        }
+        
+        webflow_data = {
+            'name': media_record.get('title', 'Untitled'),
+            'slug': f"media-{media_record.get('id', 'unknown')}",
+            'fields': {
+                'title': media_record.get('title', ''),
+                'description': media_record.get('description', ''),
+                'media-url': cloudinary_url,
+                'category': media_record.get('category', ''),
+                'tags': media_record.get('tags', ''),
+                'station': media_record.get('station', ''),
+                'file-type': media_record.get('file_type', ''),
+                'file-size': media_record.get('file_size', 0),
+                'created-date': datetime.now().isoformat()
+            }
+        }
+        
+        webflow_url = f"https://api.webflow.com/sites/{WEBFLOW_SITE_ID}/collections/media/items"
+        response = requests.post(webflow_url, headers=webflow_headers, json=webflow_data, timeout=10)
+        
+        if response.status_code in [200, 201]:
+            logger.info(f"Successfully synced to Webflow: {response.json()}")
+            return True
+        else:
+            logger.warning(f"Webflow sync failed: {response.status_code} - {response.text}")
+            return False
+            
+    except Exception as e:
+        logger.error(f"Webflow sync error: {e}")
+        return False
+
+ALLOWED_EXTENSIONS = set()  # Allow all file types
 
 MAX_FILE_SIZE = 250 * 1024 * 1024  # 250MB
 
-def allowed_file(filename ):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+def allowed_file(filename):
+    return '.' in filename and len(filename.rsplit('.', 1)[1]) > 0
 
 def validate_file_size(file):
     file.seek(0, 2)
@@ -66,7 +117,25 @@ def upload_file():
         priority = request.form.get('priority', '')
         notes = request.form.get('notes', '')
         
-        # Create media record directly in VoxPro's Xano workspace
+        try:
+            cloudinary_result = cloudinary.uploader.upload(
+                file,
+                folder="HIBF_assets",
+                resource_type="auto",
+                public_id=f"{int(datetime.now().timestamp())}_{file.filename}"
+            )
+            cloudinary_file_url = cloudinary_result['secure_url']
+            logger.info(f"File uploaded to Cloudinary: {cloudinary_file_url}")
+        except Exception as cloudinary_error:
+            logger.error(f"Cloudinary upload failed: {cloudinary_error}")
+            return jsonify({'success': False, 'error': f'File upload failed: {str(cloudinary_error)}'}), 500
+        
+        # Reset file pointer for size calculation
+        file.seek(0)
+        file_size = len(file.read())
+        file.seek(0)
+        
+        # Create media record in VoxPro's Xano workspace with Cloudinary URL
         media_data = {
             'title': title,
             'description': description,
@@ -78,14 +147,11 @@ def upload_file():
             'notes': notes,
             'notes2': '',
             'file_type': file.content_type,
-            'file_size': len(file.read()),
-            'database_url': f"https://x8ki-letl-twmt.n7.xano.io/vault/{file.filename}",  # Direct file URL
-            'created_at': int(datetime.now( ).timestamp() * 1000),
+            'file_size': file_size,
+            'database_url': cloudinary_file_url,
+            'created_at': int(datetime.now().timestamp() * 1000),
             'is_featured': False
         }
-        
-        # Reset file pointer
-        file.seek(0)
         
         # Save to VoxPro's Xano database (/voxpro endpoint)
         media_create_url = f"{XANO_API_BASE}/voxpro"
@@ -95,11 +161,20 @@ def upload_file():
             media_record = media_response.json()
             logger.info(f"Media record created successfully: {media_record.get('id')}")
             
+            webflow_synced = False
+            try:
+                if WEBFLOW_API_KEY:
+                    webflow_synced = sync_to_webflow(media_record, cloudinary_file_url)
+            except Exception as webflow_error:
+                logger.warning(f"Webflow sync failed: {webflow_error}")
+            
             return jsonify({
                 'success': True,
                 'message': f'Upload successful! File: {file.filename}',
                 'xano_id': media_record.get('id'),
                 'file_size': media_data['file_size'],
+                'cloudinary_url': cloudinary_file_url,
+                'webflow_synced': webflow_synced,
                 'redirect': '/'
             }), 200
         else:
@@ -109,6 +184,85 @@ def upload_file():
     except Exception as upload_error:
         logger.error(f"Upload failed: {upload_error}")
         return jsonify({'success': False, 'error': f'Upload failed: {str(upload_error)}'}), 500
+
+@app.route('/media')
+def media_library():
+    """Display media library with files from Xano database"""
+    try:
+        media_list_url = f"{XANO_API_BASE}/voxpro"
+        response = requests.get(media_list_url, timeout=30)
+        
+        if response.status_code == 200:
+            media_records = response.json()
+            return render_template('media_list_enhanced.html', media_records=media_records)
+        else:
+            logger.error(f"Failed to fetch media records: {response.status_code}")
+            return render_template('media_list_enhanced.html', media_records=[], error="Failed to load media library")
+    except Exception as e:
+        logger.error(f"Media library error: {e}")
+        return render_template('media_list_enhanced.html', media_records=[], error=str(e))
+
+@app.route('/test')
+def system_status():
+    """System status and health check"""
+    try:
+        xano_status = "OK"
+        try:
+            test_url = f"{XANO_API_BASE}/voxpro"
+            test_response = requests.get(test_url, timeout=10)
+            if test_response.status_code != 200:
+                xano_status = f"Error: {test_response.status_code}"
+        except Exception as e:
+            xano_status = f"Connection failed: {str(e)}"
+        
+        cloudinary_status = "OK" if cloudinary.config().cloud_name else "Not configured"
+        
+        webflow_status = "OK" if WEBFLOW_API_KEY else "Not configured"
+        
+        status_data = {
+            'xano_database': xano_status,
+            'cloudinary_storage': cloudinary_status,
+            'webflow_cms': webflow_status,
+            'max_file_size': f"{MAX_FILE_SIZE / (1024*1024)}MB",
+            'allowed_extensions': list(ALLOWED_EXTENSIONS),
+            'timestamp': datetime.now().isoformat()
+        }
+        
+        return jsonify(status_data)
+    except Exception as e:
+        return jsonify({'error': str(e), 'status': 'System check failed'}), 500
+
+@app.route('/webflow/collections')
+def webflow_collections():
+    """Display Webflow collections and sync status"""
+    if not WEBFLOW_API_KEY:
+        return jsonify({'error': 'Webflow API key not configured'}), 400
+    
+    try:
+        webflow_headers = {
+            'Authorization': f'Bearer {WEBFLOW_API_KEY}',
+            'Accept': 'application/json'
+        }
+        
+        collections_url = f"https://api.webflow.com/sites/{WEBFLOW_SITE_ID}/collections"
+        response = requests.get(collections_url, headers=webflow_headers, timeout=10)
+        
+        if response.status_code == 200:
+            collections = response.json()
+            return jsonify({
+                'status': 'Connected to Webflow',
+                'site_id': WEBFLOW_SITE_ID,
+                'collections': collections,
+                'timestamp': datetime.now().isoformat()
+            })
+        else:
+            return jsonify({
+                'error': f'Webflow API error: {response.status_code}',
+                'message': response.text
+            }), response.status_code
+            
+    except Exception as e:
+        return jsonify({'error': str(e), 'status': 'Webflow connection failed'}), 500
 
 @app.route('/debug-info')
 def debug_info():

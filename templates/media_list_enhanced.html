@@ -1,1 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Media Library - Idaho Broadcasting</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            padding: 40px;
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+        }
+        .nav-links {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+        .nav-links a {
+            color: #667eea;
+            text-decoration: none;
+            margin: 0 15px;
+            font-weight: 500;
+            padding: 8px 16px;
+            border-radius: 5px;
+            transition: all 0.3s ease;
+        }
+        .nav-links a:hover {
+            background: #667eea;
+            color: white;
+        }
+        .media-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 30px;
+        }
+        .media-item {
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            padding: 20px;
+            background: #f9f9f9;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .media-item:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }
+        .media-title {
+            font-weight: bold;
+            font-size: 1.2em;
+            color: #333;
+            margin-bottom: 10px;
+        }
+        .media-info {
+            color: #666;
+            font-size: 0.9em;
+            margin: 5px 0;
+        }
+        .media-url {
+            word-break: break-all;
+            color: #667eea;
+            text-decoration: none;
+        }
+        .media-url:hover {
+            text-decoration: underline;
+        }
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+            text-align: center;
+        }
+        .no-media {
+            text-align: center;
+            color: #666;
+            font-style: italic;
+            margin: 40px 0;
+        }
+        .file-preview {
+            margin: 15px 0;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            overflow: hidden;
+        }
+        .preview-container {
+            width: 100%;
+            height: 300px;
+            background: #f8f9fa;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .preview-iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+        .preview-image {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+        .preview-video {
+            width: 100%;
+            height: 100%;
+        }
+        .preview-audio {
+            width: 100%;
+        }
+        .preview-fallback {
+            text-align: center;
+            color: #666;
+            padding: 20px;
+        }
+        .download-link {
+            display: inline-block;
+            margin: 10px 0;
+            padding: 8px 16px;
+            background: #667eea;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            transition: background 0.3s ease;
+        }
+        .download-link:hover {
+            background: #5a67d8;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Media Library</h1>
+        
+        <div class="nav-links">
+            <a href="/">Upload Media</a> |
+            <a href="/media">View Media Library</a> |
+            <a href="/test">System Status</a> |
+            <a href="/webflow/collections">Webflow Collections</a>
+        </div>
 
+        {% if error %}
+            <div class="error-message">
+                Error: {{ error }}
+            </div>
+        {% endif %}
+
+        {% if media_records %}
+            <div class="media-grid">
+                {% for media in media_records %}
+                <div class="media-item">
+                    <div class="media-title">{{ media.title or 'Untitled' }}</div>
+                    <div class="media-info"><strong>Category:</strong> {{ media.category or 'Uncategorized' }}</div>
+                    <div class="media-info"><strong>Station:</strong> {{ media.station or 'N/A' }}</div>
+                    <div class="media-info"><strong>File Type:</strong> {{ media.file_type or 'Unknown' }}</div>
+                    <div class="media-info"><strong>File Size:</strong> {{ (media.file_size / 1024 / 1024) | round(2) if media.file_size else 'Unknown' }} MB</div>
+                    <div class="media-info"><strong>Submitted By:</strong> {{ media.submitted_by or 'Anonymous' }}</div>
+                    {% if media.description %}
+                        <div class="media-info"><strong>Description:</strong> {{ media.description }}</div>
+                    {% endif %}
+                    {% if media.tags %}
+                        <div class="media-info"><strong>Tags:</strong> {{ media.tags }}</div>
+                    {% endif %}
+                    {% if media.database_url %}
+                        <div class="media-info">
+                            <strong>File:</strong> 
+                            <a href="{{ media.database_url }}" target="_blank" class="download-link">Download File</a>
+                        </div>
+                        <div class="file-preview">
+                            <div class="preview-container" id="preview-{{ loop.index }}">
+                                <!-- Universal file preview will be loaded here -->
+                            </div>
+                        </div>
+                    {% endif %}
+                    <div class="media-info"><strong>Created:</strong> {{ media.created_at | int | timestamp_to_date if media.created_at else 'Unknown' }}</div>
+                </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="no-media">
+                No media files found in the library.
+            </div>
+        {% endif %}
+    </div>
+
+    <script>
+        // Add timestamp filter for Jinja2
+        function timestampToDate(timestamp) {
+            return new Date(timestamp).toLocaleDateString();
+        }
+
+        // Universal file preview system
+        function createFilePreview(url, fileType, containerId) {
+            const container = document.getElementById(containerId);
+            if (!container || !url) return;
+
+            const extension = fileType ? fileType.split('/')[1] : url.split('.').pop().toLowerCase();
+            
+            // Image files
+            if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg'].includes(extension) || 
+                (fileType && fileType.startsWith('image/'))) {
+                container.innerHTML = `<img src="${url}" alt="Preview" class="preview-image" onerror="showFallback('${containerId}', '${url}')">`;
+            }
+            // Video files
+            else if (['mp4', 'webm', 'ogg', 'avi', 'mov', 'wmv', 'flv'].includes(extension) || 
+                     (fileType && fileType.startsWith('video/'))) {
+                container.innerHTML = `<video controls class="preview-video" preload="metadata">
+                    <source src="${url}" type="${fileType || 'video/' + extension}">
+                    Your browser does not support the video tag.
+                </video>`;
+            }
+            // Audio files
+            else if (['mp3', 'wav', 'ogg', 'aac', 'm4a', 'flac'].includes(extension) || 
+                     (fileType && fileType.startsWith('audio/'))) {
+                container.innerHTML = `<audio controls class="preview-audio" preload="metadata">
+                    <source src="${url}" type="${fileType || 'audio/' + extension}">
+                    Your browser does not support the audio tag.
+                </audio>`;
+            }
+            // PDF files
+            else if (extension === 'pdf' || (fileType && fileType === 'application/pdf')) {
+                container.innerHTML = `<iframe src="${url}#toolbar=1&navpanes=1&scrollbar=1" class="preview-iframe" title="PDF Preview"></iframe>`;
+            }
+            // Microsoft Office documents (Word, Excel, PowerPoint)
+            else if (['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx'].includes(extension)) {
+                const officeViewerUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(url)}`;
+                container.innerHTML = `<iframe src="${officeViewerUrl}" class="preview-iframe" title="Office Document Preview"></iframe>`;
+            }
+            // Google Docs Viewer for other document types
+            else if (['rtf', 'odt', 'ods', 'odp'].includes(extension)) {
+                const googleViewerUrl = `https://docs.google.com/gview?url=${encodeURIComponent(url)}&embedded=true`;
+                container.innerHTML = `<iframe src="${googleViewerUrl}" class="preview-iframe" title="Document Preview"></iframe>`;
+            }
+            // Text files
+            else if (['txt', 'csv', 'json', 'xml', 'html', 'css', 'js', 'py', 'java', 'cpp', 'c', 'h'].includes(extension) || 
+                     (fileType && fileType.startsWith('text/'))) {
+                fetch(url)
+                    .then(response => response.text())
+                    .then(text => {
+                        container.innerHTML = `<pre style="padding: 15px; margin: 0; overflow: auto; height: 100%; font-family: monospace; font-size: 12px; line-height: 1.4; background: #f8f9fa;">${escapeHtml(text.substring(0, 5000))}${text.length > 5000 ? '\n\n... (truncated)' : ''}</pre>`;
+                    })
+                    .catch(() => showFallback(containerId, url));
+            }
+            // Fallback for unsupported file types
+            else {
+                showFallback(containerId, url);
+            }
+        }
+
+        function showFallback(containerId, url) {
+            const container = document.getElementById(containerId);
+            if (container) {
+                container.innerHTML = `<div class="preview-fallback">
+                    <p>Preview not available for this file type</p>
+                    <a href="${url}" target="_blank" class="download-link">Open in New Tab</a>
+                </div>`;
+            }
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Initialize previews when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            {% for media in media_records %}
+                {% if media.database_url %}
+                    createFilePreview('{{ media.database_url }}', '{{ media.file_type or "" }}', 'preview-{{ loop.index }}');
+                {% endif %}
+            {% endfor %}
+        });
+    </script>
+</body>
+</html>
