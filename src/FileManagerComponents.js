@@ -23,11 +23,11 @@ const formatDate = dateString => {
 
 const SelectionControls = ({ files, selectedFiles, onSelectAll, onClearSelection }) => {
   return (
-    <div className="flex items-center gap-2 mb-4 p-2 bg-blue-50 rounded-lg">
-      <button onClick={onSelectAll} className="text-sm text-blue-600 hover:text-blue-800">Select All ({files.length})</button>
-      <span className="text-gray-400">|</span>
-      <button onClick={onClearSelection} className="text-sm text-gray-600 hover:text-gray-800">Clear Selection</button>
-      {selectedFiles.length > 0 && (<><span className="text-gray-400">|</span><span className="text-sm font-medium text-blue-800">{selectedFiles.length} selected</span></>)}
+    <div className="flex items-center gap-2 mb-4 p-2 bg-gray-800 rounded-lg">
+      <button onClick={onSelectAll} className="text-sm text-blue-400 hover:text-blue-300">Select All ({files.length})</button>
+      <span className="text-gray-500">|</span>
+      <button onClick={onClearSelection} className="text-sm text-gray-300 hover:text-white">Clear Selection</button>
+      {selectedFiles.length > 0 && (<><span className="text-gray-500">|</span><span className="text-sm font-medium text-blue-300">{selectedFiles.length} selected</span></>)}
     </div>
   );
 };
