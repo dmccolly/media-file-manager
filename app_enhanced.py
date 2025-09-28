@@ -280,7 +280,8 @@ def debug_info():
         'xano_api_base': XANO_API_BASE,
         'max_file_size': f"{MAX_FILE_SIZE / (1024*1024)}MB",
         'allowed_extensions': list(ALLOWED_EXTENSIONS),
-        'status': 'File Manager using same Xano workspace as VoxPro'
+        'status': 'File Manager using same Xano workspace as VoxPro',
+        'deployment_status': 'React frontend integrated'
     })
 
 if __name__ == '__main__':
