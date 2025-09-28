@@ -3,7 +3,6 @@ import ReactDOM from 'react-dom/client';
 import './index.css';
 import App from './App';
 
-if (window.reactStarting) window.reactStarting();
 
 const rootElement = document.getElementById('root');
 
@@ -34,7 +33,6 @@ if (!rootElement) {
         rootElement.innerHTML = '<div style="padding: 20px; color: red; background: #1a1a1a; font-family: Arial, sans-serif; min-height: 100vh;"><h2>React Mounting Timeout</h2><p>The React application is taking too long to load.</p><p>Please refresh the page and try again.</p></div>';
       } else {
         console.log('React mounted successfully');
-        if (window.reactMounted) window.reactMounted();
       }
     }, 5000);
     
