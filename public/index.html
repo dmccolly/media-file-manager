@@ -198,16 +198,8 @@
       window.addEventListener('load', function() {
         console.log('Page loaded, checking for modern JS support and React app mounting...');
         
-        // Immediate React library availability check
-        if (typeof window.React === 'undefined' || typeof window.ReactDOM === 'undefined') {
-          console.error('❌ React libraries not loaded after page load');
-          setTimeout(function() {
-            if (typeof window.React === 'undefined' || typeof window.ReactDOM === 'undefined') {
-              showCompatibilityError('React libraries failed to load - this may be due to network issues or browser compatibility problems');
-              return;
-            }
-          }, 2000);
-        }
+        // Note: React libraries are bundled as ES6 modules in Create React App, not global variables
+        // The actual React mounting is handled by src/index.js with proper error handling
         
         // Comprehensive modern JavaScript support testing
         var supportsModernJS = true;
@@ -343,13 +335,7 @@
       window.addEventListener('error', function(e) {
         if (e.target && e.target.tagName === 'SCRIPT') {
           console.error('Script loading failed:', e.target.src);
-          // Redirect to fallback page if critical scripts fail to load
-          setTimeout(function() {
-            if (!window.React || !window.ReactDOM) {
-              console.error('Critical scripts failed, redirecting to fallback page');
-              window.location.href = '/fallback.html';
-            }
-          }, 3000);
+          // Note: React mounting errors are handled by src/index.js
         }
       });
       
