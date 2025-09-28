@@ -198,6 +198,17 @@
       window.addEventListener('load', function() {
         console.log('Page loaded, checking for modern JS support and React app mounting...');
         
+        // Immediate React library availability check
+        if (typeof window.React === 'undefined' || typeof window.ReactDOM === 'undefined') {
+          console.error('❌ React libraries not loaded after page load');
+          setTimeout(function() {
+            if (typeof window.React === 'undefined' || typeof window.ReactDOM === 'undefined') {
+              showCompatibilityError('React libraries failed to load - this may be due to network issues or browser compatibility problems');
+              return;
+            }
+          }, 2000);
+        }
+        
         // Comprehensive modern JavaScript support testing
         var supportsModernJS = true;
         var failedFeatures = [];
