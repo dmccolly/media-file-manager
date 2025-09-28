@@ -25,20 +25,29 @@ class XanoService {
       'Content-Type': 'application/json'
     };
   }
-  // Fetch all files - XANO /voxpro endpoint only supports POST, not GET
+  // Fetch all files via FastAPI backend
   async fetchAllFiles() {
-    console.log('🔄 XanoService: XANO API /voxpro endpoint does not support GET operations');
-    console.log('📦 XanoService: Returning empty files array - no existing records to fetch');
+    console.log('🔄 XanoService: Fetching files via FastAPI backend /api/files');
    
     try {
-      // Return empty array until proper GET endpoint is available or configured
-      const emptyData = [];
-      console.log('📦 XanoService: Raw response data:', emptyData);
+      const response = await fetch('/api/files', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
       
-      return this.processRecords(emptyData);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      console.log('📦 XanoService: Raw response data:', data);
+      
+      return this.processRecords(data.files || []);
      
     } catch (error) {
-      console.error('❌ XanoService: Error processing empty data:', error);
+      console.error('❌ XanoService: Error fetching files:', error);
       return [];
     }
   }
@@ -258,38 +267,44 @@ class XanoService {
     
     return placeholders[fileType] || placeholders['unknown'];
   }
-  // Save new file to XANO API
+  // Save new file via FastAPI backend
   async saveFile(fileData) {
-    console.log('🔄 XanoService: Saving file to XANO API:', fileData);
+    console.log('🔄 XanoService: Saving file via FastAPI backend:', fileData);
    
     try {
-      const xanoData = {
-        title: fileData.title || fileData.name,
-        database_url: fileData.url,
-        category: fileData.category,
-        station: fileData.station || '',
-        description: fileData.description || '',
-        notes: fileData.notes || '',
-        tags: fileData.tags || '',
-        file_size: fileData.size || 0,
-        file_type: fileData.metadata?.mimeType || '',
-        submitted_by: 'File Manager',
-        created_at: Date.now(),
-        is_featured: false
-      };
-      console.log('📡 XanoService: Sending to XANO API:', xanoData);
-      const response = await fetch(`${this.baseUrl}/voxpro`, {
-        method: 'POST',
-        headers: this.headers,
-        body: JSON.stringify(xanoData)
+      const formData = new FormData();
+      
+      // Create a dummy file for the FastAPI endpoint
+      const dummyFile = new File([''], fileData.name || 'file.txt', {
+        type: fileData.metadata?.mimeType || 'text/plain'
       });
+      
+      formData.append('file', dummyFile);
+      formData.append('title', fileData.title || fileData.name || '');
+      formData.append('description', fileData.description || '');
+      formData.append('station', fileData.station || '');
+      formData.append('category', fileData.category || '');
+      formData.append('tags', fileData.tags || '');
+      formData.append('submitted_by', 'File Manager');
+      formData.append('notes', fileData.notes || '');
+      formData.append('cloudinary_url', fileData.url || '');
+      formData.append('thumbnail_url', fileData.thumbnail || '');
+      formData.append('public_id', fileData.public_id || '');
+      
+      console.log('📡 XanoService: Sending to FastAPI /upload endpoint');
+      const response = await fetch('/upload', {
+        method: 'POST',
+        body: formData
+      });
+      
       if (!response.ok) {
         const errorData = await response.json();
-        console.error('❌ XanoService: XANO API error:', errorData);
-        throw new Error(`XANO API error: ${errorData.error?.message || response.statusText}`);
+        console.error('❌ XanoService: FastAPI error:', errorData);
+        throw new Error(`FastAPI error: ${errorData.detail || response.statusText}`);
       }
+      
       const result = await response.json();
-      console.log('✅ XanoService: File saved successfully:', result);
+      console.log('✅ XanoService: File saved successfully via FastAPI:', result);
       return result;
      
     } catch (error) {
