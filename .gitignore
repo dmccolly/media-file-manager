@@ -21,6 +21,12 @@ coverage.xml
 .pytest_cache
 .hypothesis
 
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
 # Environment variables
 .env
 .venv
