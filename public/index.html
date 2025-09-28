@@ -131,6 +131,69 @@
         };
       }
       
+      // Add more comprehensive ES6+ polyfills
+      if (!Array.from) {
+        Array.from = function(arrayLike) {
+          var result = [];
+          for (var i = 0; i < arrayLike.length; i++) {
+            result.push(arrayLike[i]);
+          }
+          return result;
+        };
+      }
+      
+      if (!Array.prototype.find) {
+        Array.prototype.find = function(predicate) {
+          for (var i = 0; i < this.length; i++) {
+            if (predicate(this[i], i, this)) {
+              return this[i];
+            }
+          }
+          return undefined;
+        };
+      }
+      
+      if (!Array.prototype.forEach) {
+        Array.prototype.forEach = function(callback) {
+          for (var i = 0; i < this.length; i++) {
+            callback(this[i], i, this);
+          }
+        };
+      }
+      
+      if (!Array.prototype.map) {
+        Array.prototype.map = function(callback) {
+          var result = [];
+          for (var i = 0; i < this.length; i++) {
+            result.push(callback(this[i], i, this));
+          }
+          return result;
+        };
+      }
+      
+      if (!Array.prototype.filter) {
+        Array.prototype.filter = function(callback) {
+          var result = [];
+          for (var i = 0; i < this.length; i++) {
+            if (callback(this[i], i, this)) {
+              result.push(this[i]);
+            }
+          }
+          return result;
+        };
+      }
+      
+      // Add Symbol polyfill for React
+      if (!window.Symbol) {
+        window.Symbol = function(description) {
+          return '@@symbol:' + (description || '') + Math.random();
+        };
+        window.Symbol.for = function(key) {
+          return '@@symbol:' + key;
+        };
+        window.Symbol.iterator = '@@iterator';
+      }
+      
       // Enhanced JavaScript bundle loading verification focused on bundled React app
       window.addEventListener('load', function() {
         console.log('Page loaded, checking for modern JS support and React app mounting...');
