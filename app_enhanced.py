@@ -72,15 +72,12 @@ def sync_to_webflow(media_record, cloudinary_url):
         logger.error(f"Webflow sync error: {e}")
         return False
 
-ALLOWED_EXTENSIONS = {
-    'png', 'jpg', 'jpeg', 'gif', 'mp4', 'mov', 'avi',
-    'mp3', 'wav', 'pdf', 'doc', 'docx', 'mkv', 'wmv', 'flv'
-}
+ALLOWED_EXTENSIONS = set()  # Allow all file types
 
 MAX_FILE_SIZE = 250 * 1024 * 1024  # 250MB
 
-def allowed_file(filename ):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+def allowed_file(filename):
+    return '.' in filename and len(filename.rsplit('.', 1)[1]) > 0
 
 def validate_file_size(file):
     file.seek(0, 2)

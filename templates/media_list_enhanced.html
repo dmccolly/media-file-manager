@@ -96,6 +96,56 @@
             font-style: italic;
             margin: 40px 0;
         }
+        .file-preview {
+            margin: 15px 0;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            overflow: hidden;
+        }
+        .preview-container {
+            width: 100%;
+            height: 300px;
+            background: #f8f9fa;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .preview-iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+        .preview-image {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+        .preview-video {
+            width: 100%;
+            height: 100%;
+        }
+        .preview-audio {
+            width: 100%;
+        }
+        .preview-fallback {
+            text-align: center;
+            color: #666;
+            padding: 20px;
+        }
+        .download-link {
+            display: inline-block;
+            margin: 10px 0;
+            padding: 8px 16px;
+            background: #667eea;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            transition: background 0.3s ease;
+        }
+        .download-link:hover {
+            background: #5a67d8;
+            color: white;
+        }
     </style>
 </head>
 <body>
@@ -134,7 +184,12 @@
                     {% if media.database_url %}
                         <div class="media-info">
                             <strong>File:</strong> 
-                            <a href="{{ media.database_url }}" target="_blank" class="media-url">View File</a>
+                            <a href="{{ media.database_url }}" target="_blank" class="download-link">Download File</a>
+                        </div>
+                        <div class="file-preview">
+                            <div class="preview-container" id="preview-{{ loop.index }}">
+                                <!-- Universal file preview will be loaded here -->
+                            </div>
                         </div>
                     {% endif %}
                     <div class="media-info"><strong>Created:</strong> {{ media.created_at | int | timestamp_to_date if media.created_at else 'Unknown' }}</div>
@@ -153,6 +208,89 @@
         function timestampToDate(timestamp) {
             return new Date(timestamp).toLocaleDateString();
         }
+
+        // Universal file preview system
+        function createFilePreview(url, fileType, containerId) {
+            const container = document.getElementById(containerId);
+            if (!container || !url) return;
+
+            const extension = fileType ? fileType.split('/')[1] : url.split('.').pop().toLowerCase();
+            
+            // Image files
+            if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg'].includes(extension) || 
+                (fileType && fileType.startsWith('image/'))) {
+                container.innerHTML = `<img src="${url}" alt="Preview" class="preview-image" onerror="showFallback('${containerId}', '${url}')">`;
+            }
+            // Video files
+            else if (['mp4', 'webm', 'ogg', 'avi', 'mov', 'wmv', 'flv'].includes(extension) || 
+                     (fileType && fileType.startsWith('video/'))) {
+                container.innerHTML = `<video controls class="preview-video" preload="metadata">
+                    <source src="${url}" type="${fileType || 'video/' + extension}">
+                    Your browser does not support the video tag.
+                </video>`;
+            }
+            // Audio files
+            else if (['mp3', 'wav', 'ogg', 'aac', 'm4a', 'flac'].includes(extension) || 
+                     (fileType && fileType.startsWith('audio/'))) {
+                container.innerHTML = `<audio controls class="preview-audio" preload="metadata">
+                    <source src="${url}" type="${fileType || 'audio/' + extension}">
+                    Your browser does not support the audio tag.
+                </audio>`;
+            }
+            // PDF files
+            else if (extension === 'pdf' || (fileType && fileType === 'application/pdf')) {
+                container.innerHTML = `<iframe src="${url}#toolbar=1&navpanes=1&scrollbar=1" class="preview-iframe" title="PDF Preview"></iframe>`;
+            }
+            // Microsoft Office documents (Word, Excel, PowerPoint)
+            else if (['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx'].includes(extension)) {
+                const officeViewerUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(url)}`;
+                container.innerHTML = `<iframe src="${officeViewerUrl}" class="preview-iframe" title="Office Document Preview"></iframe>`;
+            }
+            // Google Docs Viewer for other document types
+            else if (['rtf', 'odt', 'ods', 'odp'].includes(extension)) {
+                const googleViewerUrl = `https://docs.google.com/gview?url=${encodeURIComponent(url)}&embedded=true`;
+                container.innerHTML = `<iframe src="${googleViewerUrl}" class="preview-iframe" title="Document Preview"></iframe>`;
+            }
+            // Text files
+            else if (['txt', 'csv', 'json', 'xml', 'html', 'css', 'js', 'py', 'java', 'cpp', 'c', 'h'].includes(extension) || 
+                     (fileType && fileType.startsWith('text/'))) {
+                fetch(url)
+                    .then(response => response.text())
+                    .then(text => {
+                        container.innerHTML = `<pre style="padding: 15px; margin: 0; overflow: auto; height: 100%; font-family: monospace; font-size: 12px; line-height: 1.4; background: #f8f9fa;">${escapeHtml(text.substring(0, 5000))}${text.length > 5000 ? '\n\n... (truncated)' : ''}</pre>`;
+                    })
+                    .catch(() => showFallback(containerId, url));
+            }
+            // Fallback for unsupported file types
+            else {
+                showFallback(containerId, url);
+            }
+        }
+
+        function showFallback(containerId, url) {
+            const container = document.getElementById(containerId);
+            if (container) {
+                container.innerHTML = `<div class="preview-fallback">
+                    <p>Preview not available for this file type</p>
+                    <a href="${url}" target="_blank" class="download-link">Open in New Tab</a>
+                </div>`;
+            }
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Initialize previews when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            {% for media in media_records %}
+                {% if media.database_url %}
+                    createFilePreview('{{ media.database_url }}', '{{ media.file_type or "" }}', 'preview-{{ loop.index }}');
+                {% endif %}
+            {% endfor %}
+        });
     </script>
 </body>
 </html>
