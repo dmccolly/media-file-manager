@@ -131,35 +131,60 @@
         };
       }
       
-      // Enhanced JavaScript bundle loading verification with ES5 fallback
+      // Enhanced JavaScript bundle loading verification with multiple retry attempts
+      var reactLoadAttempts = 0;
+      var maxReactLoadAttempts = 5;
+      
+      function checkReactLibraries() {
+        reactLoadAttempts++;
+        console.log('Checking React libraries (attempt ' + reactLoadAttempts + '/' + maxReactLoadAttempts + ')...');
+        
+        if (window.React && window.ReactDOM) {
+          console.log('✅ React libraries loaded successfully');
+          return true;
+        } else {
+          console.warn('⚠️ React libraries not yet available:', {
+            React: !!window.React,
+            ReactDOM: !!window.ReactDOM
+          });
+          
+          if (reactLoadAttempts < maxReactLoadAttempts) {
+            setTimeout(checkReactLibraries, 1000);
+            return false;
+          } else {
+            console.error('❌ React libraries failed to load after ' + maxReactLoadAttempts + ' attempts');
+            showCompatibilityError('React libraries failed to load after multiple attempts');
+            return false;
+          }
+        }
+      }
+      
       window.addEventListener('load', function() {
-        console.log('Page loaded, checking for React and modern JS support...');
+        console.log('Page loaded, starting React library verification...');
         
         // Test for modern JavaScript support
         var supportsModernJS = true;
         try {
-          // Test arrow functions
           eval('() => {}');
-          // Test const/let
           eval('const test = 1;');
-          // Test template literals
           eval('`template`');
-          // Test destructuring
           eval('var {a} = {a: 1};');
         } catch (e) {
           console.warn('Modern JavaScript features not supported:', e);
           supportsModernJS = false;
         }
         
+        // Start checking React libraries immediately
         setTimeout(function() {
-          if (!window.React || !window.ReactDOM) {
-            console.error('React libraries failed to load');
-            showCompatibilityError('React libraries failed to load');
-          } else if (!supportsModernJS) {
+          if (!checkReactLibraries()) {
+            return; // checkReactLibraries will handle retries
+          }
+          
+          if (!supportsModernJS) {
             console.error('Browser does not support modern JavaScript features required by the application');
             showCompatibilityError('Browser compatibility issue detected');
           }
-        }, 2000);
+        }, 500);
       });
       
       function showCompatibilityError(reason) {
@@ -216,6 +241,46 @@
       };
     </script>
     <title>Media File Manager</title>
+    
+    <!-- Enhanced React library loading with CDN fallbacks -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <!-- Fallback CDN for React libraries -->
+    <script>
+      // Verify React libraries loaded from primary CDN
+      if (!window.React || !window.ReactDOM) {
+        console.warn('Primary React CDN failed, trying fallback CDN...');
+        
+        // Fallback to different CDN
+        var reactScript = document.createElement('script');
+        reactScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js';
+        reactScript.crossOrigin = 'anonymous';
+        document.head.appendChild(reactScript);
+        
+        var reactDOMScript = document.createElement('script');
+        reactDOMScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js';
+        reactDOMScript.crossOrigin = 'anonymous';
+        document.head.appendChild(reactDOMScript);
+        
+        // If fallback also fails, try jsdelivr CDN
+        setTimeout(function() {
+          if (!window.React || !window.ReactDOM) {
+            console.warn('Fallback CDN also failed, trying jsdelivr CDN...');
+            
+            var reactScript2 = document.createElement('script');
+            reactScript2.src = 'https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.production.min.js';
+            reactScript2.crossOrigin = 'anonymous';
+            document.head.appendChild(reactScript2);
+            
+            var reactDOMScript2 = document.createElement('script');
+            reactDOMScript2.src = 'https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.production.min.js';
+            reactDOMScript2.crossOrigin = 'anonymous';
+            document.head.appendChild(reactDOMScript2);
+          }
+        }, 2000);
+      }
+    </script>
   </head>
   <body>
     <noscript>

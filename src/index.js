@@ -10,9 +10,16 @@ if (!rootElement) {
   console.error('Root element not found');
   document.body.innerHTML = '<div style="padding: 20px; color: red; font-family: Arial, sans-serif; background: #1a1a1a; min-height: 100vh;"><h2>Critical Error</h2><p>Root element not found. The HTML structure may be corrupted.</p><p>Please refresh the page.</p></div>';
 } else {
-  try {
-    console.log('Creating React root...');
-    const root = ReactDOM.createRoot(rootElement);
+  function waitForReactAndMount() {
+    if (!window.React || !window.ReactDOM) {
+      console.warn('React libraries not yet available, waiting...');
+      setTimeout(waitForReactAndMount, 500);
+      return;
+    }
+    
+    try {
+      console.log('Creating React root...');
+      const root = ReactDOM.createRoot(rootElement);
     
     console.log('Rendering React app...');
     root.render(
@@ -101,4 +108,7 @@ if (!rootElement) {
     console.error('React mounting failed:', error);
     rootElement.innerHTML = '<div style="padding: 20px; color: red; font-family: Arial, sans-serif; background: #1a1a1a; min-height: 100vh;"><h2>React Error</h2><p>The React application failed to load due to an error:</p><p style="background: #333; padding: 10px; border-radius: 4px; font-family: monospace;">' + error.message + '</p><p>Stack trace:</p><pre style="background: #333; padding: 10px; border-radius: 4px; font-size: 12px; overflow: auto;">' + (error.stack || 'No stack trace available') + '</pre><p>Please refresh the page or contact support.</p></div>';
   }
+  }
+  
+  waitForReactAndMount();
 }
