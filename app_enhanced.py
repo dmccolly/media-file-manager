@@ -3,14 +3,14 @@ import os
 import logging
 import json
 from datetime import datetime
-from flask import Flask, request, render_template, jsonify
+from flask import Flask, request, render_template, jsonify, send_from_directory
 from flask_cors import CORS
 import requests
 import cloudinary
 import cloudinary.uploader
 from cloudinary.utils import cloudinary_url
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder='src/build/static', static_url_path='/static')
 app.config['TEMPLATES_AUTO_RELOAD'] = True
 app.config['MAX_CONTENT_LENGTH'] = 250 * 1024 * 1024  # 250MB limit
 CORS(app)
@@ -88,6 +88,16 @@ def validate_file_size(file):
 @app.route('/')
 def index():
     return render_template('upload.html')
+
+@app.route('/manager')
+def file_manager():
+    """Serve the React file manager interface"""
+    return send_from_directory('src/build', 'index.html')
+
+@app.route('/static/<path:filename>')
+def serve_static(filename):
+    """Serve React static files"""
+    return send_from_directory('src/build/static', filename)
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
