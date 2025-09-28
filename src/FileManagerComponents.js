@@ -1,9 +1,11 @@
+import React, { useState, useEffect } from 'react';
+
 // =============================================
 // UTILITY FUNCTIONS & UI COMPONENTS
 // =============================================
-const getFileIcon = (type, size = 'text-2xl') => {
+const getFileIcon = (type) => {
   const icons = { image: '🖼️', video: '🎥', audio: '🎵', document: '📄', spreadsheet: '📊', presentation: '📽️', archive: '📦', file: '📁', unknown: '❓' };
-  return <span className={size}>{icons[type] || icons.unknown}</span>;
+  return icons[type] || icons.unknown;
 };
 
 const formatFileSize = bytes => {
@@ -19,38 +21,42 @@ const formatDate = dateString => {
   try { return new Date(dateString).toLocaleDateString(); } catch { return 'Invalid Date'; }
 };
 
-const SelectionControls = ({ files, selectedFiles, onSelectAll, onClearSelection }) => (
-  <div className="flex items-center gap-2 mb-4 p-2 bg-blue-50 rounded-lg">
-    <button onClick={onSelectAll} className="text-sm text-blue-600 hover:text-blue-800">Select All ({files.length})</button>
-    <span className="text-gray-400">|</span>
-    <button onClick={onClearSelection} className="text-sm text-gray-600 hover:text-gray-800">Clear Selection</button>
-    {selectedFiles.length > 0 && (<><span className="text-gray-400">|</span><span className="text-sm font-medium text-blue-800">{selectedFiles.length} selected</span></>)}
-  </div>
-);
+const SelectionControls = ({ files, selectedFiles, onSelectAll, onClearSelection }) => {
+  return (
+    <div className="flex items-center gap-2 mb-4 p-2 bg-blue-50 rounded-lg">
+      <button onClick={onSelectAll} className="text-sm text-blue-600 hover:text-blue-800">Select All ({files.length})</button>
+      <span className="text-gray-400">|</span>
+      <button onClick={onClearSelection} className="text-sm text-gray-600 hover:text-gray-800">Clear Selection</button>
+      {selectedFiles.length > 0 && (<><span className="text-gray-400">|</span><span className="text-sm font-medium text-blue-800">{selectedFiles.length} selected</span></>)}
+    </div>
+  );
+};
 
-const FolderTree = ({ folderTree, currentFolder, setCurrentFolder, expandedFolders, setExpandedFolders, setContextMenu, onCreateFolder }) => (
-  <div className="w-64 sidebar-dark bg-gray-800 border-r border-gray-700 p-4 overflow-y-auto">
-    <div className="flex items-center justify-between mb-4">
-      <h3 className="font-semibold text-white">Folders</h3>
-      <button onClick={onCreateFolder} className="text-blue-400 hover:text-blue-300 text-sm font-medium" title="Create New Folder">+ New</button>
-    </div>
-    <div className="space-y-1">
-      {Object.entries(folderTree).map(([folder, count]) => (
-        <div key={folder} className="group">
-          <div
-            className={`flex items-center p-2 rounded cursor-pointer hover:bg-gray-700 transition-colors ${currentFolder === folder ? 'bg-blue-900 text-blue-300 font-medium' : 'text-gray-300'}`}
-            onClick={() => setCurrentFolder(folder)}
-            onContextMenu={e => setContextMenu({ show: true, x: e.clientX, y: e.clientY, type: 'folder', target: folder })}
-          >
-            <span className="w-4 h-4 mr-2">📁</span>
-            <span className="flex-1 truncate">{folder}</span>
-            <span className="text-xs text-gray-400 ml-2 bg-gray-700 px-1 rounded">{count}</span>
+const FolderTree = ({ folderTree, currentFolder, setCurrentFolder, expandedFolders, setExpandedFolders, setContextMenu, onCreateFolder }) => {
+  return (
+    <div className="w-64 sidebar-dark bg-gray-800 border-r border-gray-700 p-4 overflow-y-auto">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="font-semibold text-white">Folders</h3>
+        <button onClick={onCreateFolder} className="text-blue-400 hover:text-blue-300 text-sm font-medium" title="Create New Folder">+ New</button>
+      </div>
+      <div className="space-y-1">
+        {Object.entries(folderTree).map(([folder, count]) => (
+          <div key={folder} className="group">
+            <div
+              className={`flex items-center p-2 rounded cursor-pointer hover:bg-gray-700 transition-colors ${currentFolder === folder ? 'bg-blue-900 text-blue-300 font-medium' : 'text-gray-300'}`}
+              onClick={() => setCurrentFolder(folder)}
+              onContextMenu={e => setContextMenu({ show: true, x: e.clientX, y: e.clientY, type: 'folder', target: folder })}
+            >
+              <span className="w-4 h-4 mr-2">📁</span>
+              <span className="flex-1 truncate">{folder}</span>
+              <span className="text-xs text-gray-400 ml-2 bg-gray-700 px-1 rounded">{count}</span>
+            </div>
           </div>
-        </div>
-      ))}
+        ))}
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 const UploadButton = ({ onFileSelect, isUploading }) => {
   const handleFileSelect = e => {
@@ -107,7 +113,7 @@ const FileGrid = ({ files, viewMode, onFileRightClick, onFileClick, selectedFile
                   <td className="px-4 py-3"><input type="checkbox" checked={isSelected(file)} onChange={e => onFileSelect(file, e)} className="rounded" /></td>
                   <td className="px-4 py-3">
                     <div className="flex items-center">
-                      <div className="mr-3">{getFileIcon(file.type, 'text-lg')}</div>
+                      <div className="mr-3"><span className="text-lg">{getFileIcon(file.type)}</span></div>
                       <div>
                         <div className="font-medium text-white truncate" title={file.title}>{file.title}</div>
                         {file.description && (<div className="text-xs text-gray-400 truncate">{file.description}</div>)}
@@ -139,7 +145,7 @@ const FileGrid = ({ files, viewMode, onFileRightClick, onFileClick, selectedFile
               {file.thumbnail ? (
                 <img src={file.thumbnail} alt={file.title} className="w-full h-full object-cover rounded-lg" onError={() => handleImageError(file.id)} loading="lazy" />
               ) : (
-                <div className="flex flex-col items-center justify-center h-full">{getFileIcon(file.type, 'text-3xl')}<span className="text-xs text-gray-500 mt-1 uppercase font-medium">{file.type || 'unknown'}</span></div>
+                <div className="flex flex-col items-center justify-center h-full"><span className="text-3xl">{getFileIcon(file.type)}</span><span className="text-xs text-gray-500 mt-1 uppercase font-medium">{file.type || 'unknown'}</span></div>
               )}
             </div>
             <div className="text-sm">
@@ -172,7 +178,7 @@ const FileDetailsModal = ({ file, isOpen, onClose, onUpdate, onDelete }) => {
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-hidden shadow-2xl">
         <div className="flex items-center justify-between p-6 border-b bg-gray-50">
-          <div className="flex items-center gap-3">{getFileIcon(file.type, 'text-2xl')}<div><h2 className="text-xl font-semibold text-gray-900">{file.title}</h2><p className="text-sm text-gray-500">{file.category} • {formatFileSize(file.fileSize)}</p></div></div>
+          <div className="flex items-center gap-3"><span className="text-2xl">{getFileIcon(file.type)}</span><div><h2 className="text-xl font-semibold text-gray-900">{file.title}</h2><p className="text-sm text-gray-500">{file.category} • {formatFileSize(file.fileSize)}</p></div></div>
           <div className="flex items-center gap-2">
             <button onClick={() => setIsEditing(!isEditing)} className="px-3 py-1 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">{isEditing ? 'Cancel' : '✏️ Edit'}</button>
             <button onClick={onClose} className="p-2 hover:bg-gray-200 rounded-lg transition-colors">✕</button>
@@ -183,7 +189,7 @@ const FileDetailsModal = ({ file, isOpen, onClose, onUpdate, onDelete }) => {
             {file.type === 'image' && file.url && (<img src={file.url} alt={file.title} className="max-w-full max-h-full object-contain rounded-lg shadow-sm" />)}
             {file.type === 'video' && file.url && (<video src={file.url} controls className="max-w-full max-h-full object-contain rounded-lg shadow-sm">Your browser does not support video playback.</video>)}
             {file.type === 'audio' && file.url && (<div className="text-center"><div className="text-6xl mb-4">🎵</div><audio src={file.url} controls className="w-full max-w-md">Your browser does not support audio playback.</audio></div>)}
-            {!['image', 'video', 'audio'].includes(file.type) && (<div className="text-center"><div className="text-6xl mb-4">{getFileIcon(file.type, 'text-6xl')}</div><p className="text-gray-600 mb-4">Preview not available for this file type</p>{file.url && (<a href={file.url} target="_blank" rel="noopener noreferrer" className="inline-block px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">📄 Open File</a>)}</div>)}
+            {!['image', 'video', 'audio'].includes(file.type) && (<div className="text-center"><div className="text-6xl mb-4"><span className="text-6xl">{getFileIcon(file.type)}</span></div><p className="text-gray-600 mb-4">Preview not available for this file type</p>{file.url && (<a href={file.url} target="_blank" rel="noopener noreferrer" className="inline-block px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">📄 Open File</a>)}</div>)}
           </div>
           <div className="w-96 p-6 overflow-y-auto border-l bg-white">
             <h3 className="text-lg font-semibold mb-4 text-gray-900">File Details</h3>

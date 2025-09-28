@@ -878,7 +878,7 @@ const FileGrid = ({
                   <td className="px-4 py-3">
                     <div className="flex items-center">
                       <div className="mr-3">
-                        {getFileIcon(file.type, 'text-lg')}
+                        <span className="text-lg">{getFileIcon(file.type)}</span>
                       </div>
                       <div>
                         <div className="font-medium text-gray-900 truncate" title={file.title}>
@@ -955,7 +955,7 @@ const FileGrid = ({
                 }
                 return (
                   <div className="flex flex-col items-center justify-center h-full">
-                    {getFileIcon(file.type, 'text-3xl')}
+                    <span className="text-3xl">{getFileIcon(file.type)}</span>
                     <span className="text-xs text-gray-500 mt-1 uppercase font-medium">
                       {file.type || 'unknown'}
                     </span>
@@ -1045,7 +1045,7 @@ const FileDetailsModal = ({ file, isOpen, onClose, onUpdate, onDelete }) => {
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b bg-gray-50">
           <div className="flex items-center gap-3">
-            {getFileIcon(file.type, 'text-2xl')}
+            <span className="text-2xl">{getFileIcon(file.type)}</span>
             <div>
               <h2 className="text-xl font-semibold text-gray-900">{file.title}</h2>
               <p className="text-sm text-gray-500">{file.category} • {formatFileSize(file.fileSize)}</p>
@@ -1103,7 +1103,7 @@ const FileDetailsModal = ({ file, isOpen, onClose, onUpdate, onDelete }) => {
            
             {!['image', 'video', 'audio'].includes(file.type) && (
               <div className="text-center">
-                <div className="text-6xl mb-4">{getFileIcon(file.type, 'text-6xl')}</div>
+                <div className="text-6xl mb-4"><span>{getFileIcon(file.type)}</span></div>
                 <p className="text-gray-600 mb-4">Preview not available for this file type</p>
                 {file.url && (
                   <a
