@@ -32,7 +32,7 @@ XANO_API_BASE = 'https://xajo-bs7d-cagt.n7e.xano.io/api:pYeQctVX'
 
 ALLOWED_EXTENSIONS = {
     'png', 'jpg', 'jpeg', 'gif', 'mp4', 'mov', 'avi',
-    'mp3', 'wav', 'pdf', 'doc', 'docx', 'mkv', 'wmv', 'flv'
+    'mp3', 'wav', 'pdf', 'doc', 'docx', 'mkv', 'wmv', 'flv', 'txt'
 }
 
 MAX_FILE_SIZE = 250 * 1024 * 1024  # 250MB
