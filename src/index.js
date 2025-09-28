@@ -120,14 +120,24 @@ if (!rootElement) {
 
   try {
     console.log('Creating React root...');
-    const root = ReactDOM.createRoot(rootElement);
     
-    console.log('Rendering React app...');
-    root.render(
-      <React.StrictMode>
-        <App />
-      </React.StrictMode>
-    );
+    if (typeof ReactDOM === 'undefined' || typeof ReactDOM.createRoot === 'undefined') {
+      console.error('ReactDOM.createRoot not available - using legacy render');
+      if (typeof ReactDOM.render !== 'undefined') {
+        console.log('Falling back to ReactDOM.render...');
+        ReactDOM.render(<React.StrictMode><App /></React.StrictMode>, rootElement);
+      } else {
+        throw new Error('No React rendering method available');
+      }
+    } else {
+      const root = ReactDOM.createRoot(rootElement);
+      console.log('Rendering React app...');
+      root.render(
+        <React.StrictMode>
+          <App />
+        </React.StrictMode>
+      );
+    }
     
     setTimeout(checkReactMount, 5000);
     
