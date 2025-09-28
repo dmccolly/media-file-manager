@@ -82,22 +82,16 @@ const FileGrid = ({ files, viewMode, onFileRightClick, onFileClick, selectedFile
   if (files.length === 0) {
     return (<div className="flex-1 flex items-center justify-center text-gray-400"><div className="text-center"><div className="text-6xl mb-4">📁</div><p className="text-lg font-medium mb-2">No files in this folder</p><p className="text-sm">Drag files here or use the upload button</p></div></div>);
   }
-  
-  const SelectionControls = () => {
-    return (
-      <div className="flex items-center gap-2 mb-4 p-2 bg-gray-800 rounded-lg">
-        <button onClick={onSelectAll} className="text-sm text-blue-400 hover:text-blue-300">Select All ({files.length})</button>
-        <span className="text-gray-500">|</span>
-        <button onClick={onClearSelection} className="text-sm text-gray-300 hover:text-white">Clear Selection</button>
-        {selectedFiles.length > 0 && (<><span className="text-gray-500">|</span><span className="text-sm font-medium text-blue-300">{selectedFiles.length} selected</span></>)}
-      </div>
-    );
-  };
 
   if (viewMode === 'list') {
     return (
       <div className="flex-1 overflow-auto p-4">
-        <SelectionControls />
+        <SelectionControls 
+          files={files} 
+          selectedFiles={selectedFiles} 
+          onSelectAll={onSelectAll} 
+          onClearSelection={onClearSelection} 
+        />
         <div className="bg-gray-800 rounded-lg shadow-sm border border-gray-700 overflow-hidden">
           <table className="w-full">
             <thead className="bg-gray-700">
@@ -138,7 +132,12 @@ const FileGrid = ({ files, viewMode, onFileRightClick, onFileClick, selectedFile
 
   return (
     <div className="flex-1 p-4 overflow-auto">
-      <SelectionControls />
+      <SelectionControls 
+        files={files} 
+        selectedFiles={selectedFiles} 
+        onSelectAll={onSelectAll} 
+        onClearSelection={onClearSelection} 
+      />
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4">
         {files.map(file => (
           <div key={file.id} className={`relative file-item-dark bg-gray-800 border-2 rounded-lg p-3 hover:shadow-lg cursor-pointer transition-all duration-200 group ${isSelected(file) ? 'border-blue-500 bg-gray-700 shadow-md' : 'border-gray-600 hover:border-gray-500'}`} onContextMenu={e => onFileRightClick(e, file)} onClick={() => onFileClick(file)}>
