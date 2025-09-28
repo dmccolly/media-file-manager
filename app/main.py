@@ -150,7 +150,7 @@ async def get_all_files():
     try:
         logger.info("Fetching all files from XANO voxpro table")
         
-        fetch_url = f"{XANO_API_BASE}/voxpro"
+        fetch_url = XANO_API_BASE
         response = requests.get(fetch_url, timeout=30)
         
         if response.status_code == 200:
