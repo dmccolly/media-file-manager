@@ -95,10 +95,10 @@ async def upload_file(
         
         # Create media record with Cloudinary data in VoxPro's Xano workspace
         media_data = {
-            'title': title,
+            'title': title or file.filename,
             'description': description,
             'station': station,
-            'category': category,
+            'category': category or 'Images',
             'tags': tags,
             'submitted_by': submitted_by,
             'priority': priority,
@@ -106,10 +106,12 @@ async def upload_file(
             'notes2': '',
             'file_type': file.content_type,
             'file_size': len(file_content),
+            'filename': file.filename,
             'database_url': cloudinary_url or f"https://xajo-bs7d-cagt.n7e.xano.io/vault/{file.filename}",
-            'file_url': cloudinary_url or '',
-            'url': cloudinary_url or '',
-            'thumbnail_url': thumbnail_url or '',
+            'file_url': cloudinary_url or f"https://xajo-bs7d-cagt.n7e.xano.io/vault/{file.filename}",
+            'url': cloudinary_url or f"https://xajo-bs7d-cagt.n7e.xano.io/vault/{file.filename}",
+            'media_url': cloudinary_url or f"https://xajo-bs7d-cagt.n7e.xano.io/vault/{file.filename}",
+            'thumbnail_url': thumbnail_url or cloudinary_url or '',
             'public_id': public_id or '',
             'created_at': int(datetime.now().timestamp() * 1000),
             'is_featured': False
