@@ -510,6 +510,7 @@ class CloudinaryService {
           tags: sharedMetadata.tags || '',
           url: cloudinaryResult.url,
           thumbnail: cloudinaryResult.thumbnail,
+          public_id: cloudinaryResult.publicId,
           size: file.size,
           duration: cloudinaryResult.duration || '',
           originalFile: file,
