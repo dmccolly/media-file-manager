@@ -10,17 +10,11 @@
       content="Media File Manager - Upload and manage media files with metadata"
     />
     <script>
-      // Global error handler to catch JavaScript execution failures
+      // Global error handler to catch JavaScript execution failures (disabled during debugging)
       window.addEventListener('error', function(e) {
         console.error('Global JavaScript error:', e.error, e.filename, e.lineno);
-        // Only show error page for critical errors, not during React mounting
-        if (document.body && !e.message.includes('Cannot set properties of null')) {
-          setTimeout(function() {
-            if (document.body) {
-              document.body.innerHTML = '<div style="padding: 20px; color: red; background: #1a1a1a; font-family: Arial, sans-serif; min-height: 100vh;"><h2>JavaScript Error Detected</h2><p>Error: ' + e.message + '</p><p>File: ' + e.filename + '</p><p>Line: ' + e.lineno + '</p><p>Please refresh the page or contact support.</p></div>';
-            }
-          }, 100);
-        }
+        // Temporarily disabled to allow React to mount properly
+        // The error handler itself may be causing DOM manipulation issues
       });
       
       // Local polyfills for better browser compatibility
