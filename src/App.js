@@ -662,6 +662,25 @@ export default function App() {
   useEffect(() => {
     console.log('🔄 App: Component mounted, loading files...');
     
+    // Enhanced mounting verification
+    setTimeout(() => {
+      const rootElement = document.getElementById('root');
+      if (rootElement) {
+        const hasAppContent = rootElement.innerHTML.includes('HOIBF File Manager') || 
+                             rootElement.innerHTML.includes('Choose Files');
+        console.log(`🔍 App: Mounting verification - hasAppContent: ${hasAppContent}`);
+        
+        if (!hasAppContent) {
+          console.error('🚨 App: React app content not detected in DOM after mounting');
+          setTimeout(() => {
+            console.log('🔄 App: Attempting forced re-render...');
+            setLoading(false);
+            setLoading(true);
+          }, 1000);
+        }
+      }
+    }, 2000);
+    
     const loadingTimeout = setTimeout(() => {
       console.warn('⚠️ App: Loading taking longer than expected, checking network...');
       setLoading(false);

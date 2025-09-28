@@ -18,13 +18,31 @@ if (!rootElement) {
     const rootContent = rootElement.innerHTML;
     const loadingIndicator = document.getElementById('loading-indicator');
     
-    if (loadingIndicator && loadingIndicator.parentNode === rootElement) {
-      console.error(`React mounting attempt ${mountCheckAttempts} failed - loading indicator still present`);
+    const hasReactContent = rootContent.includes('HOIBF File Manager') || 
+                           rootContent.includes('Choose Files') || 
+                           rootContent.includes('Upload Files') ||
+                           rootContent.includes('Storage Used') ||
+                           rootContent.includes('QUICK ACCESS');
+    
+    const hasLoadingIndicator = loadingIndicator && loadingIndicator.parentNode === rootElement;
+    const hasLoadingText = rootContent.includes('Loading Media File Manager...');
+    
+    console.log(`Mount check ${mountCheckAttempts}/${maxAttempts}: hasReactContent=${hasReactContent}, hasLoadingIndicator=${hasLoadingIndicator}, hasLoadingText=${hasLoadingText}`);
+    console.log(`Root content length: ${rootContent.length}, first 200 chars: ${rootContent.substring(0, 200)}`);
+    
+    if (hasReactContent && !hasLoadingIndicator && !hasLoadingText) {
+      console.log('✅ React mounted successfully with content verification');
+      return;
+    }
+    
+    if (hasLoadingIndicator || hasLoadingText) {
+      console.error(`React mounting attempt ${mountCheckAttempts} failed - still showing loading state`);
       
       if (mountCheckAttempts < maxAttempts) {
         console.log(`Retrying React mount (attempt ${mountCheckAttempts + 1}/${maxAttempts})...`);
         setTimeout(() => {
           try {
+            rootElement.innerHTML = '<div id="loading-indicator" style="padding: 20px; color: white; background: #1a1a1a; text-align: center;">Loading Media File Manager...</div>';
             const newRoot = ReactDOM.createRoot(rootElement);
             newRoot.render(<React.StrictMode><App /></React.StrictMode>);
             setTimeout(checkReactMount, 3000);
@@ -36,8 +54,15 @@ if (!rootElement) {
       } else {
         showFallbackUI();
       }
-    } else if (rootContent.includes('Loading Media File Manager...')) {
-      console.error(`React mounting attempt ${mountCheckAttempts} timeout - still showing loading content`);
+    } else if (!hasReactContent && rootContent.length > 0) {
+      console.error(`React mounting failed - unexpected content detected: ${rootContent.substring(0, 500)}`);
+      if (mountCheckAttempts < maxAttempts) {
+        setTimeout(checkReactMount, 2000);
+      } else {
+        showFallbackUI();
+      }
+    } else if (rootContent.length === 0) {
+      console.error(`React mounting failed - empty root element`);
       if (mountCheckAttempts < maxAttempts) {
         setTimeout(checkReactMount, 2000);
       } else {
