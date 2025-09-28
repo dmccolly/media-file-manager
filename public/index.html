@@ -131,33 +131,89 @@
         };
       }
       
-      // Verify JavaScript bundle loading
+      // Enhanced JavaScript bundle loading verification with ES5 fallback
       window.addEventListener('load', function() {
-        console.log('Page loaded, checking for React...');
+        console.log('Page loaded, checking for React and modern JS support...');
+        
+        // Test for modern JavaScript support
+        var supportsModernJS = true;
+        try {
+          // Test arrow functions
+          eval('() => {}');
+          // Test const/let
+          eval('const test = 1;');
+          // Test template literals
+          eval('`template`');
+          // Test destructuring
+          eval('var {a} = {a: 1};');
+        } catch (e) {
+          console.warn('Modern JavaScript features not supported:', e);
+          supportsModernJS = false;
+        }
+        
         setTimeout(function() {
           if (!window.React || !window.ReactDOM) {
             console.error('React libraries failed to load');
-            document.getElementById('root').innerHTML = 
-              '<div style="padding: 20px; color: red; background: #1a1a1a; font-family: Arial, sans-serif; min-height: 100vh;">' +
-              '<h2>JavaScript Loading Error</h2>' +
-              '<p>The React libraries failed to load. This could be due to:</p>' +
-              '<ul>' +
-              '<li>Network connectivity issues</li>' +
-              '<li>Browser compatibility problems</li>' +
-              '<li>Content blocking extensions</li>' +
-              '</ul>' +
-              '<p>Please try refreshing the page or using a different browser.</p>' +
-              '</div>';
+            showCompatibilityError('React libraries failed to load');
+          } else if (!supportsModernJS) {
+            console.error('Browser does not support modern JavaScript features required by the application');
+            showCompatibilityError('Browser compatibility issue detected');
           }
         }, 2000);
       });
+      
+      function showCompatibilityError(reason) {
+        document.getElementById('root').innerHTML = 
+          '<div style="padding: 20px; color: white; background: #1a1a1a; font-family: Arial, sans-serif; min-height: 100vh;">' +
+          '<h2>Media File Manager - Compatibility Issue</h2>' +
+          '<p><strong>Issue:</strong> ' + reason + '</p>' +
+          '<p>This application requires a modern web browser. Please try:</p>' +
+          '<ul>' +
+          '<li><strong>Update your browser</strong> to the latest version</li>' +
+          '<li><strong>Use a modern browser:</strong> Chrome 60+, Firefox 55+, Safari 12+, Edge 79+</li>' +
+          '<li><strong>Disable browser extensions</strong> that might block JavaScript</li>' +
+          '<li><strong>Check your internet connection</strong> and try refreshing</li>' +
+          '</ul>' +
+          '<div style="margin-top: 20px; padding: 15px; background: #2d2d2d; border-radius: 8px;">' +
+          '<h3>Browser Information:</h3>' +
+          '<p><strong>User Agent:</strong> ' + navigator.userAgent + '</p>' +
+          '<p><strong>JavaScript Enabled:</strong> Yes</p>' +
+          '<p><strong>Modern JS Support:</strong> ' + (typeof eval !== 'undefined' ? 'Partial' : 'No') + '</p>' +
+          '</div>' +
+          '<button onclick="window.location.reload()" style="margin-top: 20px; padding: 12px 24px; background: #4f46e5; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 16px;">Try Again</button>' +
+          '</div>';
+      }
       
       // Add error event listener for script loading failures
       window.addEventListener('error', function(e) {
         if (e.target && e.target.tagName === 'SCRIPT') {
           console.error('Script loading failed:', e.target.src);
+          // Redirect to fallback page if critical scripts fail to load
+          setTimeout(function() {
+            if (!window.React || !window.ReactDOM) {
+              console.error('Critical scripts failed, redirecting to fallback page');
+              window.location.href = '/fallback.html';
+            }
+          }, 3000);
         }
       });
+      
+      // Global error handler for unhandled JavaScript errors
+      window.addEventListener('unhandledrejection', function(e) {
+        console.error('Unhandled promise rejection:', e.reason);
+      });
+      
+      // Detect if the browser supports modern JavaScript features
+      window.browserSupportsModernJS = function() {
+        try {
+          eval('const test = () => {};');
+          eval('let {a} = {a: 1};');
+          eval('`template literal`');
+          return true;
+        } catch (e) {
+          return false;
+        }
+      };
     </script>
     <title>Media File Manager</title>
   </head>

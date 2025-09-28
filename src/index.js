@@ -60,21 +60,39 @@ if (!rootElement) {
     };
     
     const showFallbackUI = () => {
-      console.error('All React mounting attempts failed, showing fallback UI');
-      rootElement.innerHTML = `
-        <div style="padding: 20px; color: white; background: #1a1a1a; font-family: Arial, sans-serif; min-height: 100vh;">
-          <h2>Media File Manager</h2>
-          <p>The application is experiencing technical difficulties. Please try:</p>
-          <ul>
-            <li>Refreshing the page (Ctrl+F5 or Cmd+Shift+R)</li>
-            <li>Clearing your browser cache</li>
-            <li>Using a different browser (Chrome, Firefox, Safari)</li>
-            <li>Checking your internet connection</li>
-          </ul>
-          <p>If the problem persists, please contact support.</p>
-          <button onclick="window.location.reload()" style="padding: 10px 20px; background: #4f46e5; color: white; border: none; border-radius: 4px; cursor: pointer;">Retry</button>
-        </div>
-      `;
+      console.error('All React mounting attempts failed, showing enhanced fallback UI');
+      rootElement.innerHTML = 
+        '<div style="padding: 20px; color: white; background: #1a1a1a; font-family: Arial, sans-serif; min-height: 100vh;">' +
+        '<h2>Media File Manager - Technical Issue</h2>' +
+        '<p>The React application failed to mount after multiple attempts. This could be due to:</p>' +
+        '<ul>' +
+        '<li><strong>Browser Compatibility:</strong> Your browser may not support modern JavaScript features</li>' +
+        '<li><strong>Network Issues:</strong> JavaScript files may not have loaded completely</li>' +
+        '<li><strong>Extension Conflicts:</strong> Browser extensions might be blocking JavaScript execution</li>' +
+        '<li><strong>Cache Issues:</strong> Outdated cached files may be causing conflicts</li>' +
+        '</ul>' +
+        '<div style="margin: 20px 0; padding: 15px; background: #2d2d2d; border-radius: 8px;">' +
+        '<h3>Troubleshooting Steps:</h3>' +
+        '<ol>' +
+        '<li>Hard refresh: <strong>Ctrl+F5</strong> (Windows) or <strong>Cmd+Shift+R</strong> (Mac)</li>' +
+        '<li>Clear browser cache and cookies for this site</li>' +
+        '<li>Disable browser extensions temporarily</li>' +
+        '<li>Try a different browser (Chrome, Firefox, Safari, Edge)</li>' +
+        '<li>Check if JavaScript is enabled in your browser settings</li>' +
+        '</ol>' +
+        '</div>' +
+        '<div style="margin-top: 20px; padding: 15px; background: #333; border-radius: 8px; font-family: monospace; font-size: 12px;">' +
+        '<strong>Technical Details:</strong><br>' +
+        'User Agent: ' + navigator.userAgent + '<br>' +
+        'Timestamp: ' + new Date().toISOString() + '<br>' +
+        'React Available: ' + (typeof window.React !== 'undefined') + '<br>' +
+        'ReactDOM Available: ' + (typeof window.ReactDOM !== 'undefined') +
+        '</div>' +
+        '<div style="margin-top: 20px;">' +
+        '<button onclick="window.location.reload()" style="padding: 12px 24px; background: #4f46e5; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 16px; margin-right: 10px;">Retry</button>' +
+        '<button onclick="window.location.href=window.location.href.split(\'?\')[0] + \'?cache=\' + Date.now()" style="padding: 12px 24px; background: #059669; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 16px;">Force Refresh</button>' +
+        '</div>' +
+        '</div>';
     };
     
     setTimeout(checkReactMount, 5000);
