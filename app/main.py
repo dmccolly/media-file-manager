@@ -117,8 +117,8 @@ async def upload_file(
             'is_featured': False
         }
         
-        # Save to VoxPro's Xano database (/voxpro endpoint)
-        media_create_url = f"{XANO_API_BASE}/voxpro"
+        # Save to VoxPro's Xano database (URL already includes /voxpro endpoint)
+        media_create_url = XANO_API_BASE
         media_response = requests.post(media_create_url, json=media_data, timeout=30)
         
         if media_response.status_code in [200, 201]:
