@@ -141,16 +141,25 @@
         if (timerElement) {
           timerElement.textContent = elapsed;
           if (elapsed > 10) {
-            document.getElementById('loading-timer').innerHTML = '<span style="color: red;">Loading is taking longer than expected. Please check your internet connection or try refreshing.</span>';
+            var loadingTimer = document.getElementById('loading-timer');
+            if (loadingTimer) {
+              loadingTimer.innerHTML = '<span style="color: red;">Loading is taking longer than expected. Please check your internet connection or try refreshing.</span>';
+            }
           }
           if (elapsed > 20) {
-            document.getElementById('loading-status').innerHTML = '<div style="color: red;">⚠️ Application failed to load. Please refresh the page.</div>';
+            var loadingStatus = document.getElementById('loading-status');
+            if (loadingStatus) {
+              loadingStatus.innerHTML = '<div style="color: red;">⚠️ Application failed to load. Please refresh the page.</div>';
+            }
           }
         }
       }, 1000);
       
       window.addEventListener('load', function() {
-        document.getElementById('js-status').innerHTML = '✓ JavaScript loaded';
+        var jsStatus = document.getElementById('js-status');
+        if (jsStatus) {
+          jsStatus.innerHTML = '✓ JavaScript loaded';
+        }
         clearInterval(timerInterval);
       });
       
