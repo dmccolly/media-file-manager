@@ -194,60 +194,137 @@
         window.Symbol.iterator = '@@iterator';
       }
       
-      // Enhanced JavaScript bundle loading verification focused on bundled React app
+      // Enhanced JavaScript bundle loading verification with comprehensive compatibility detection
       window.addEventListener('load', function() {
         console.log('Page loaded, checking for modern JS support and React app mounting...');
         
-        // Test for modern JavaScript support
+        // Comprehensive modern JavaScript support testing
         var supportsModernJS = true;
-        try {
-          eval('() => {}');
-          eval('const test = 1;');
-          eval('`template`');
-          eval('var {a} = {a: 1};');
-        } catch (e) {
-          console.warn('Modern JavaScript features not supported:', e);
-          supportsModernJS = false;
-          showCompatibilityError('Browser does not support modern JavaScript features');
+        var failedFeatures = [];
+        
+        var modernFeatureTests = [
+          { name: 'Arrow Functions', test: function() { return eval('(() => true)()'); } },
+          { name: 'Template Literals', test: function() { return eval('`test` === "test"'); } },
+          { name: 'Destructuring', test: function() { return eval('var {a} = {a: 1}; a === 1'); } },
+          { name: 'Const/Let', test: function() { return eval('const x = 1; let y = 2; x + y === 3'); } },
+          { name: 'Classes', test: function() { return eval('class Test {}; new Test() instanceof Test'); } },
+          { name: 'Spread Operator', test: function() { return eval('var arr = [1, 2]; [].concat(arr).length === 2'); } },
+          { name: 'Default Parameters', test: function() { return eval('function test(a = 1) { return a; }; test() === 1'); } },
+          { name: 'For...of loops', test: function() { return eval('var result = 0; for (var i of [1, 2]) { result += i; } result === 3'); } }
+        ];
+        
+        modernFeatureTests.forEach(function(featureTest) {
+          try {
+            if (!featureTest.test()) {
+              failedFeatures.push(featureTest.name);
+              supportsModernJS = false;
+            }
+          } catch (e) {
+            console.warn('Modern JavaScript feature failed:', featureTest.name, e);
+            failedFeatures.push(featureTest.name + ' (Error: ' + e.message + ')');
+            supportsModernJS = false;
+          }
+        });
+        
+        if (!supportsModernJS) {
+          console.error('Browser lacks modern JavaScript support. Failed features:', failedFeatures);
+          showCompatibilityError('Browser does not support required JavaScript features: ' + failedFeatures.join(', '));
           return;
         }
         
-        // Check if React app mounted successfully after a reasonable delay
-        setTimeout(function() {
+        // Enhanced React app mounting detection with multiple checkpoints
+        var mountCheckInterval;
+        var checkAttempts = 0;
+        var maxCheckAttempts = 15; // Check for 15 seconds
+        
+        function checkReactMounting() {
+          checkAttempts++;
           var loadingIndicator = document.getElementById('loading-indicator');
           var rootElement = document.getElementById('root');
           
-          if (loadingIndicator && loadingIndicator.parentNode === rootElement) {
-            console.error('React app failed to mount - loading indicator still present');
-            showCompatibilityError('React application failed to mount properly');
-          } else if (rootElement && rootElement.innerHTML.includes('Loading Media File Manager...')) {
-            console.error('React app mounting timeout - still showing loading content');
-            showCompatibilityError('React application mounting timeout');
-          } else {
-            console.log('✅ React app appears to have mounted successfully');
+          if (!rootElement) {
+            console.error('Root element disappeared during mounting check');
+            clearInterval(mountCheckInterval);
+            showCompatibilityError('Root element not found during React mounting');
+            return;
           }
-        }, 8000);
+          
+          var rootContent = rootElement.innerHTML;
+          var hasLoadingIndicator = loadingIndicator && loadingIndicator.parentNode === rootElement;
+          var hasLoadingText = rootContent.includes('Loading Media File Manager...');
+          var hasReactContent = rootContent.includes('HOIBF File Manager') || rootContent.includes('Choose Files') || rootContent.includes('Upload Files');
+          
+          console.log('Mount check ' + checkAttempts + '/' + maxCheckAttempts + ': hasLoadingIndicator=' + hasLoadingIndicator + ', hasLoadingText=' + hasLoadingText + ', hasReactContent=' + hasReactContent);
+          
+          if (hasReactContent && !hasLoadingIndicator && !hasLoadingText) {
+            console.log('✅ React app successfully mounted and rendered');
+            clearInterval(mountCheckInterval);
+            return;
+          }
+          
+          if (checkAttempts >= maxCheckAttempts) {
+            console.error('React mounting timeout after ' + maxCheckAttempts + ' seconds');
+            clearInterval(mountCheckInterval);
+            
+            if (hasLoadingIndicator) {
+              showCompatibilityError('React application failed to mount - loading indicator still present after ' + maxCheckAttempts + ' seconds');
+            } else if (hasLoadingText) {
+              showCompatibilityError('React application mounting timeout - still showing loading text after ' + maxCheckAttempts + ' seconds');
+            } else {
+              showCompatibilityError('React application failed to render expected content after ' + maxCheckAttempts + ' seconds');
+            }
+          }
+        }
+        
+        // Start checking after initial delay, then every second
+        setTimeout(function() {
+          mountCheckInterval = setInterval(checkReactMounting, 1000);
+          checkReactMounting(); // Run first check immediately
+        }, 3000);
       });
       
       function showCompatibilityError(reason) {
-        document.getElementById('root').innerHTML = 
+        var rootElement = document.getElementById('root');
+        if (!rootElement) {
+          document.body.innerHTML = '<div style="padding: 20px; color: red; background: #1a1a1a; font-family: Arial, sans-serif;">Critical Error: Root element not found</div>';
+          return;
+        }
+        
+        // Enhanced compatibility error page with more detailed diagnostics
+        rootElement.innerHTML = 
           '<div style="padding: 20px; color: white; background: #1a1a1a; font-family: Arial, sans-serif; min-height: 100vh;">' +
-          '<h2>Media File Manager - Compatibility Issue</h2>' +
-          '<p><strong>Issue:</strong> ' + reason + '</p>' +
-          '<p>This application requires a modern web browser. Please try:</p>' +
-          '<ul>' +
-          '<li><strong>Update your browser</strong> to the latest version</li>' +
-          '<li><strong>Use a modern browser:</strong> Chrome 60+, Firefox 55+, Safari 12+, Edge 79+</li>' +
-          '<li><strong>Disable browser extensions</strong> that might block JavaScript</li>' +
-          '<li><strong>Check your internet connection</strong> and try refreshing</li>' +
-          '</ul>' +
-          '<div style="margin-top: 20px; padding: 15px; background: #2d2d2d; border-radius: 8px;">' +
-          '<h3>Browser Information:</h3>' +
-          '<p><strong>User Agent:</strong> ' + navigator.userAgent + '</p>' +
-          '<p><strong>JavaScript Enabled:</strong> Yes</p>' +
-          '<p><strong>Modern JS Support:</strong> ' + (typeof eval !== 'undefined' ? 'Partial' : 'No') + '</p>' +
+          '<h2 style="color: #ef4444; margin-bottom: 20px;">Media File Manager - Compatibility Issue</h2>' +
+          '<div style="background: #2d2d2d; padding: 20px; border-radius: 8px; margin-bottom: 20px;">' +
+          '<h3 style="color: #f59e0b; margin-bottom: 15px;">Issue Detected:</h3>' +
+          '<p><strong>' + reason + '</strong></p>' +
           '</div>' +
-          '<button onclick="window.location.reload()" style="margin-top: 20px; padding: 12px 24px; background: #4f46e5; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 16px;">Try Again</button>' +
+          '<div style="background: #2d2d2d; padding: 20px; border-radius: 8px; margin-bottom: 20px;">' +
+          '<h3 style="color: #10b981; margin-bottom: 15px;">Recommended Solutions:</h3>' +
+          '<ol style="margin: 15px 0; padding-left: 20px;">' +
+          '<li><strong>Update Browser:</strong> Ensure you are using the latest version</li>' +
+          '<li><strong>Try Different Browser:</strong> Chrome 70+, Firefox 65+, Safari 13+, Edge 79+</li>' +
+          '<li><strong>Clear Browser Data:</strong> Clear cache, cookies, and site data</li>' +
+          '<li><strong>Disable Extensions:</strong> Temporarily disable ad blockers and other extensions</li>' +
+          '<li><strong>Check Network:</strong> Ensure stable internet connection</li>' +
+          '<li><strong>Enable JavaScript:</strong> Verify JavaScript is enabled in browser settings</li>' +
+          '</ol>' +
+          '</div>' +
+          '<div style="background: #2d2d2d; padding: 20px; border-radius: 8px; margin-bottom: 20px;">' +
+          '<h3 style="color: #8b5cf6; margin-bottom: 15px;">Browser Diagnostics:</h3>' +
+          '<p><strong>User Agent:</strong> ' + navigator.userAgent + '</p>' +
+          '<p><strong>Platform:</strong> ' + navigator.platform + '</p>' +
+          '<p><strong>Language:</strong> ' + navigator.language + '</p>' +
+          '<p><strong>Cookies:</strong> ' + (navigator.cookieEnabled ? 'Enabled' : 'Disabled') + '</p>' +
+          '<p><strong>Online:</strong> ' + (navigator.onLine ? 'Yes' : 'No') + '</p>' +
+          '<p><strong>Screen:</strong> ' + screen.width + 'x' + screen.height + '</p>' +
+          '<p><strong>Viewport:</strong> ' + window.innerWidth + 'x' + window.innerHeight + '</p>' +
+          '<p><strong>Local Storage:</strong> ' + (typeof localStorage !== 'undefined' ? 'Available' : 'Not Available') + '</p>' +
+          '</div>' +
+          '<div style="margin: 20px 0;">' +
+          '<button onclick="window.location.reload()" style="padding: 12px 24px; background: #4f46e5; color: white; border: none; border-radius: 6px; cursor: pointer; margin: 5px; font-size: 16px;">Retry Loading</button>' +
+          '<button onclick="window.location.href=\'/fallback.html\'" style="padding: 12px 24px; background: #059669; color: white; border: none; border-radius: 6px; cursor: pointer; margin: 5px; font-size: 16px;">Fallback Page</button>' +
+          '<button onclick="window.location.href=\'/?cache=\' + Date.now()" style="padding: 12px 24px; background: #7c3aed; color: white; border: none; border-radius: 6px; cursor: pointer; margin: 5px; font-size: 16px;">Force Refresh</button>' +
+          '</div>' +
           '</div>';
       }
       
