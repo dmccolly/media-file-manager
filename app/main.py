@@ -43,9 +43,22 @@ def validate_file_size(file_content):
 
 @app.get("/", response_class=HTMLResponse)
 async def index():
-    with open("templates/upload.html", "r") as f:
-        html_content = f.read()
-    return HTMLResponse(content=html_content)
+    try:
+        with open("templates/upload.html", "r") as f:
+            html_content = f.read()
+        return HTMLResponse(content=html_content)
+    except FileNotFoundError:
+        return HTMLResponse(content="""
+        <!DOCTYPE html>
+        <html>
+        <head><title>Media File Manager</title></head>
+        <body>
+            <h1>Media File Manager</h1>
+            <p>FastAPI application is running successfully!</p>
+            <p>Debug info: <a href="/debug-info">/debug-info</a></p>
+        </body>
+        </html>
+        """)
 
 @app.post("/upload")
 async def upload_file(
