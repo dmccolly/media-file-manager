@@ -13,7 +13,14 @@
       // Global error handler to catch JavaScript execution failures
       window.addEventListener('error', function(e) {
         console.error('Global JavaScript error:', e.error, e.filename, e.lineno);
-        document.body.innerHTML = '<div style="padding: 20px; color: red; background: #1a1a1a; font-family: Arial, sans-serif; min-height: 100vh;"><h2>JavaScript Error Detected</h2><p>Error: ' + e.message + '</p><p>File: ' + e.filename + '</p><p>Line: ' + e.lineno + '</p><p>Please refresh the page or contact support.</p></div>';
+        // Only show error page for critical errors, not during React mounting
+        if (document.body && !e.message.includes('Cannot set properties of null')) {
+          setTimeout(function() {
+            if (document.body) {
+              document.body.innerHTML = '<div style="padding: 20px; color: red; background: #1a1a1a; font-family: Arial, sans-serif; min-height: 100vh;"><h2>JavaScript Error Detected</h2><p>Error: ' + e.message + '</p><p>File: ' + e.filename + '</p><p>Line: ' + e.lineno + '</p><p>Please refresh the page or contact support.</p></div>';
+            }
+          }, 100);
+        }
       });
       
       // Local polyfills for better browser compatibility
