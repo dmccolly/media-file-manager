@@ -20,7 +20,7 @@ import {
 // =============================================
 class XanoService {
   constructor() {
-    this.baseUrl = process.env.REACT_APP_XANO_API_BASE || 'https://x8ki-letl-twmt.n7.xano.io/api:pYeqCtV';
+    this.baseUrl = process.env.REACT_APP_XANO_API_BASE || 'https://xajo-bs7d-cagt.n7e.xano.io/api:pYeQctVX';
     this.headers = {
       'Content-Type': 'application/json'
     };
