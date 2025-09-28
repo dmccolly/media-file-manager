@@ -28,7 +28,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # USE THE SAME XANO WORKSPACE AS VOXPRO
-XANO_API_BASE = 'https://xajo-bs7d-cagt.n7e.xano.io/api:pYeQctVX'
+XANO_API_BASE = 'https://xajo-bs7d-cagt.n7e.xano.io/api:pYeQctVX/voxpro'
 
 ALLOWED_EXTENSIONS = {
     'png', 'jpg', 'jpeg', 'gif', 'mp4', 'mov', 'avi',
