@@ -661,7 +661,16 @@ export default function App() {
   // Initial load
   useEffect(() => {
     console.log('🔄 App: Component mounted, loading files...');
-    loadFiles();
+    
+    const loadingTimeout = setTimeout(() => {
+      console.warn('⚠️ App: Loading taking longer than expected, checking network...');
+      setLoading(false);
+      setError('Loading is taking longer than expected. Please check your internet connection.');
+    }, 15000);
+    
+    loadFiles().finally(() => {
+      clearTimeout(loadingTimeout);
+    });
   }, [loadFiles]);
   // Clear selections when folder changes
   useEffect(() => {

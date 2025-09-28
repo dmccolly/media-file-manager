@@ -21,20 +21,63 @@ if (!rootElement) {
       </React.StrictMode>
     );
     
-    setTimeout(() => {
+    let mountCheckAttempts = 0;
+    const maxAttempts = 3;
+    
+    const checkReactMount = () => {
+      mountCheckAttempts++;
       const rootContent = rootElement.innerHTML;
       const loadingIndicator = document.getElementById('loading-indicator');
       
       if (loadingIndicator && loadingIndicator.parentNode === rootElement) {
-        console.error('React failed to mount - loading indicator still present');
-        rootElement.innerHTML = '<div style="padding: 20px; color: red; background: #1a1a1a; font-family: Arial, sans-serif; min-height: 100vh;"><h2>React Mounting Failed</h2><p>The React application failed to mount properly.</p><p>This could be due to:</p><ul><li>JavaScript syntax errors</li><li>Missing dependencies</li><li>Browser compatibility issues</li></ul><p>Please try refreshing the page or use a different browser.</p><p>If the problem persists, check the browser console for error details.</p></div>';
+        console.error(`React mounting attempt ${mountCheckAttempts} failed - loading indicator still present`);
+        
+        if (mountCheckAttempts < maxAttempts) {
+          console.log(`Retrying React mount (attempt ${mountCheckAttempts + 1}/${maxAttempts})...`);
+          setTimeout(() => {
+            try {
+              const newRoot = ReactDOM.createRoot(rootElement);
+              newRoot.render(<React.StrictMode><App /></React.StrictMode>);
+              setTimeout(checkReactMount, 3000);
+            } catch (retryError) {
+              console.error('React retry failed:', retryError);
+              showFallbackUI();
+            }
+          }, 1000);
+        } else {
+          showFallbackUI();
+        }
       } else if (rootContent.includes('Loading Media File Manager...')) {
-        console.error('React failed to mount - still showing loading content');
-        rootElement.innerHTML = '<div style="padding: 20px; color: red; background: #1a1a1a; font-family: Arial, sans-serif; min-height: 100vh;"><h2>React Mounting Timeout</h2><p>The React application is taking too long to load.</p><p>Please refresh the page and try again.</p></div>';
+        console.error(`React mounting attempt ${mountCheckAttempts} timeout - still showing loading content`);
+        if (mountCheckAttempts < maxAttempts) {
+          setTimeout(checkReactMount, 2000);
+        } else {
+          showFallbackUI();
+        }
       } else {
         console.log('React mounted successfully');
       }
-    }, 5000);
+    };
+    
+    const showFallbackUI = () => {
+      console.error('All React mounting attempts failed, showing fallback UI');
+      rootElement.innerHTML = `
+        <div style="padding: 20px; color: white; background: #1a1a1a; font-family: Arial, sans-serif; min-height: 100vh;">
+          <h2>Media File Manager</h2>
+          <p>The application is experiencing technical difficulties. Please try:</p>
+          <ul>
+            <li>Refreshing the page (Ctrl+F5 or Cmd+Shift+R)</li>
+            <li>Clearing your browser cache</li>
+            <li>Using a different browser (Chrome, Firefox, Safari)</li>
+            <li>Checking your internet connection</li>
+          </ul>
+          <p>If the problem persists, please contact support.</p>
+          <button onclick="window.location.reload()" style="padding: 10px 20px; background: #4f46e5; color: white; border: none; border-radius: 4px; cursor: pointer;">Retry</button>
+        </div>
+      `;
+    };
+    
+    setTimeout(checkReactMount, 5000);
     
   } catch (error) {
     console.error('React mounting failed:', error);
