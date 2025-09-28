@@ -3,8 +3,8 @@ import os
 import logging
 import json
 from datetime import datetime
-from fastapi import FastAPI, File, UploadFile, Form, HTTPException
-from fastapi.responses import JSONResponse, HTMLResponse
+from fastapi import FastAPI, File, UploadFile, Form, HTTPException, Request
+from fastapi.responses import JSONResponse, HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
@@ -19,6 +19,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.mount("/static", StaticFiles(directory="build/static"), name="static")
 
 templates = Jinja2Templates(directory="templates")
 
@@ -44,21 +46,24 @@ def validate_file_size(file_content):
 @app.get("/", response_class=HTMLResponse)
 async def index():
     try:
-        with open("templates/upload.html", "r") as f:
-            html_content = f.read()
-        return HTMLResponse(content=html_content)
+        return FileResponse("build/index.html")
     except FileNotFoundError:
-        return HTMLResponse(content="""
-        <!DOCTYPE html>
-        <html>
-        <head><title>Media File Manager</title></head>
-        <body>
-            <h1>Media File Manager</h1>
-            <p>FastAPI application is running successfully!</p>
-            <p>Debug info: <a href="/debug-info">/debug-info</a></p>
-        </body>
-        </html>
-        """)
+        try:
+            with open("templates/upload.html", "r") as f:
+                html_content = f.read()
+            return HTMLResponse(content=html_content)
+        except FileNotFoundError:
+            return HTMLResponse(content="""
+            <!DOCTYPE html>
+            <html>
+            <head><title>Media File Manager</title></head>
+            <body>
+                <h1>Media File Manager</h1>
+                <p>FastAPI application is running successfully!</p>
+                <p>Debug info: <a href="/debug-info">/debug-info</a></p>
+            </body>
+            </html>
+            """)
 
 @app.post("/upload")
 async def upload_file(
@@ -70,7 +75,10 @@ async def upload_file(
     tags: str = Form(""),
     submitted_by: str = Form(""),
     priority: str = Form(""),
-    notes: str = Form("")
+    notes: str = Form(""),
+    cloudinary_url: str = Form(""),
+    thumbnail_url: str = Form(""),
+    public_id: str = Form("")
 ):
     try:
         logger.info("File upload started")
@@ -85,7 +93,7 @@ async def upload_file(
         if len(file_content) > MAX_FILE_SIZE:
             raise HTTPException(status_code=400, detail="File size exceeds 250MB limit")
         
-        # Create media record directly in VoxPro's Xano workspace
+        # Create media record with Cloudinary data in VoxPro's Xano workspace
         media_data = {
             'title': title,
             'description': description,
@@ -98,7 +106,9 @@ async def upload_file(
             'notes2': '',
             'file_type': file.content_type,
             'file_size': len(file_content),
-            'database_url': f"https://x8ki-letl-twmt.n7.xano.io/vault/{file.filename}",  # Direct file URL
+            'database_url': cloudinary_url or f"https://x8ki-letl-twmt.n7.xano.io/vault/{file.filename}",
+            'thumbnail_url': thumbnail_url or '',
+            'public_id': public_id or '',
             'created_at': int(datetime.now().timestamp() * 1000),
             'is_featured': False
         }
@@ -116,6 +126,8 @@ async def upload_file(
                 'message': f'Upload successful! File: {file.filename}',
                 'xano_id': media_record.get('id'),
                 'file_size': media_data['file_size'],
+                'cloudinary_url': cloudinary_url,
+                'thumbnail_url': thumbnail_url,
                 'redirect': '/'
             })
         else:

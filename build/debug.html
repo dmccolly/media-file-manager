@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Media File Manager - Debug Page</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #1a1a1a;
+            color: #ffffff;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .section {
+            background: #2d2d2d;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 5px 0;
+        }
+        .success { background: #065f46; }
+        .error { background: #7f1d1d; }
+        .warning { background: #92400e; }
+        .info { background: #1e40af; }
+        .button {
+            padding: 10px 20px;
+            background: #4f46e5;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .button:hover { background: #4338ca; }
+        .code {
+            background: #333;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Media File Manager - Environment Debug</h1>
+        <p>This page helps diagnose why the React application may not be rendering properly.</p>
+        
+        <div class="section">
+            <h2>Browser Compatibility Tests</h2>
+            <div id="compatibility-results"></div>
+        </div>
+        
+        <div class="section">
+            <h2>JavaScript Feature Support</h2>
+            <div id="js-features"></div>
+        </div>
+        
+        <div class="section">
+            <h2>Network & Loading Tests</h2>
+            <div id="network-tests"></div>
+            <button class="button" onclick="testNetworkLoading()">Test Network Loading</button>
+        </div>
+        
+        <div class="section">
+            <h2>React Library Loading</h2>
+            <div id="react-tests"></div>
+            <button class="button" onclick="testReactLoading()">Test React Loading</button>
+        </div>
+        
+        <div class="section">
+            <h2>Environment Information</h2>
+            <div id="env-info"></div>
+        </div>
+        
+        <div class="section">
+            <h2>Actions</h2>
+            <button class="button" onclick="window.location.href='/'">Return to Main App</button>
+            <button class="button" onclick="window.location.reload()">Refresh Debug Page</button>
+            <button class="button" onclick="exportResults()">Export Debug Results</button>
+        </div>
+        
+        <div class="section">
+            <h2>Debug Log</h2>
+            <div class="code" id="debug-log"></div>
+        </div>
+    </div>
+
+    <script>
+        let debugLog = [];
+        
+        function log(message, type = 'info') {
+            const timestamp = new Date().toISOString();
+            const logEntry = `[${timestamp}] ${type.toUpperCase()}: ${message}`;
+            debugLog.push(logEntry);
+            updateDebugLog();
+            console.log(logEntry);
+        }
+        
+        function updateDebugLog() {
+            document.getElementById('debug-log').textContent = debugLog.join('\n');
+        }
+        
+        function addResult(containerId, message, type = 'info') {
+            const container = document.getElementById(containerId);
+            const div = document.createElement('div');
+            div.className = `status ${type}`;
+            div.textContent = message;
+            container.appendChild(div);
+        }
+        
+        function testBrowserCompatibility() {
+            log('Starting browser compatibility tests');
+            
+            // Test basic JavaScript features
+            const tests = [
+                {
+                    name: 'Arrow Functions',
+                    test: () => eval('(() => true)()'),
+                },
+                {
+                    name: 'Template Literals',
+                    test: () => eval('`test` === "test"'),
+                },
+                {
+                    name: 'Destructuring',
+                    test: () => eval('const {a} = {a: 1}; a === 1'),
+                },
+                {
+                    name: 'Const/Let',
+                    test: () => eval('const x = 1; let y = 2; x + y === 3'),
+                },
+                {
+                    name: 'Classes',
+                    test: () => eval('class Test {}; new Test() instanceof Test'),
+                },
+                {
+                    name: 'Async/Await',
+                    test: () => eval('async function test() { return await Promise.resolve(true); }; typeof test === "function"'),
+                },
+                {
+                    name: 'Spread Operator',
+                    test: () => eval('const arr = [1, 2]; [...arr].length === 2'),
+                },
+                {
+                    name: 'Object.assign',
+                    test: () => typeof Object.assign === 'function',
+                },
+                {
+                    name: 'Array.includes',
+                    test: () => typeof Array.prototype.includes === 'function',
+                },
+                {
+                    name: 'Promise',
+                    test: () => typeof Promise === 'function',
+                },
+                {
+                    name: 'Fetch API',
+                    test: () => typeof fetch === 'function',
+                },
+                {
+                    name: 'Symbol',
+                    test: () => typeof Symbol === 'function',
+                }
+            ];
+            
+            tests.forEach(test => {
+                try {
+                    const result = test.test();
+                    if (result) {
+                        addResult('compatibility-results', `✅ ${test.name}: Supported`, 'success');
+                        log(`${test.name}: Supported`);
+                    } else {
+                        addResult('compatibility-results', `❌ ${test.name}: Failed test`, 'error');
+                        log(`${test.name}: Failed test`, 'error');
+                    }
+                } catch (error) {
+                    addResult('compatibility-results', `❌ ${test.name}: ${error.message}`, 'error');
+                    log(`${test.name}: ${error.message}`, 'error');
+                }
+            });
+        }
+        
+        function testJSFeatures() {
+            log('Testing JavaScript features');
+            
+            // Test React-specific requirements
+            const features = [
+                'JSON.stringify',
+                'JSON.parse',
+                'Array.prototype.map',
+                'Array.prototype.filter',
+                'Array.prototype.forEach',
+                'Array.prototype.find',
+                'Array.from',
+                'Object.keys',
+                'Object.values',
+                'Object.entries'
+            ];
+            
+            features.forEach(feature => {
+                try {
+                    const exists = eval(`typeof ${feature} === 'function'`);
+                    if (exists) {
+                        addResult('js-features', `✅ ${feature}: Available`, 'success');
+                    } else {
+                        addResult('js-features', `❌ ${feature}: Missing`, 'error');
+                    }
+                } catch (error) {
+                    addResult('js-features', `❌ ${feature}: Error - ${error.message}`, 'error');
+                }
+            });
+        }
+        
+        function testNetworkLoading() {
+            log('Testing network loading capabilities');
+            addResult('network-tests', '🔄 Testing network loading...', 'info');
+            
+            // Test if we can load the main JavaScript bundle
+            const script = document.createElement('script');
+            script.onload = function() {
+                addResult('network-tests', '✅ JavaScript bundle loads successfully', 'success');
+                log('JavaScript bundle loaded successfully');
+            };
+            script.onerror = function() {
+                addResult('network-tests', '❌ JavaScript bundle failed to load', 'error');
+                log('JavaScript bundle failed to load', 'error');
+            };
+            
+            // Try to load the main bundle (this will be the actual React app bundle)
+            fetch('/static/js/main.1693080b.js')
+                .then(response => {
+                    if (response.ok) {
+                        addResult('network-tests', '✅ Main bundle accessible via fetch', 'success');
+                        log('Main bundle accessible via fetch');
+                        return response.text();
+                    } else {
+                        throw new Error(`HTTP ${response.status}`);
+                    }
+                })
+                .then(content => {
+                    if (content.includes('React')) {
+                        addResult('network-tests', '✅ Bundle contains React code', 'success');
+                        log('Bundle contains React code');
+                    } else {
+                        addResult('network-tests', '⚠️ Bundle may not contain React', 'warning');
+                        log('Bundle may not contain React', 'warning');
+                    }
+                })
+                .catch(error => {
+                    addResult('network-tests', `❌ Bundle fetch failed: ${error.message}`, 'error');
+                    log(`Bundle fetch failed: ${error.message}`, 'error');
+                });
+        }
+        
+        function testReactLoading() {
+            log('Testing React library loading');
+            addResult('react-tests', '🔄 Testing React loading...', 'info');
+            
+            // Check if React is available
+            if (typeof window.React !== 'undefined') {
+                addResult('react-tests', '✅ React is available globally', 'success');
+                log('React is available globally');
+            } else {
+                addResult('react-tests', '❌ React is not available globally', 'error');
+                log('React is not available globally', 'error');
+            }
+            
+            // Check if ReactDOM is available
+            if (typeof window.ReactDOM !== 'undefined') {
+                addResult('react-tests', '✅ ReactDOM is available globally', 'success');
+                log('ReactDOM is available globally');
+            } else {
+                addResult('react-tests', '❌ ReactDOM is not available globally', 'error');
+                log('ReactDOM is not available globally', 'error');
+            }
+            
+            // Try to create a simple React element
+            try {
+                if (window.React) {
+                    const element = window.React.createElement('div', null, 'Test');
+                    if (element) {
+                        addResult('react-tests', '✅ Can create React elements', 'success');
+                        log('Can create React elements');
+                    }
+                }
+            } catch (error) {
+                addResult('react-tests', `❌ Cannot create React elements: ${error.message}`, 'error');
+                log(`Cannot create React elements: ${error.message}`, 'error');
+            }
+        }
+        
+        function gatherEnvironmentInfo() {
+            log('Gathering environment information');
+            
+            const info = {
+                'User Agent': navigator.userAgent,
+                'Platform': navigator.platform,
+                'Language': navigator.language,
+                'Cookie Enabled': navigator.cookieEnabled,
+                'Online': navigator.onLine,
+                'Screen Resolution': `${screen.width}x${screen.height}`,
+                'Viewport': `${window.innerWidth}x${window.innerHeight}`,
+                'Color Depth': screen.colorDepth,
+                'Timezone': Intl.DateTimeFormat().resolvedOptions().timeZone,
+                'Local Storage': typeof localStorage !== 'undefined' ? 'Available' : 'Not Available',
+                'Session Storage': typeof sessionStorage !== 'undefined' ? 'Available' : 'Not Available',
+                'WebGL': (() => {
+                    try {
+                        const canvas = document.createElement('canvas');
+                        return !!(canvas.getContext('webgl') || canvas.getContext('experimental-webgl'));
+                    } catch (e) {
+                        return false;
+                    }
+                })() ? 'Supported' : 'Not Supported'
+            };
+            
+            const container = document.getElementById('env-info');
+            Object.entries(info).forEach(([key, value]) => {
+                const div = document.createElement('div');
+                div.innerHTML = `<strong>${key}:</strong> ${value}`;
+                div.style.margin = '5px 0';
+                container.appendChild(div);
+            });
+        }
+        
+        function exportResults() {
+            const results = {
+                timestamp: new Date().toISOString(),
+                userAgent: navigator.userAgent,
+                debugLog: debugLog,
+                url: window.location.href
+            };
+            
+            const blob = new Blob([JSON.stringify(results, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `debug-results-${Date.now()}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            log('Debug results exported');
+        }
+        
+        // Run tests on page load
+        window.addEventListener('load', function() {
+            log('Debug page loaded, starting tests');
+            testBrowserCompatibility();
+            testJSFeatures();
+            gatherEnvironmentInfo();
+            
+            // Auto-run network tests after a short delay
+            setTimeout(() => {
+                testNetworkLoading();
+                testReactLoading();
+            }, 1000);
+        });
+        
+        // Global error handler
+        window.addEventListener('error', function(e) {
+            log(`Global error: ${e.message} at ${e.filename}:${e.lineno}`, 'error');
+        });
+        
+        window.addEventListener('unhandledrejection', function(e) {
+            log(`Unhandled promise rejection: ${e.reason}`, 'error');
+        });
+    </script>
+</body>
+</html>
