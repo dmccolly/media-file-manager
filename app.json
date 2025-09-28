@@ -1,0 +1,45 @@
+{
+  "name": "Idaho Broadcasting Media Upload",
+  "description": "A Flask application for uploading and managing media files with Cloudinary and React frontend",
+  "repository": "https://github.com/dmccolly/media-file-manager",
+  "keywords": ["flask", "python", "react", "media", "upload", "cloudinary"],
+  "buildpacks": [
+    {
+      "url": "heroku/nodejs"
+    },
+    {
+      "url": "heroku/python"
+    }
+  ],
+  "env": {
+    "CLOUDINARY_CLOUD_NAME": {
+      "description": "Your Cloudinary cloud name",
+      "required": true
+    },
+    "CLOUDINARY_API_KEY": {
+      "description": "Your Cloudinary API key",
+      "required": true
+    },
+    "CLOUDINARY_API_SECRET": {
+      "description": "Your Cloudinary API secret",
+      "required": true
+    },
+    "XANO_API_KEY": {
+      "description": "Your Xano API key",
+      "required": true
+    },
+    "WEBFLOW_API_KEY": {
+      "description": "Your Webflow API key",
+      "required": false
+    },
+    "WEBFLOW_SITE_ID": {
+      "description": "Your Webflow site ID",
+      "required": false
+    },
+    "FLASK_ENV": {
+      "description": "Flask environment",
+      "value": "production",
+      "required": false
+    }
+  }
+}
