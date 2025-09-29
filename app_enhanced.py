@@ -19,7 +19,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # USE THE SAME XANO WORKSPACE AS VOXPRO
-XANO_API_BASE = 'https://x8ki-letl-twmt.n7.xano.io/api:pYeqCtV'
+XANO_API_BASE = 'https://xajo-bs7d-cagt.n7e.xano.io/api:pYeQctVX'
 
 cloudinary.config(
     cloud_name=os.environ.get('CLOUDINARY_CLOUD_NAME', 'dzrw8nopf'),
@@ -155,11 +155,12 @@ def upload_file():
             'submitted_by': submitted_by,
             'priority': priority,
             'notes': notes,
-            'notes2': '',
+            'cloudinary_url': cloudinary_file_url,
+            'file_url': cloudinary_file_url,
+            'thumbnail_url': cloudinary_file_url,
             'file_type': file.content_type,
             'file_size': file_size,
-            'database_url': cloudinary_file_url,
-            'created_at': int(datetime.now().timestamp() * 1000),
+            'created_at': datetime.now().isoformat(),
             'is_featured': False
         }
         
@@ -168,7 +169,7 @@ def upload_file():
             'Authorization': f'Bearer {os.environ.get("XANO_API_KEY")}',
             'Content-Type': 'application/json'
         }
-        media_create_url = f"{XANO_API_BASE}/voxpro"
+        media_create_url = f"{XANO_API_BASE}/user_submission"
         media_response = requests.post(media_create_url, json=media_data, headers=xano_headers, timeout=30)
         
         if media_response.status_code in [200, 201]:
@@ -207,7 +208,7 @@ def media_library():
             'Authorization': f'Bearer {os.environ.get("XANO_API_KEY")}',
             'Content-Type': 'application/json'
         }
-        media_list_url = f"{XANO_API_BASE}/voxpro"
+        media_list_url = f"{XANO_API_BASE}/user_submission"
         response = requests.get(media_list_url, headers=xano_headers, timeout=30)
         
         if response.status_code == 200:
@@ -230,7 +231,7 @@ def system_status():
                 'Authorization': f'Bearer {os.environ.get("XANO_API_KEY")}',
                 'Content-Type': 'application/json'
             }
-            test_url = f"{XANO_API_BASE}/voxpro"
+            test_url = f"{XANO_API_BASE}/user_submission"
             test_response = requests.get(test_url, headers=xano_headers, timeout=10)
             if test_response.status_code != 200:
                 xano_status = f"Error: {test_response.status_code}"
