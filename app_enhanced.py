@@ -164,8 +164,12 @@ def upload_file():
         }
         
         # Save to VoxPro's Xano database (/voxpro endpoint)
+        xano_headers = {
+            'Authorization': f'Bearer {os.environ.get("XANO_API_KEY")}',
+            'Content-Type': 'application/json'
+        }
         media_create_url = f"{XANO_API_BASE}/voxpro"
-        media_response = requests.post(media_create_url, json=media_data, timeout=30)
+        media_response = requests.post(media_create_url, json=media_data, headers=xano_headers, timeout=30)
         
         if media_response.status_code in [200, 201]:
             media_record = media_response.json()
@@ -199,8 +203,12 @@ def upload_file():
 def media_library():
     """Display media library with files from Xano database"""
     try:
+        xano_headers = {
+            'Authorization': f'Bearer {os.environ.get("XANO_API_KEY")}',
+            'Content-Type': 'application/json'
+        }
         media_list_url = f"{XANO_API_BASE}/voxpro"
-        response = requests.get(media_list_url, timeout=30)
+        response = requests.get(media_list_url, headers=xano_headers, timeout=30)
         
         if response.status_code == 200:
             media_records = response.json()
@@ -218,8 +226,12 @@ def system_status():
     try:
         xano_status = "OK"
         try:
+            xano_headers = {
+                'Authorization': f'Bearer {os.environ.get("XANO_API_KEY")}',
+                'Content-Type': 'application/json'
+            }
             test_url = f"{XANO_API_BASE}/voxpro"
-            test_response = requests.get(test_url, timeout=10)
+            test_response = requests.get(test_url, headers=xano_headers, timeout=10)
             if test_response.status_code != 200:
                 xano_status = f"Error: {test_response.status_code}"
         except Exception as e:
