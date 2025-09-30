@@ -260,7 +260,7 @@ def api_media_list():
                     'id': str(record.get('id', '')),
                     'fields': {
                         'Title': record.get('title', 'Untitled'),
-                        'URL': record.get('media_url') or record.get('attachment', ''),
+                        'URL': record.get('cloudinary_url') or record.get('file_url') or record.get('media_url') or record.get('attachment', ''),
                         'Category': record.get('category', 'uncategorized'),
                         'Type': record.get('file_type', 'file'),
                         'Station': record.get('station', ''),
@@ -268,11 +268,11 @@ def api_media_list():
                         'Notes': record.get('notes', ''),
                         'Tags': record.get('tags', ''),
                         'Upload Date': record.get('created_at', ''),
-                        'Thumbnail': record.get('media_url') or record.get('attachment') or record.get('thumbnail_url', ''),
+                        'Thumbnail': record.get('cloudinary_url') or record.get('thumbnail_url') or record.get('media_url') or record.get('attachment', ''),
                         'File Size': record.get('file_size', 0),
                         'Duration': record.get('duration', ''),
-                        'File URL': record.get('media_url') or record.get('attachment', ''),
-                        'Attachments': [{'url': record.get('media_url') or record.get('attachment', '')}] if record.get('media_url') or record.get('attachment') else []
+                        'File URL': record.get('cloudinary_url') or record.get('file_url') or record.get('media_url') or record.get('attachment', ''),
+                        'Attachments': [{'url': record.get('cloudinary_url') or record.get('file_url') or record.get('media_url') or record.get('attachment', '')}] if record.get('cloudinary_url') or record.get('file_url') or record.get('media_url') or record.get('attachment') else []
                     }
                 }
                 transformed_records.append(airtable_record)
