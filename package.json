@@ -7,8 +7,8 @@
     "npm": "9.x"
   },
   "scripts": {
-    "build": "cd src && npm install && npm run build && cd .. && cp -r src/build/* build/",
-    "heroku-postbuild": "mkdir -p build && npm run build"
+    "build": "cd src && npm install && npm run build && cd .. && cp -r src/build/* build/ && echo 'Build artifacts copied successfully'",
+    "heroku-postbuild": "mkdir -p build && npm run build && ls -la build/ && ls -la build/static/"
   },
   "dependencies": {},
   "devDependencies": {}

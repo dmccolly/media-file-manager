@@ -107,6 +107,14 @@ def index():
 @app.route('/manager')
 def file_manager():
     """Serve the React file manager interface"""
+    import os
+    html_path = os.path.join('build', 'index.html')
+    logger.info(f"Serving HTML file from: {html_path}")
+    logger.info(f"File exists: {os.path.exists(html_path)}")
+    if os.path.exists(html_path):
+        with open(html_path, 'r') as f:
+            content = f.read()
+            logger.info(f"HTML contains CSS links: {'css' in content.lower()}")
     response = send_from_directory('build', 'index.html')
     response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
     response.headers['Pragma'] = 'no-cache'
@@ -133,6 +141,15 @@ def serve_static(filename):
     response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
     response.headers['Pragma'] = 'no-cache'
     response.headers['Expires'] = '0'
+    return response
+
+@app.route('/css/<path:filename>')
+def serve_css_fallback(filename):
+    """Fallback route to serve CSS files directly"""
+    logger.info(f"Serving CSS file: {filename}")
+    response = send_from_directory('build/static/css', filename)
+    response.headers['Content-Type'] = 'text/css'
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
     return response
 
 @app.route('/upload', methods=['POST'])
