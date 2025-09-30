@@ -7,8 +7,8 @@
     "npm": "9.x"
   },
   "scripts": {
-    "build": "cd src && npm install && npm run build",
-    "heroku-postbuild": "npm run build"
+    "build": "cd src && npm install && npm run build && cd .. && cp -r src/build/* build/",
+    "heroku-postbuild": "mkdir -p build && npm run build"
   },
   "dependencies": {},
   "devDependencies": {}

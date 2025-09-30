@@ -10,7 +10,7 @@ import cloudinary
 import cloudinary.uploader
 from cloudinary.utils import cloudinary_url
 
-app = Flask(__name__, static_folder='src/build/static', static_url_path='/static')
+app = Flask(__name__, static_folder='build/static', static_url_path='/static')
 app.config['TEMPLATES_AUTO_RELOAD'] = True
 app.config['MAX_CONTENT_LENGTH'] = 250 * 1024 * 1024  # 250MB limit
 CORS(app)
@@ -92,12 +92,17 @@ def index():
 @app.route('/manager')
 def file_manager():
     """Serve the React file manager interface"""
-    return send_from_directory('src/build', 'index.html')
+    return send_from_directory('build', 'index.html')
+
+@app.route('/manager/<path:path>')
+def file_manager_routes(path):
+    """Handle React Router routes"""
+    return send_from_directory('build', 'index.html')
 
 @app.route('/static/<path:filename>')
 def serve_static(filename):
     """Serve React static files"""
-    return send_from_directory('src/build/static', filename)
+    return send_from_directory('build/static', filename)
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
@@ -220,6 +225,48 @@ def media_library():
     except Exception as e:
         logger.error(f"Media library error: {e}")
         return render_template('media_list_enhanced.html', media_records=[], error=str(e))
+
+@app.route('/api/media')
+def api_media_list():
+    """API endpoint for React frontend to fetch media files from Xano database"""
+    try:
+        xano_headers = {
+            'Authorization': f'Bearer {os.environ.get("XANO_API_KEY")}',
+            'Content-Type': 'application/json'
+        }
+        media_list_url = f"{XANO_API_BASE}/user_submission"
+        response = requests.get(media_list_url, headers=xano_headers, timeout=30)
+        
+        if response.status_code == 200:
+            media_records = response.json()
+            
+            transformed_records = []
+            for record in media_records:
+                transformed_record = {
+                    'id': record.get('id'),
+                    'title': record.get('title', 'Untitled'),
+                    'url': record.get('cloudinary_url') or record.get('file_url', ''),
+                    'category': record.get('category', 'uncategorized'),
+                    'type': record.get('file_type', 'file'),
+                    'station': record.get('station', ''),
+                    'description': record.get('description', ''),
+                    'notes': record.get('notes', ''),
+                    'tags': record.get('tags', ''),
+                    'uploadDate': record.get('created_at', ''),
+                    'thumbnail': record.get('thumbnail_url') or record.get('cloudinary_url') or record.get('file_url', ''),
+                    'fileSize': record.get('file_size', 0),
+                    'duration': record.get('duration', ''),
+                    'originalRecord': record
+                }
+                transformed_records.append(transformed_record)
+            
+            return jsonify({'records': transformed_records})
+        else:
+            logger.error(f"Failed to fetch media records: {response.status_code}")
+            return jsonify({'error': f'Failed to load media library: {response.status_code}'}), response.status_code
+    except Exception as e:
+        logger.error(f"API media library error: {e}")
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/test')
 def system_status():
