@@ -1,14 +1,11 @@
 {
   "name": "Idaho Broadcasting Media Upload",
-  "description": "A Flask application for uploading and managing media files with Cloudinary and React frontend",
+  "description": "A Node.js application for uploading and managing media files with React frontend",
   "repository": "https://github.com/dmccolly/media-file-manager",
-  "keywords": ["flask", "python", "react", "media", "upload", "cloudinary"],
+  "keywords": ["nodejs", "react", "media", "upload", "express"],
   "buildpacks": [
     {
       "url": "heroku/nodejs"
-    },
-    {
-      "url": "heroku/python"
     }
   ],
   "env": {
