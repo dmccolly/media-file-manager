@@ -1,15 +1,13 @@
 {
   "name": "media-file-manager-heroku",
-  "version": "1.0.0",
   "private": true,
-  "engines": {
-    "node": "18.x",
-    "npm": "9.x"
-  },
+  "engines": { "node": "18.x", "npm": "9.x" },
   "scripts": {
-    "build": "cd src && npm install && npm run build && cd .. && cp -r src/build/* build/",
-    "heroku-postbuild": "mkdir -p build && npm run build"
+    "start": "node server.js",
+    "heroku-postbuild": "bash -lc 'cd src && NPM_CONFIG_PRODUCTION=false npm ci && npm run build && cd .. && rm -rf build && mkdir -p build && cp -r src/build/* build/'"
   },
-  "dependencies": {},
-  "devDependencies": {}
+  "dependencies": {
+    "compression": "^1.7.4",
+    "express": "^4.19.2"
+  }
 }
