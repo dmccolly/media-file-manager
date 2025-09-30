@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import './App.css';
 
 // =============================================
 // AIRTABLE SERVICE CLASS - FIXED
