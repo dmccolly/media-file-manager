@@ -115,6 +115,7 @@ def file_manager():
         with open(html_path, 'r') as f:
             content = f.read()
             logger.info(f"HTML contains CSS links: {'css' in content.lower()}")
+            logger.info(f"HTML file size: {len(content)} characters")
     response = send_from_directory('build', 'index.html')
     response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
     response.headers['Pragma'] = 'no-cache'
@@ -146,11 +147,16 @@ def serve_static(filename):
 @app.route('/css/<path:filename>')
 def serve_css_fallback(filename):
     """Fallback route to serve CSS files directly"""
-    logger.info(f"Serving CSS file: {filename}")
-    response = send_from_directory('build/static/css', filename)
-    response.headers['Content-Type'] = 'text/css'
-    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
-    return response
+    logger.info(f"Serving CSS file via fallback route: {filename}")
+    try:
+        response = send_from_directory('build/static/css', filename)
+        response.headers['Content-Type'] = 'text/css'
+        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        logger.info(f"Successfully served CSS file: {filename}")
+        return response
+    except Exception as e:
+        logger.error(f"Failed to serve CSS file {filename}: {e}")
+        return "CSS file not found", 404
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
