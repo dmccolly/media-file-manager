@@ -15,6 +15,20 @@ app.config['TEMPLATES_AUTO_RELOAD'] = True
 app.config['MAX_CONTENT_LENGTH'] = 250 * 1024 * 1024  # 250MB limit
 CORS(app)
 
+@app.template_filter('timestamp_to_date')
+def timestamp_to_date_filter(timestamp):
+    """Convert timestamp to readable date format"""
+    try:
+        if timestamp:
+            if isinstance(timestamp, str):
+                timestamp = int(timestamp)
+            if timestamp > 1e10:  # Milliseconds timestamp
+                timestamp = timestamp / 1000
+            return datetime.fromtimestamp(timestamp).strftime('%m/%d/%Y')
+        return 'Unknown'
+    except (ValueError, TypeError, OSError):
+        return 'Unknown'
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
