@@ -10,7 +10,7 @@ class AirtableService {
   constructor() {
     this.baseId = process.env.REACT_APP_AIRTABLE_BASE_ID;
     this.apiKey = process.env.REACT_APP_AIRTABLE_API_KEY;
-    this.baseUrl = `https://api.airtable.com/v0/${this.baseId}/Media%20Assets`; // Fixed with semicolon
+    this.baseUrl = '/api/media';
     this.headers = {
       'Authorization': `Bearer ${this.apiKey}`,
       'Content-Type': 'application/json'
