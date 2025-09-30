@@ -178,11 +178,39 @@ class AirtableService {
       const thumbnail = this.generateThumbnailFromUrl(url, detectedType);
       console.log(`🖼️ Thumbnail generated for ${fields['Title']}: ${thumbnail}`);
      
+      // Map old categories to new ones and auto-categorize based on file type
+      let category = fields['Category'] || 'other';
+      
+      const categoryMapping = {
+        'news': 'other',
+        'sports': 'other', 
+        'weather': 'other',
+        'entertainment': 'other',
+        'commercial': 'other',
+        'uncategorized': 'other'
+      };
+      
+      if (categoryMapping[category]) {
+        category = categoryMapping[category];
+      }
+      
+      if (!category || category === 'other' || category === 'uncategorized') {
+        if (detectedType === 'image') {
+          category = 'image';
+        } else if (detectedType === 'video') {
+          category = 'video';
+        } else if (detectedType === 'audio') {
+          category = 'audio';
+        } else if (detectedType === 'document' || detectedType === 'spreadsheet' || detectedType === 'presentation') {
+          category = 'document';
+        }
+      }
+
       const processedFile = {
         id: record.id,
         title: fields['Title'] || fields['Name'] || actualFilename || 'Untitled',
         url: url,
-        category: fields['Category'] || 'uncategorized',
+        category: category,
         type: detectedType,
         station: fields['Station'] || '',
         description: fields['Description'] || '',
@@ -240,16 +268,11 @@ class AirtableService {
         'mp3': 'audio', 'wav': 'audio', 'flac': 'audio', 'aac': 'audio',
         'ogg': 'audio', 'm4a': 'audio', 'wma': 'audio', 'opus': 'audio',
        
-        // Documents
+        // Documents (including spreadsheets and presentations)
         'pdf': 'document', 'doc': 'document', 'docx': 'document',
         'txt': 'document', 'rtf': 'document', 'odt': 'document',
-       
-        // Spreadsheets
-        'xls': 'spreadsheet', 'xlsx': 'spreadsheet', 'csv': 'spreadsheet',
-        'ods': 'spreadsheet',
-       
-        // Presentations
-        'ppt': 'presentation', 'pptx': 'presentation', 'odp': 'presentation',
+        'xls': 'document', 'xlsx': 'document', 'csv': 'document',
+        'ods': 'document', 'ppt': 'document', 'pptx': 'document', 'odp': 'document',
        
         // Archives
         'zip': 'archive', 'rar': 'archive', '7z': 'archive', 'tar': 'archive', 
@@ -670,8 +693,6 @@ const getFileIcon = (type, size = 'text-2xl') => {
    
     // Document types
     document: '📄',
-    spreadsheet: '📊',
-    presentation: '📽️',
    
     // Other types
     archive: '📦',
@@ -683,6 +704,18 @@ const getFileIcon = (type, size = 'text-2xl') => {
   console.log(`✅ Icon selected: ${icon} for type: ${type}`);
  
   return <span className={size}>{icon}</span>;
+};
+
+const getCategoryIcon = (category) => {
+  const iconMap = {
+    'image': '🖼️',
+    'video': '🎥',
+    'audio': '🎵',
+    'document': '📄',
+    'other': '📁'
+  };
+  
+  return iconMap[category] || iconMap['other'];
 };
 // Format file size
 const formatFileSize = (bytes) => {
@@ -794,7 +827,7 @@ const FolderTree = ({
   return (
     <div className="w-64 bg-gray-50 border-r p-4 overflow-y-auto">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="font-semibold text-gray-800">Folders</h3>
+        <h3 className="font-semibold text-gray-800">Categories</h3>
         <button
           onClick={onCreateFolder}
           className="text-blue-600 hover:text-blue-800 text-sm font-medium"
@@ -814,8 +847,15 @@ const FolderTree = ({
               onClick={() => handleFolderClick(folder)}
               onContextMenu={(e) => handleFolderRightClick(e, folder)}
             >
-              <span className="w-4 h-4 mr-2">📁</span>
-              <span className="flex-1 truncate">{folder}</span>
+              <span className="w-4 h-4 mr-2">{getCategoryIcon(folder)}</span>
+              <span className="flex-1 truncate">
+                {folder === 'image' ? 'Image/Graphics' : 
+                 folder === 'video' ? 'Video' :
+                 folder === 'audio' ? 'Audio' :
+                 folder === 'document' ? 'Documents' :
+                 folder === 'other' ? 'Other' : 
+                 folder.charAt(0).toUpperCase() + folder.slice(1)}
+              </span>
               <span className="text-xs text-gray-500 ml-2 bg-gray-200 px-1 rounded">
                 {count}
               </span>
@@ -1734,9 +1774,9 @@ export default function App() {
   const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [currentFolder, setCurrentFolder] = useState('Images');
+  const [currentFolder, setCurrentFolder] = useState('image');
   const [viewMode, setViewMode] = useState('grid');
-  const [expandedFolders, setExpandedFolders] = useState(['Images', 'Video', 'Audio']);
+  const [expandedFolders, setExpandedFolders] = useState(['image', 'video', 'audio']);
   const [contextMenu, setContextMenu] = useState({ show: false, x: 0, y: 0, type: '', target: null });
  
   // Upload states

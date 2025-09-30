@@ -315,9 +315,10 @@ def system_status():
             'timestamp': datetime.now().isoformat()
         }
         
-        return jsonify(status_data)
+        return render_template('system_status.html', status_data=status_data)
     except Exception as e:
-        return jsonify({'error': str(e), 'status': 'System check failed'}), 500
+        error_data = {'error': str(e), 'status': 'System check failed', 'timestamp': datetime.now().isoformat()}
+        return render_template('system_status.html', status_data=error_data), 500
 
 @app.route('/webflow/collections')
 def webflow_collections():
