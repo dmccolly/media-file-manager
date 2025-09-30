@@ -8,8 +8,8 @@
   },
   "scripts": {
     "start": "node server.js",
-    "build": "cd src && rm -rf node_modules && npm install && npm rebuild && npm run build && cd .. && rm -rf build/* && cp -r src/build/* build/ && echo 'Build artifacts copied successfully'",
-    "heroku-postbuild": "npm run build"
+    "build": "echo 'Skipping React build - using pre-built artifacts'",
+    "heroku-postbuild": "echo 'Skipping heroku-postbuild - using committed build artifacts'"
   },
   "dependencies": {
     "react": "^18.2.0",
