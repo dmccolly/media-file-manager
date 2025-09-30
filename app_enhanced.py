@@ -242,23 +242,26 @@ def api_media_list():
             
             transformed_records = []
             for record in media_records:
-                transformed_record = {
-                    'id': record.get('id'),
-                    'title': record.get('title', 'Untitled'),
-                    'url': record.get('cloudinary_url') or record.get('file_url', ''),
-                    'category': record.get('category', 'uncategorized'),
-                    'type': record.get('file_type', 'file'),
-                    'station': record.get('station', ''),
-                    'description': record.get('description', ''),
-                    'notes': record.get('notes', ''),
-                    'tags': record.get('tags', ''),
-                    'uploadDate': record.get('created_at', ''),
-                    'thumbnail': record.get('thumbnail_url') or record.get('cloudinary_url') or record.get('file_url', ''),
-                    'fileSize': record.get('file_size', 0),
-                    'duration': record.get('duration', ''),
-                    'originalRecord': record
+                airtable_record = {
+                    'id': str(record.get('id', '')),
+                    'fields': {
+                        'Title': record.get('title', 'Untitled'),
+                        'URL': record.get('media_url') or record.get('attachment', ''),
+                        'Category': record.get('category', 'uncategorized'),
+                        'Type': record.get('file_type', 'file'),
+                        'Station': record.get('station', ''),
+                        'Description': record.get('description', ''),
+                        'Notes': record.get('notes', ''),
+                        'Tags': record.get('tags', ''),
+                        'Upload Date': record.get('created_at', ''),
+                        'Thumbnail': record.get('media_url') or record.get('attachment') or record.get('thumbnail_url', ''),
+                        'File Size': record.get('file_size', 0),
+                        'Duration': record.get('duration', ''),
+                        'File URL': record.get('media_url') or record.get('attachment', ''),
+                        'Attachments': [{'url': record.get('media_url') or record.get('attachment', '')}] if record.get('media_url') or record.get('attachment') else []
+                    }
                 }
-                transformed_records.append(transformed_record)
+                transformed_records.append(airtable_record)
             
             return jsonify({'records': transformed_records})
         else:
