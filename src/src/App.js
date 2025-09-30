@@ -857,7 +857,42 @@ const UploadButton = ({ onFileSelect, isUploading }) => {
     </div>
   );
 };
-// FIXED - Enhanced File Grid Component with Multi-Selection
+
+const sortFiles = (files, field, direction) => {
+  return [...files].sort((a, b) => {
+    let aVal = a[field];
+    let bVal = b[field];
+    
+    if (field === 'fileSize') {
+      aVal = parseInt(aVal) || 0;
+      bVal = parseInt(bVal) || 0;
+    } else if (field === 'uploadDate') {
+      aVal = new Date(aVal).getTime();
+      bVal = new Date(bVal).getTime();
+    } else if (typeof aVal === 'string') {
+      aVal = aVal.toLowerCase();
+      bVal = bVal.toLowerCase();
+    }
+    
+    if (direction === 'asc') {
+      return aVal < bVal ? -1 : aVal > bVal ? 1 : 0;
+    } else {
+      return aVal > bVal ? -1 : aVal < bVal ? 1 : 0;
+    }
+  });
+};
+
+const handleSort = (field, setSortField, setSortDirection, sortField, sortDirection) => {
+  const newDirection = sortField === field && sortDirection === 'asc' ? 'desc' : 'asc';
+  setSortField(field);
+  setSortDirection(newDirection);
+};
+
+const getSortIcon = (field, sortField, sortDirection) => {
+  if (sortField !== field) return '↕️';
+  return sortDirection === 'asc' ? '↑' : '↓';
+};
+
 const FileGrid = ({
   files,
   viewMode,
@@ -866,7 +901,11 @@ const FileGrid = ({
   selectedFiles,
   onFileSelect,
   onSelectAll,
-  onClearSelection
+  onClearSelection,
+  onSort,
+  sortField,
+  sortDirection,
+  getSortIcon
 }) => {
   const [imageErrors, setImageErrors] = useState(new Set());
 
@@ -933,7 +972,7 @@ const FileGrid = ({
           <table className="w-full">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   <input
                     type="checkbox"
                     checked={selectedFiles.length === files.length}
@@ -941,10 +980,18 @@ const FileGrid = ({
                     className="rounded"
                   />
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Size</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" onClick={() => onSort('title')}>
+                  Name {getSortIcon('title')}
+                </th>
+                <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" onClick={() => onSort('type')}>
+                  Type {getSortIcon('type')}
+                </th>
+                <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" onClick={() => onSort('fileSize')}>
+                  Size {getSortIcon('fileSize')}
+                </th>
+                <th className="px-2 py-1 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" onClick={() => onSort('uploadDate')}>
+                  Date {getSortIcon('uploadDate')}
+                </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
@@ -957,7 +1004,7 @@ const FileGrid = ({
                   onContextMenu={(e) => onFileRightClick(e, file)}
                   onClick={() => handleFileClick(file)}
                 >
-                  <td className="px-4 py-3">
+                  <td className="px-2 py-1">
                     <input
                       type="checkbox"
                       checked={isSelected(file)}
@@ -965,13 +1012,13 @@ const FileGrid = ({
                       className="rounded"
                     />
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-2 py-1">
                     <div className="flex items-center">
-                      <div className="mr-3">
-                        {getFileIcon(file.type, 'text-lg')}
+                      <div className="mr-2">
+                        {getFileIcon(file.type, 'text-sm')}
                       </div>
                       <div>
-                        <div className="font-medium text-gray-900 truncate" title={file.title}>
+                        <div className="font-medium text-gray-900 truncate text-sm" title={file.title}>
                           {file.title}
                         </div>
                         {file.description && (
@@ -982,15 +1029,15 @@ const FileGrid = ({
                       </div>
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-sm text-gray-600 capitalize">
-                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                  <td className="px-2 py-1 text-xs text-gray-600 capitalize">
+                    <span className="inline-flex items-center px-1 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">
                       {file.type}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-sm text-gray-600">
+                  <td className="px-2 py-1 text-xs text-gray-600">
                     {formatFileSize(file.fileSize)}
                   </td>
-                  <td className="px-4 py-3 text-sm text-gray-600">
+                  <td className="px-2 py-1 text-xs text-gray-600">
                     {formatDate(file.uploadDate)}
                   </td>
                 </tr>
@@ -1706,6 +1753,9 @@ export default function App() {
   // Multi-selection states
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [showBatchPanel, setShowBatchPanel] = useState(false);
+  
+  const [sortField, setSortField] = useState('title');
+  const [sortDirection, setSortDirection] = useState('asc');
   // Computed Values
   const folderTree = useMemo(() => {
     console.log('🔄 App: Computing folder tree from files:', files);
@@ -1721,9 +1771,10 @@ export default function App() {
   }, [files]);
   const currentFiles = useMemo(() => {
     const filtered = files.filter(file => file.category === currentFolder);
-    console.log(`📁 App: Files in ${currentFolder}:`, filtered.length);
-    return filtered;
-  }, [files, currentFolder]);
+    const sorted = sortFiles(filtered, sortField, sortDirection);
+    console.log(`📁 App: Files in ${currentFolder}:`, sorted.length);
+    return sorted;
+  }, [files, currentFolder, sortField, sortDirection]);
   // Load Files from Database
   const loadFiles = useCallback(async () => {
     console.log('🔄 App: Loading files from database...');
@@ -1814,6 +1865,14 @@ export default function App() {
       startUpload(pendingFiles, metadata);
     }
   }, [pendingFiles, startUpload]);
+  
+  const handleSortClick = useCallback((field) => {
+    handleSort(field, setSortField, setSortDirection, sortField, sortDirection);
+  }, [sortField, sortDirection]);
+  
+  const getSortIconForField = useCallback((field) => {
+    return getSortIcon(field, sortField, sortDirection);
+  }, [sortField, sortDirection]);
   // Multi-selection handlers
   const handleFileSelectToggle = useCallback((file) => {
     setSelectedFiles(prev => {
@@ -2115,6 +2174,10 @@ export default function App() {
           onFileSelect={handleFileSelectToggle}
           onSelectAll={handleSelectAll}
           onClearSelection={handleClearSelection}
+          onSort={handleSortClick}
+          sortField={sortField}
+          sortDirection={sortDirection}
+          getSortIcon={getSortIconForField}
         />
       </div>
 
