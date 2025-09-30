@@ -3,7 +3,7 @@ import os
 import logging
 import json
 from datetime import datetime
-from flask import Flask, request, render_template, jsonify, send_from_directory
+from flask import Flask, request, render_template, jsonify, send_from_directory, make_response
 from flask_cors import CORS
 import requests
 import cloudinary
@@ -106,30 +106,18 @@ def index():
 
 @app.route('/manager')
 def file_manager():
-    """Serve the React file manager interface"""
-    import os
-    html_path = os.path.join('build', 'index.html')
-    logger.info(f"Serving HTML file from: {html_path}")
-    logger.info(f"File exists: {os.path.exists(html_path)}")
-    if os.path.exists(html_path):
-        with open(html_path, 'r') as f:
-            content = f.read()
-            logger.info(f"HTML contains CSS links: {'css' in content.lower()}")
-            logger.info(f"HTML file size: {len(content)} characters")
-    response = send_from_directory('build', 'index.html')
-    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
-    response.headers['Pragma'] = 'no-cache'
-    response.headers['Expires'] = '0'
-    return response
+    """Serve the React file manager interface with proper MIME type"""
+    resp = make_response(send_from_directory("build", "index.html"))
+    resp.headers["Content-Type"] = "text/html; charset=utf-8"
+    resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    resp.headers["Pragma"] = "no-cache"
+    resp.headers["Expires"] = "0"
+    return resp
 
-@app.route('/manager/<path:path>')
-def file_manager_routes(path):
+@app.route('/manager/<path:_path>')
+def file_manager_routes(_path):
     """Handle React Router routes"""
-    response = send_from_directory('build', 'index.html')
-    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
-    response.headers['Pragma'] = 'no-cache'
-    response.headers['Expires'] = '0'
-    return response
+    return file_manager()
 
 @app.route('/static/<path:filename>')
 def serve_static(filename):
