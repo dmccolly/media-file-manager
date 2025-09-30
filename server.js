@@ -1,50 +1,30 @@
-const path = require('path');
-const express = require('express');
-const fs = require('fs');
+const express = require("express");
+const path = require("path");
+const compression = require("compression");
+
 const app = express();
+const buildDir = path.join(__dirname, "build"); // change if your compiled app lives elsewhere
 
-const buildPath = path.join(__dirname, 'build');
-console.log('=== Express.js Server Debug Info ===');
-console.log('Build path:', buildPath);
-console.log('Build folder exists:', fs.existsSync(buildPath));
+app.use(compression());
 
-if (fs.existsSync(buildPath)) {
-  console.log('Build folder contents:', fs.readdirSync(buildPath));
-  const staticPath = path.join(buildPath, 'static');
-  if (fs.existsSync(staticPath)) {
-    console.log('Static folder contents:', fs.readdirSync(staticPath));
-    const cssPath = path.join(staticPath, 'css');
-    if (fs.existsSync(cssPath)) {
-      console.log('CSS folder contents:', fs.readdirSync(cssPath));
-    } else {
-      console.log('CSS folder does not exist');
-    }
-  } else {
-    console.log('Static folder does not exist');
-  }
-} else {
-  console.log('Build folder does not exist - this is the problem!');
-}
+app.use("/static", express.static(path.join(buildDir, "static"), { maxAge: "1h", etag: true }));
+app.use("/assets", express.static(path.join(buildDir, "assets"), { maxAge: "1h", etag: true })); // Vite-style
 
-app.use(express.static(buildPath));
-
-app.get('/debug', (req, res) => {
-  res.json({
-    buildPath,
-    buildExists: fs.existsSync(buildPath),
-    buildContents: fs.existsSync(buildPath) ? fs.readdirSync(buildPath) : null,
-    staticExists: fs.existsSync(path.join(buildPath, 'static')),
-    cssExists: fs.existsSync(path.join(buildPath, 'static', 'css'))
-  });
+app.get("/public/hoibf-file-manager.html", (req, res) => {
+  res.type("html"); // <— force text/html
+  res.sendFile(path.join(__dirname, "public", "hoibf-file-manager.html"));
 });
 
-app.get('/manager', (req, res) => {
-  res.sendFile(path.join(buildPath, 'index.html'));
+app.get(["/manager", "/manager/*"], (req, res) => {
+  res.type("html"); // <— force text/html; charset=utf-8
+  res.sendFile(path.join(buildDir, "index.html"));
 });
 
-app.get('*', (req, res) => {
-  res.sendFile(path.join(buildPath, 'index.html'));
+app.get("*", (req, res, next) => {
+  if (req.path.startsWith("/api/")) return next(); // let APIs fall through
+  res.type("html");
+  res.sendFile(path.join(buildDir, "index.html"));
 });
 
 const port = process.env.PORT || 3000;
-app.listen(port, () => console.log(`Server running on port ${port}`));
+app.listen(port, () => console.log(`▶ Listening on ${port}`));

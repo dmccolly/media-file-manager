@@ -1,1 +1,1 @@
-web: gunicorn app_enhanced:app --preload
+web: node server.js
