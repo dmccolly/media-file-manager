@@ -134,6 +134,9 @@ def file_manager_routes(path):
 @app.route('/static/<path:filename>')
 def serve_static(filename):
     """Serve React static files with proper headers"""
+    import os
+    file_path = os.path.join('build/static', filename)
+    logger.info(f"Serving static file: {filename}, exists: {os.path.exists(file_path)}")
     response = send_from_directory('build/static', filename)
     if filename.endswith('.js'):
         response.headers['Content-Type'] = 'application/javascript'
@@ -142,6 +145,7 @@ def serve_static(filename):
     response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
     response.headers['Pragma'] = 'no-cache'
     response.headers['Expires'] = '0'
+    logger.info(f"Successfully served static file: {filename}")
     return response
 
 @app.route('/css/<path:filename>')
