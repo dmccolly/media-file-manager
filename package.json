@@ -1,14 +1,10 @@
 {
-  "name": "media-file-manager-heroku",
-  "version": "1.0.0",
+  "name": "hoibf-file-manager-server",
   "private": true,
-  "engines": {
-    "node": ">=18"
-  },
+  "engines": { "node": ">=18" },
   "scripts": {
     "start": "node server.js",
-    "build": "echo 'Using committed build artifacts - skipping React build to avoid cross-spawn dependency failure'",
-    "heroku-postbuild": "echo 'Skipping heroku-postbuild - using committed build artifacts to bypass cross-spawn module corruption'"
+    "heroku-postbuild": "NPM_CONFIG_PRODUCTION=false npm ci --prefix src && npm run build --prefix src && rm -rf build && cp -r src/build ./build"
   },
   "dependencies": {
     "compression": "^1.7.4",
