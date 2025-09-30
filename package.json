@@ -7,12 +7,14 @@
     "npm": "9.x"
   },
   "scripts": {
+    "start": "node server.js",
     "build": "cd src && npm install && npm run build && cd .. && rm -rf build/* && cp -r src/build/* build/ && echo 'Build artifacts copied successfully'",
-    "heroku-postbuild": "echo 'Skipping heroku-postbuild - using committed build artifacts' && echo 'Verifying committed build artifacts:' && ls -la build/ && if [ -d build/static ]; then ls -la build/static/; fi && if [ -d build/static/css ]; then ls -la build/static/css/; fi && if [ -f build/index.html ]; then echo 'HTML file contains CSS:' && grep -i css build/index.html || echo 'No CSS found in HTML'; fi && echo 'Using committed build artifacts successfully'"
+    "heroku-postbuild": "npm run build"
   },
   "dependencies": {
     "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react-dom": "^18.2.0",
+    "express": "^4.18.2"
   },
   "devDependencies": {
     "react-scripts": "5.0.1"
