@@ -13,6 +13,7 @@ from cloudinary.utils import cloudinary_url
 app = Flask(__name__, static_folder='build/static', static_url_path='/static')
 app.config['TEMPLATES_AUTO_RELOAD'] = True
 app.config['MAX_CONTENT_LENGTH'] = 250 * 1024 * 1024  # 250MB limit
+app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0  # Disable caching for development
 CORS(app)
 
 @app.template_filter('timestamp_to_date')
@@ -106,17 +107,33 @@ def index():
 @app.route('/manager')
 def file_manager():
     """Serve the React file manager interface"""
-    return send_from_directory('build', 'index.html')
+    response = send_from_directory('build', 'index.html')
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    return response
 
 @app.route('/manager/<path:path>')
 def file_manager_routes(path):
     """Handle React Router routes"""
-    return send_from_directory('build', 'index.html')
+    response = send_from_directory('build', 'index.html')
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    return response
 
 @app.route('/static/<path:filename>')
 def serve_static(filename):
-    """Serve React static files"""
-    return send_from_directory('build/static', filename)
+    """Serve React static files with proper headers"""
+    response = send_from_directory('build/static', filename)
+    if filename.endswith('.js'):
+        response.headers['Content-Type'] = 'application/javascript'
+    elif filename.endswith('.css'):
+        response.headers['Content-Type'] = 'text/css'
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    return response
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
