@@ -8,7 +8,7 @@
   },
   "scripts": {
     "build": "cd src && npm install && npm run build && cd .. && rm -rf build/* && cp -r src/build/* build/ && echo 'Build artifacts copied successfully'",
-    "heroku-postbuild": "mkdir -p build && npm run build && echo 'Verifying build artifacts:' && ls -la build/ && if [ -d build/static ]; then ls -la build/static/; fi && if [ -d build/static/css ]; then ls -la build/static/css/; fi && if [ -f build/index.html ]; then echo 'HTML file contains CSS:' && grep -i css build/index.html || echo 'No CSS found in HTML'; fi && echo 'Heroku build completed successfully'"
+    "heroku-postbuild": "echo 'Skipping heroku-postbuild - using committed build artifacts' && echo 'Verifying committed build artifacts:' && ls -la build/ && if [ -d build/static ]; then ls -la build/static/; fi && if [ -d build/static/css ]; then ls -la build/static/css/; fi && if [ -f build/index.html ]; then echo 'HTML file contains CSS:' && grep -i css build/index.html || echo 'No CSS found in HTML'; fi && echo 'Using committed build artifacts successfully'"
   },
   "dependencies": {
     "react": "^18.2.0",
