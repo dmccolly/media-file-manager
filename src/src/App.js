@@ -1316,12 +1316,11 @@ const FileDetailsModal = ({ file, isOpen, onClose, onUpdate, onDelete }) => {
                     onChange={(e) => setEditData({...editData, category: e.target.value})}
                     className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
-                    <option value="Images">Images</option>
-                    <option value="Video">Video</option>
-                    <option value="Audio">Audio</option>
-                    <option value="Documents">Documents</option>
-                    <option value="Files">Files</option>
-                    <option value="product">Product</option>
+                    <option value="image">Image/Graphics</option>
+                    <option value="video">Video</option>
+                    <option value="audio">Audio</option>
+                    <option value="document">Documents</option>
+                    <option value="other">Other</option>
                   </select>
                 </div>
                 <div>
