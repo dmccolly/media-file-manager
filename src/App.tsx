@@ -10,6 +10,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { CloudinaryService } from './services/CloudinaryService'
 import { XanoService } from './services/XanoService'
+import { WebflowService } from './services/WebflowService'
 
 interface MediaFile {
   id: string
@@ -104,6 +105,7 @@ function App() {
 
   const cloudinaryService = new CloudinaryService()
   const xanoService = new XanoService()
+  const webflowService = new WebflowService()
 
   useEffect(() => {
     loadFiles()
@@ -284,6 +286,14 @@ function App() {
           console.log('🔄 App: Saving file to Xano:', fileData.title)
           await xanoService.saveFile(fileData)
           console.log('✅ App: File saved to database:', fileData.title)
+          
+          console.log('🔄 App: Syncing to Webflow:', fileData.title)
+          const webflowResult = await webflowService.syncFileToWebflow(fileData)
+          if (webflowResult.assets.success || webflowResult.collection.success) {
+            console.log('✅ App: Webflow sync successful:', webflowResult)
+          } else {
+            console.warn('🔶 App: Webflow sync failed:', webflowResult)
+          }
         } catch (error) {
           console.error('❌ App: Error saving file to database:', error)
           throw error
@@ -328,7 +338,8 @@ function App() {
         category: editingFile.category,
         tags: editingFile.tags.join(', '),
         notes: editingFile.notes,
-        station: editingFile.station
+        station: editingFile.station,
+        author: editingFile.author
       }
       
       await xanoService.updateFile(editingFile.id, updates)
@@ -465,16 +476,72 @@ function App() {
     if (file.file_type.startsWith('image/')) {
       return <img src={file.media_url} alt={file.title} className="max-w-full max-h-96 object-contain" />
     }
+    
     if (file.file_type.startsWith('video/')) {
       return <video src={file.media_url} controls className="max-w-full max-h-96" />
     }
+    
     if (file.file_type.startsWith('audio/')) {
-      return <audio src={file.media_url} controls className="w-full" />
+      return (
+        <div className="space-y-4">
+          <div className="flex items-center justify-center p-8 bg-gray-100 rounded-lg">
+            <Music className="w-16 h-16 text-gray-400" />
+          </div>
+          <audio src={file.media_url} controls className="w-full" />
+        </div>
+      )
     }
-    if (file.file_type.includes('pdf')) {
-      return <iframe src={file.media_url} className="w-full h-96" title={file.title} />
+    
+    if (file.file_type.includes('pdf') || file.media_url.toLowerCase().includes('.pdf')) {
+      return (
+        <iframe 
+          src={`${file.media_url}#toolbar=1&navpanes=1&scrollbar=1`} 
+          className="w-full h-96" 
+          title={file.title}
+        />
+      )
     }
-    return <div className="p-8 text-center text-gray-500">Preview not available for this file type</div>
+    
+    if (file.file_type.includes('document') || file.media_url.toLowerCase().match(/\.(doc|docx|txt|rtf)$/)) {
+      return (
+        <iframe 
+          src={`https://docs.google.com/viewer?url=${encodeURIComponent(file.media_url)}&embedded=true`}
+          className="w-full h-96" 
+          title={file.title}
+        />
+      )
+    }
+    
+    if (file.file_type.includes('spreadsheet') || file.media_url.toLowerCase().match(/\.(xls|xlsx|csv)$/)) {
+      return (
+        <iframe 
+          src={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(file.media_url)}`}
+          className="w-full h-96" 
+          title={file.title}
+        />
+      )
+    }
+    
+    if (file.file_type.includes('presentation') || file.media_url.toLowerCase().match(/\.(ppt|pptx)$/)) {
+      return (
+        <iframe 
+          src={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(file.media_url)}`}
+          className="w-full h-96" 
+          title={file.title}
+        />
+      )
+    }
+    
+    return (
+      <div className="p-8 text-center text-gray-500 space-y-4">
+        <FileText className="w-16 h-16 mx-auto text-gray-400" />
+        <p>Preview not available for this file type</p>
+        <Button onClick={() => window.open(file.media_url, '_blank')} variant="outline">
+          <Download className="w-4 h-4 mr-2" />
+          Download File
+        </Button>
+      </div>
+    )
   }
 
   if (loading) {

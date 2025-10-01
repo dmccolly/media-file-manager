@@ -19,7 +19,7 @@ export class XanoService {
   private baseUrl: string;
 
   constructor() {
-    this.baseUrl = '/api';
+    this.baseUrl = 'http://localhost:3000/api';
   }
 
   async fetchAllFiles(): Promise<XanoFileRecord[]> {
@@ -51,14 +51,17 @@ export class XanoService {
     const processedFiles: XanoFileRecord[] = records.map(record => {
       console.log('🔍 DEBUG: Available fields for record:', record.id, Object.keys(record));
       
+      const mediaUrl = record.media_url || record.URL || record.url || '';
+      const detectedFileType = this.detectFileTypeFromUrl(mediaUrl);
+      
       const processedFile: XanoFileRecord = {
         id: record.id,
         title: record.title || record.Title || 'Untitled',
         description: record.description || record.Description || '',
         category: record.category || record.Category || 'Files',
-        file_type: record.type || record.Type || 'file',
-        media_url: record.media_url || record.URL || record.url || '',
-        thumbnail: record.thumbnail || record.Thumbnail || record.media_url || record.URL || record.url || '',
+        file_type: detectedFileType,
+        media_url: mediaUrl,
+        thumbnail: record.thumbnail || record.Thumbnail || mediaUrl,
         file_size: record.file_size || record['File Size'] || 0,
         created_at: record.upload_date || record['Upload Date'] || record.created_at || new Date().toISOString(),
         tags: typeof record.tags === 'string' ? record.tags.split(',').map((t: string) => t.trim()) : [],
@@ -208,5 +211,49 @@ export class XanoService {
       console.error('❌ XanoService: Error batch deleting files:', error);
       throw error;
     }
+  }
+
+  private detectFileTypeFromUrl(url: string): string {
+    if (!url) return 'application/octet-stream';
+    
+    const extension = url.toLowerCase().split('.').pop() || '';
+    
+    if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg'].includes(extension)) {
+      return `image/${extension === 'jpg' ? 'jpeg' : extension}`;
+    }
+    
+    if (['mp4', 'avi', 'mov', 'wmv', 'flv', 'webm', 'mkv'].includes(extension)) {
+      return `video/${extension}`;
+    }
+    
+    if (['mp3', 'wav', 'ogg', 'aac', 'flac', 'm4a'].includes(extension)) {
+      return `audio/${extension}`;
+    }
+    
+    if (['pdf'].includes(extension)) {
+      return 'application/pdf';
+    }
+    
+    if (['doc', 'docx'].includes(extension)) {
+      return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+    }
+    
+    if (['xls', 'xlsx'].includes(extension)) {
+      return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+    }
+    
+    if (['ppt', 'pptx'].includes(extension)) {
+      return 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+    }
+    
+    if (['txt'].includes(extension)) {
+      return 'text/plain';
+    }
+    
+    if (['zip', 'rar', '7z', 'tar', 'gz'].includes(extension)) {
+      return 'application/zip';
+    }
+    
+    return 'application/octet-stream';
   }
 }

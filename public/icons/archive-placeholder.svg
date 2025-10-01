@@ -1,0 +1,7 @@
+<svg width="150" height="150" viewBox="0 0 150 150" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="150" height="150" rx="8" fill="#f3f4f6"/>
+  <rect x="40" y="45" width="70" height="50" fill="#e5e7eb" stroke="#9ca3af" stroke-width="2"/>
+  <rect x="45" y="50" width="60" height="8" fill="#9ca3af"/>
+  <rect x="65" y="65" width="20" height="15" fill="#d1d5db" stroke="#9ca3af" stroke-width="1"/>
+  <text x="75" y="125" text-anchor="middle" fill="#6b7280" font-family="Arial, sans-serif" font-size="12">ARCHIVE</text>
+</svg>

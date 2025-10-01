@@ -77,7 +77,7 @@ export class CloudinaryService {
               
               const processedResult = {
                 url: result.secure_url,
-                thumbnail: this.generateThumbnailUrl(result.secure_url, result.resource_type),
+                thumbnail: this.generateThumbnailUrl(result.secure_url, result.resource_type, result.format),
                 publicId: result.public_id,
                 resourceType: result.resource_type,
                 format: result.format,
@@ -142,7 +142,7 @@ export class CloudinaryService {
           notes: sharedMetadata.notes || '',
           tags: sharedMetadata.tags || '',
           url: cloudinaryResult.url,
-          thumbnail: cloudinaryResult.thumbnail,
+          thumbnail: this.generateThumbnailUrl(cloudinaryResult.url, cloudinaryResult.resourceType, file.type),
           size: file.size,
           duration: cloudinaryResult.duration?.toString() || '',
           originalFile: file,
@@ -211,7 +211,7 @@ export class CloudinaryService {
     return 'file';
   }
 
-  generateThumbnailUrl(originalUrl: string, resourceType: string): string {
+  generateThumbnailUrl(originalUrl: string, resourceType: string, fileType?: string): string {
     if (!originalUrl) return '';
     
     try {
@@ -223,11 +223,83 @@ export class CloudinaryService {
         return originalUrl.replace('/upload/', '/upload/w_150,h_150,c_fill,so_0/').replace(/\.[^.]+$/, '.jpg');
       }
       
-      return originalUrl;
+      if (fileType?.includes('pdf') || originalUrl.toLowerCase().includes('.pdf')) {
+        return originalUrl.replace('/upload/', '/upload/w_150,h_150,c_fill,pg_1/').replace(/\.pdf$/i, '.jpg');
+      }
+      
+      if (resourceType === 'raw' && (fileType?.startsWith('audio/') || this.isAudioFile(originalUrl))) {
+        return this.getPlaceholderIcon('audio');
+      }
+      
+      if (this.isOfficeDocument(originalUrl, fileType)) {
+        const docType = this.getOfficeDocumentType(originalUrl, fileType);
+        return this.getPlaceholderIcon(docType);
+      }
+      
+      if (this.isTextDocument(originalUrl, fileType)) {
+        return this.getPlaceholderIcon('document');
+      }
+      
+      if (this.isArchiveFile(originalUrl, fileType)) {
+        return this.getPlaceholderIcon('archive');
+      }
+      
+      return this.getPlaceholderIcon('file');
       
     } catch (error) {
       console.error('❌ CloudinaryService: Error generating thumbnail:', error);
       return originalUrl;
     }
+  }
+
+  private isAudioFile(url: string): boolean {
+    const audioExtensions = ['.mp3', '.wav', '.flac', '.aac', '.ogg', '.m4a', '.wma'];
+    return audioExtensions.some(ext => url.toLowerCase().includes(ext));
+  }
+
+  private isOfficeDocument(url: string, fileType?: string): boolean {
+    const officeExtensions = ['.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx'];
+    const officeTypes = ['document', 'spreadsheet', 'presentation'];
+    
+    return officeExtensions.some(ext => url.toLowerCase().includes(ext)) ||
+           officeTypes.some(type => fileType?.includes(type));
+  }
+
+  private getOfficeDocumentType(url: string, fileType?: string): string {
+    if (url.toLowerCase().match(/\.(doc|docx)$/) || fileType?.includes('document')) {
+      return 'document';
+    }
+    if (url.toLowerCase().match(/\.(xls|xlsx|csv)$/) || fileType?.includes('spreadsheet')) {
+      return 'spreadsheet';
+    }
+    if (url.toLowerCase().match(/\.(ppt|pptx)$/) || fileType?.includes('presentation')) {
+      return 'presentation';
+    }
+    return 'document';
+  }
+
+  private isTextDocument(url: string, fileType?: string): boolean {
+    const textExtensions = ['.txt', '.rtf', '.md', '.json', '.xml', '.csv'];
+    return textExtensions.some(ext => url.toLowerCase().includes(ext)) ||
+           (fileType?.startsWith('text/') ?? false);
+  }
+
+  private isArchiveFile(url: string, fileType?: string): boolean {
+    const archiveExtensions = ['.zip', '.rar', '.7z', '.tar', '.gz'];
+    return archiveExtensions.some(ext => url.toLowerCase().includes(ext)) ||
+           (fileType?.includes('archive') ?? false) || (fileType?.includes('compressed') ?? false);
+  }
+
+  private getPlaceholderIcon(type: string): string {
+    const iconMap: Record<string, string> = {
+      'audio': '/icons/audio-placeholder.svg',
+      'document': '/icons/document-placeholder.svg',
+      'spreadsheet': '/icons/spreadsheet-placeholder.svg',
+      'presentation': '/icons/presentation-placeholder.svg',
+      'archive': '/icons/archive-placeholder.svg',
+      'file': '/icons/file-placeholder.svg'
+    };
+    
+    return iconMap[type] || iconMap['file'];
   }
 }
