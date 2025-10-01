@@ -14,7 +14,7 @@ app.use("/assets", express.static(path.join(buildDir, "assets"), { maxAge: "1h",
 app.get("/api/media", async (req, res) => {
   try {
     const fetch = require('node-fetch');
-    const response = await fetch(`https://xajo-bs7d-cagt.n7e.xano.io/api:pYeQctVX/media_records`, {
+    const response = await fetch(`https://xajo-bs7d-cagt.n7e.xano.io/api:pYeQctVX/user_submission`, {
       headers: {
         'Authorization': `Bearer ${process.env.XANO_API_KEY}`,
         'Content-Type': 'application/json'
