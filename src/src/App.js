@@ -113,13 +113,22 @@ class AirtableService {
       const thumbnail = this.generateThumbnailFromUrl(url, detectedType);
       console.log('🖼️ Thumbnail generated for', title, ':', thumbnail);
       
-      const categoryMapping = {
+      const typeToCategory = {
         'image': 'image',
         'video': 'video', 
         'audio': 'audio',
         'document': 'document',
+        'pdf': 'document',
+        'text': 'document',
+        'spreadsheet': 'document',
+        'presentation': 'document',
+        'archive': 'other',
+        'unknown': 'other',
         'other': 'other'
       };
+      
+      const finalCategory = typeToCategory[detectedType] || 'other';
+      console.log('🏷️ Category mapping:', detectedType, '→', finalCategory, 'for file:', title);
       
       const processedFile = {
         id: record.id,
@@ -128,7 +137,7 @@ class AirtableService {
         url: url,
         thumbnail: thumbnail,
         type: detectedType,
-        category: categoryMapping[category.toLowerCase()] || 'other',
+        category: finalCategory,
         size: fileSize,
         filename: actualFilename || title,
         tags: tags,
