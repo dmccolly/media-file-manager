@@ -1734,6 +1734,11 @@ export default function App() {
     return tree;
   }, [files]);
   const currentFiles = useMemo(() => {
+    if (!files || files.length === 0) {
+      console.log('⏳ App: Waiting for files to load...');
+      return [];
+    }
+    
     const filtered = files.filter(file => file.category === currentFolder);
     const sorted = sortFiles(filtered, sortField, sortDirection);
     console.log(`📁 App: Files in ${currentFolder}:`, sorted.length);
@@ -1747,18 +1752,27 @@ export default function App() {
     try {
       const loadedFiles = await airtableService.fetchAllFiles();
       console.log('✅ App: Files loaded successfully:', loadedFiles);
-      setFiles(loadedFiles);
+      
+      setTimeout(() => {
+        setFiles(loadedFiles);
+        console.log('🔄 App: Files state updated with:', loadedFiles.length, 'files');
+      }, 50);
     } catch (err) {
       console.error('❌ App: Error loading files:', err);
       setError(err.message);
     } finally {
-      setLoading(false);
+      setTimeout(() => {
+        setLoading(false);
+      }, 100);
     }
   }, [airtableService]);
   // Initial load
   useEffect(() => {
     console.log('🔄 App: Component mounted, loading files...');
-    loadFiles();
+    const timer = setTimeout(() => {
+      loadFiles();
+    }, 100);
+    return () => clearTimeout(timer);
   }, [loadFiles]);
   // Clear selections when folder changes
   useEffect(() => {
