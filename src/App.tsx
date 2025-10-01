@@ -97,7 +97,7 @@ function App() {
   const [sortField, setSortField] = useState<'title' | 'file_type' | 'file_size' | 'created_at'>('title')
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
   const [searchFilters, setSearchFilters] = useState({
-    type: '',
+    type: 'all',
     dateFrom: '',
     dateTo: ''
   })
@@ -125,7 +125,19 @@ function App() {
       )
     }
 
-    if (searchFilters.type) filtered = filtered.filter(file => file.file_type === searchFilters.type)
+    if (searchFilters.type && searchFilters.type !== 'all') {
+      filtered = filtered.filter(file => {
+        const fileType = file.file_type.toLowerCase()
+        switch (searchFilters.type) {
+          case 'image': return fileType.startsWith('image/')
+          case 'video': return fileType.startsWith('video/')
+          case 'audio': return fileType.startsWith('audio/')
+          case 'document': return fileType.includes('document') || fileType.includes('text')
+          case 'pdf': return fileType.includes('pdf')
+          default: return true
+        }
+      })
+    }
     if (searchFilters.dateFrom) filtered = filtered.filter(file => new Date(file.created_at) >= new Date(searchFilters.dateFrom))
     if (searchFilters.dateTo) filtered = filtered.filter(file => new Date(file.created_at) <= new Date(searchFilters.dateTo))
 
@@ -766,7 +778,7 @@ function App() {
               <SelectValue placeholder="Type" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All Types</SelectItem>
+              <SelectItem value="all">All Types</SelectItem>
               <SelectItem value="image">Images</SelectItem>
               <SelectItem value="video">Videos</SelectItem>
               <SelectItem value="audio">Audio</SelectItem>
