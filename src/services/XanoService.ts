@@ -11,6 +11,8 @@ export interface XanoFileRecord {
   thumbnail?: string;
   notes?: string;
   station?: string;
+  author?: string;
+  submitted_by?: string;
 }
 
 export class XanoService {
@@ -61,7 +63,9 @@ export class XanoService {
         created_at: record.upload_date || record['Upload Date'] || record.created_at || new Date().toISOString(),
         tags: typeof record.tags === 'string' ? record.tags.split(',').map((t: string) => t.trim()) : [],
         notes: record.notes || record.Notes || '',
-        station: record.station || record.Station || ''
+        station: record.station || record.Station || '',
+        author: record.author || record.submitted_by || 'Unknown',
+        submitted_by: record.submitted_by || record.author || 'Unknown'
       };
       
       return processedFile;
@@ -151,6 +155,57 @@ export class XanoService {
      
     } catch (error) {
       console.error('❌ XanoService: Error deleting file:', error);
+      throw error;
+    }
+  }
+
+  async batchUpdateFiles(updates: Array<{id: string, fields: any}>): Promise<any> {
+    console.log('🔄 XanoService: Batch updating files via backend API:', updates);
+   
+    try {
+      const response = await fetch(`${this.baseUrl}/batch-update`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ updates })
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log('✅ XanoService: Batch update successful:', result);
+      return result;
+     
+    } catch (error) {
+      console.error('❌ XanoService: Error batch updating files:', error);
+      throw error;
+    }
+  }
+
+  async batchDeleteFiles(recordIds: string[]): Promise<boolean> {
+    console.log('🔄 XanoService: Batch deleting files via backend API:', recordIds);
+   
+    try {
+      const response = await fetch(`${this.baseUrl}/batch-delete`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ ids: recordIds })
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      console.log('✅ XanoService: Batch delete successful');
+      return true;
+     
+    } catch (error) {
+      console.error('❌ XanoService: Error batch deleting files:', error);
       throw error;
     }
   }

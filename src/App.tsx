@@ -24,6 +24,7 @@ interface MediaFile {
   thumbnail?: string
   notes?: string
   station?: string
+  author?: string
 }
 
 const mockFiles: MediaFile[] = [
@@ -80,13 +81,26 @@ function App() {
   const [sharedMetadata, setSharedMetadata] = useState({
     description: '',
     category: 'documents',
-    tags: ''
+    tags: '',
+    author: ''
   })
   const [isDragOver, setIsDragOver] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [uploadProgress, setUploadProgress] = useState<{[key: string]: number}>({})
+  const [selectedMediaFiles, setSelectedMediaFiles] = useState<MediaFile[]>([])
+  const [showBatchPanel, setShowBatchPanel] = useState(false)
+  const [contextMenu, setContextMenu] = useState<{show: boolean, x: number, y: number, file: MediaFile | null}>({
+    show: false, x: 0, y: 0, file: null
+  })
+  const [sortField, setSortField] = useState<'title' | 'file_type' | 'file_size' | 'created_at'>('title')
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
+  const [searchFilters, setSearchFilters] = useState({
+    type: '',
+    dateFrom: '',
+    dateTo: ''
+  })
 
   const cloudinaryService = new CloudinaryService()
   const xanoService = new XanoService()
@@ -106,12 +120,37 @@ function App() {
       filtered = filtered.filter(file =>
         file.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
         file.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (file.author && file.author.toLowerCase().includes(searchTerm.toLowerCase())) ||
         file.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()))
       )
     }
 
-    setFilteredFiles(filtered)
-  }, [files, searchTerm, selectedCategory])
+    if (searchFilters.type) filtered = filtered.filter(file => file.file_type === searchFilters.type)
+    if (searchFilters.dateFrom) filtered = filtered.filter(file => new Date(file.created_at) >= new Date(searchFilters.dateFrom))
+    if (searchFilters.dateTo) filtered = filtered.filter(file => new Date(file.created_at) <= new Date(searchFilters.dateTo))
+
+    const sortedFiles = [...filtered].sort((a, b) => {
+      let aValue = a[sortField]
+      let bValue = b[sortField]
+      
+      if (sortField === 'file_size') {
+        aValue = Number(aValue) || 0
+        bValue = Number(bValue) || 0
+      } else if (sortField === 'created_at') {
+        aValue = new Date(aValue as string).getTime()
+        bValue = new Date(bValue as string).getTime()
+      } else {
+        aValue = String(aValue).toLowerCase()
+        bValue = String(bValue).toLowerCase()
+      }
+      
+      if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1
+      if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1
+      return 0
+    })
+
+    setFilteredFiles(sortedFiles)
+  }, [files, searchTerm, selectedCategory, searchFilters, sortField, sortDirection])
 
   const loadFiles = async () => {
     try {
@@ -200,7 +239,8 @@ function App() {
     setSharedMetadata({
       description: '',
       category: 'documents',
-      tags: ''
+      tags: '',
+      author: ''
     })
     setIsUploading(false)
   }
@@ -298,6 +338,115 @@ function App() {
   const handlePreview = (file: MediaFile) => {
     setSelectedFile(file)
     setIsPreviewOpen(true)
+  }
+
+  const handleSort = (field: 'title' | 'file_type' | 'file_size' | 'created_at') => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortField(field)
+      setSortDirection('asc')
+    }
+  }
+
+  const getSortIcon = (field: string) => {
+    if (sortField !== field) return '↕️'
+    return sortDirection === 'asc' ? '↑' : '↓'
+  }
+
+  const handleFileSelect = (file: MediaFile) => {
+    setSelectedMediaFiles(prev => {
+      const isSelected = prev.some(f => f.id === file.id)
+      const newSelection = isSelected 
+        ? prev.filter(f => f.id !== file.id)
+        : [...prev, file]
+      
+      setShowBatchPanel(newSelection.length > 0)
+      return newSelection
+    })
+  }
+
+  const handleSelectAll = () => {
+    setSelectedMediaFiles(filteredFiles)
+    setShowBatchPanel(true)
+  }
+
+  const handleClearSelection = () => {
+    setSelectedMediaFiles([])
+    setShowBatchPanel(false)
+  }
+
+  const handleContextMenu = (e: React.MouseEvent, file: MediaFile) => {
+    e.preventDefault()
+    setContextMenu({
+      show: true,
+      x: e.clientX,
+      y: e.clientY,
+      file
+    })
+  }
+
+  const handleContextAction = async (action: string, file: MediaFile) => {
+    setContextMenu({ show: false, x: 0, y: 0, file: null })
+    
+    switch (action) {
+      case 'view':
+        handlePreview(file)
+        break
+      case 'edit':
+        handleEditFile(file)
+        break
+      case 'download':
+        window.open(file.media_url, '_blank')
+        break
+      case 'delete':
+        if (confirm(`Are you sure you want to delete "${file.title}"?`)) {
+          try {
+            await xanoService.deleteFile(file.id)
+            setFiles(prev => prev.filter(f => f.id !== file.id))
+          } catch (error) {
+            console.error('Error deleting file:', error)
+            alert('Failed to delete file')
+          }
+        }
+        break
+    }
+  }
+
+  const handleBatchUpdate = async (updates: any) => {
+    try {
+      const batchUpdates = selectedMediaFiles.map(file => ({
+        id: file.id,
+        fields: updates
+      }))
+      
+      await xanoService.batchUpdateFiles(batchUpdates)
+      
+      setFiles(prev => prev.map(file => {
+        const selectedFile = selectedMediaFiles.find(sf => sf.id === file.id)
+        return selectedFile ? { ...file, ...updates } : file
+      }))
+      
+      handleClearSelection()
+    } catch (error) {
+      console.error('Error batch updating files:', error)
+      alert('Failed to update files')
+    }
+  }
+
+  const handleBatchDelete = async () => {
+    if (!confirm(`Are you sure you want to delete ${selectedMediaFiles.length} files?`)) return
+    
+    try {
+      const ids = selectedMediaFiles.map(f => f.id)
+      await xanoService.batchDeleteFiles(ids)
+      
+      setFiles(prev => prev.filter(file => !ids.includes(file.id)))
+      handleClearSelection()
+    } catch (error) {
+      console.error('Error batch deleting files:', error)
+      alert('Failed to delete files')
+    }
   }
 
   const renderPreview = (file: MediaFile) => {
@@ -533,6 +682,19 @@ function App() {
                         />
                       </div>
 
+                      <div>
+                        <Label htmlFor="shared-author">Author/Submitted By</Label>
+                        <Input
+                          id="shared-author"
+                          placeholder="Enter author name..."
+                          value={sharedMetadata.author}
+                          onChange={(e) => setSharedMetadata(prev => ({
+                            ...prev,
+                            author: e.target.value
+                          }))}
+                        />
+                      </div>
+
                       <div className="flex gap-2 justify-end pt-4">
                         <Button 
                           variant="outline" 
@@ -577,49 +739,137 @@ function App() {
           </div>
         </div>
 
+        {/* Search and Filters */}
+        <div className="flex flex-col sm:flex-row gap-4 mb-6">
+          <div className="flex-1">
+            <Input
+              placeholder="Search files by name, description, author, or tags..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full"
+            />
+          </div>
+          <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+            <SelectTrigger className="w-full sm:w-48">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {categories.map(category => (
+                <SelectItem key={category} value={category}>
+                  {category.charAt(0).toUpperCase() + category.slice(1)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={searchFilters.type} onValueChange={(value) => setSearchFilters(prev => ({ ...prev, type: value }))}>
+            <SelectTrigger className="w-full sm:w-32">
+              <SelectValue placeholder="Type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="">All Types</SelectItem>
+              <SelectItem value="image">Images</SelectItem>
+              <SelectItem value="video">Videos</SelectItem>
+              <SelectItem value="audio">Audio</SelectItem>
+              <SelectItem value="document">Documents</SelectItem>
+              <SelectItem value="pdf">PDFs</SelectItem>
+            </SelectContent>
+          </Select>
+          <div className="flex gap-2">
+            <Button
+              variant={viewMode === 'grid' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setViewMode('grid')}
+            >
+              <Grid className="w-4 h-4" />
+            </Button>
+            <Button
+              variant={viewMode === 'list' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setViewMode('list')}
+            >
+              <List className="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
+
+        {/* Selection Controls */}
+        {filteredFiles.length > 0 && (
+          <div className="flex items-center gap-4 mb-4 p-3 bg-blue-50 rounded-lg">
+            <Button size="sm" variant="outline" onClick={handleSelectAll}>
+              Select All ({filteredFiles.length})
+            </Button>
+            <Button size="sm" variant="outline" onClick={handleClearSelection}>
+              Clear Selection
+            </Button>
+            {selectedMediaFiles.length > 0 && (
+              <span className="text-sm font-medium text-blue-800">
+                {selectedMediaFiles.length} selected
+              </span>
+            )}
+          </div>
+        )}
+
         {/* File Grid/List */}
         {viewMode === 'grid' ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-            {filteredFiles.map((file) => (
-              <Card key={file.id} className="hover:shadow-lg transition-shadow">
-                <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      {getFileIcon(file.file_type)}
-                      <CardTitle className="text-sm truncate">{file.title}</CardTitle>
+            {filteredFiles.map((file) => {
+              const isSelected = selectedMediaFiles.some((f: MediaFile) => f.id === file.id)
+              return (
+                <Card 
+                  key={file.id} 
+                  className={`hover:shadow-lg transition-shadow cursor-pointer ${
+                    isSelected ? 'ring-2 ring-blue-500 bg-blue-50' : ''
+                  }`}
+                  onContextMenu={(e) => handleContextMenu(e, file)}
+                >
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => handleFileSelect(file)}
+                          className="rounded"
+                        />
+                        {getFileIcon(file.file_type)}
+                        <CardTitle className="text-sm truncate">{file.title}</CardTitle>
+                      </div>
                     </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {file.thumbnail && (
-                    <img src={file.thumbnail} alt={file.title} className="w-full h-32 object-cover rounded" />
-                  )}
-                  <p className="text-sm text-gray-600 line-clamp-2">{file.description || 'No description'}</p>
-                  <div className="flex flex-wrap gap-1">
-                    {file.tags.map((tag) => (
-                      <Badge key={tag} variant="secondary" className="text-xs">{tag}</Badge>
-                    ))}
-                  </div>
-                  <div className="text-xs text-gray-500">
-                    <div>{formatFileSize(file.file_size)}</div>
-                    <div>{formatDate(file.created_at)}</div>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button size="sm" variant="outline" onClick={() => handlePreview(file)}>
-                      <Eye className="w-3 h-3" />
-                    </Button>
-                    <Button size="sm" variant="outline" onClick={() => handleEditFile(file)}>
-                      <Edit className="w-3 h-3" />
-                    </Button>
-                    <Button size="sm" variant="outline" asChild>
-                      <a href={file.media_url} download={file.title}>
-                        <Download className="w-3 h-3" />
-                      </a>
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {file.thumbnail && (
+                      <img src={file.thumbnail} alt={file.title} className="w-full h-32 object-cover rounded" />
+                    )}
+                    <p className="text-sm text-gray-600 line-clamp-2">{file.description || 'No description'}</p>
+                    {file.author && (
+                      <p className="text-xs text-gray-500">By: {file.author}</p>
+                    )}
+                    <div className="flex flex-wrap gap-1">
+                      {file.tags.map((tag) => (
+                        <Badge key={tag} variant="secondary" className="text-xs">{tag}</Badge>
+                      ))}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      <div>{formatFileSize(file.file_size)}</div>
+                      <div>{formatDate(file.created_at)}</div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="outline" onClick={() => handlePreview(file)}>
+                        <Eye className="w-3 h-3" />
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => handleEditFile(file)}>
+                        <Edit className="w-3 h-3" />
+                      </Button>
+                      <Button size="sm" variant="outline" asChild>
+                        <a href={file.media_url} download={file.title}>
+                          <Download className="w-3 h-3" />
+                        </a>
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )
+            })}
           </div>
         ) : (
           <div className="bg-white rounded-lg shadow">
@@ -627,45 +877,93 @@ function App() {
               <table className="w-full">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Size</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <input
+                        type="checkbox"
+                        checked={selectedMediaFiles.length === filteredFiles.length && filteredFiles.length > 0}
+                        onChange={selectedMediaFiles.length === filteredFiles.length ? handleClearSelection : handleSelectAll}
+                        className="rounded"
+                      />
+                    </th>
+                    <th 
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                      onClick={() => handleSort('title')}
+                    >
+                      Name {getSortIcon('title')}
+                    </th>
+                    <th 
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                      onClick={() => handleSort('file_type')}
+                    >
+                      Type {getSortIcon('file_type')}
+                    </th>
+                    <th 
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                      onClick={() => handleSort('file_size')}
+                    >
+                      Size {getSortIcon('file_size')}
+                    </th>
+                    <th 
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                      onClick={() => handleSort('created_at')}
+                    >
+                      Date {getSortIcon('created_at')}
+                    </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredFiles.map((file) => (
-                    <tr key={file.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          {getFileIcon(file.file_type)}
-                          <div className="ml-3">
-                            <div className="text-sm font-medium text-gray-900">{file.title}</div>
-                            <div className="text-sm text-gray-500">{file.description}</div>
+                  {filteredFiles.map((file) => {
+                    const isSelected = selectedMediaFiles.some((f: MediaFile) => f.id === file.id)
+                    return (
+                      <tr 
+                        key={file.id} 
+                        className={`hover:bg-gray-50 cursor-pointer ${
+                          isSelected ? 'bg-blue-50' : ''
+                        }`}
+                        onContextMenu={(e) => handleContextMenu(e, file)}
+                      >
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => handleFileSelect(file)}
+                            className="rounded"
+                          />
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            {getFileIcon(file.file_type)}
+                            <div className="ml-3">
+                              <div className="text-sm font-medium text-gray-900">{file.title}</div>
+                              <div className="text-sm text-gray-500">{file.description}</div>
+                              {file.author && (
+                                <div className="text-xs text-gray-400">By: {file.author}</div>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{file.file_type}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatFileSize(file.file_size)}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatDate(file.created_at)}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <div className="flex gap-2">
-                          <Button size="sm" variant="outline" onClick={() => handlePreview(file)}>
-                            <Eye className="w-3 h-3" />
-                          </Button>
-                          <Button size="sm" variant="outline" onClick={() => handleEditFile(file)}>
-                            <Edit className="w-3 h-3" />
-                          </Button>
-                          <Button size="sm" variant="outline" asChild>
-                            <a href={file.media_url} download={file.title}>
-                              <Download className="w-3 h-3" />
-                            </a>
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{file.file_type}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatFileSize(file.file_size)}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatDate(file.created_at)}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                          <div className="flex gap-2">
+                            <Button size="sm" variant="outline" onClick={() => handlePreview(file)}>
+                              <Eye className="w-3 h-3" />
+                            </Button>
+                            <Button size="sm" variant="outline" onClick={() => handleEditFile(file)}>
+                              <Edit className="w-3 h-3" />
+                            </Button>
+                            <Button size="sm" variant="outline" asChild>
+                              <a href={file.media_url} download={file.title}>
+                                <Download className="w-3 h-3" />
+                              </a>
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
@@ -686,6 +984,9 @@ function App() {
                   <p><strong>Type:</strong> {selectedFile.file_type}</p>
                   <p><strong>Size:</strong> {formatFileSize(selectedFile.file_size)}</p>
                   <p><strong>Created:</strong> {formatDate(selectedFile.created_at)}</p>
+                  {selectedFile.author && (
+                    <p><strong>Author:</strong> {selectedFile.author}</p>
+                  )}
                   {selectedFile.tags.length > 0 && (
                     <div className="flex gap-1 mt-2">
                       <strong>Tags:</strong>
@@ -766,6 +1067,14 @@ function App() {
                     onChange={(e) => setEditingFile({ ...editingFile, notes: e.target.value })}
                   />
                 </div>
+                <div>
+                  <Label htmlFor="edit-author">Author/Submitted By</Label>
+                  <Input
+                    id="edit-author"
+                    value={editingFile.author || ''}
+                    onChange={(e) => setEditingFile({ ...editingFile, author: e.target.value })}
+                  />
+                </div>
                 <div className="flex gap-2 justify-end">
                   <Button variant="outline" onClick={() => setIsEditOpen(false)}>Cancel</Button>
                   <Button onClick={handleSaveEdit}>Save Changes</Button>
@@ -774,6 +1083,91 @@ function App() {
             )}
           </DialogContent>
         </Dialog>
+
+        {/* Batch Operations Panel */}
+        {showBatchPanel && selectedMediaFiles.length > 0 && (
+          <div className="fixed bottom-4 right-4 bg-white border border-gray-300 rounded-lg shadow-xl p-4 w-80 z-40">
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="font-medium text-gray-800">
+                Batch Operations ({selectedMediaFiles.length} files)
+              </h4>
+              <Button size="sm" variant="ghost" onClick={handleClearSelection}>
+                ✕
+              </Button>
+            </div>
+            <div className="space-y-3">
+              <Button 
+                size="sm" 
+                variant="outline" 
+                className="w-full"
+                onClick={() => {
+                  const category = prompt('Enter new category:')
+                  if (category) handleBatchUpdate({ category })
+                }}
+              >
+                Move to Category
+              </Button>
+              <Button 
+                size="sm" 
+                variant="outline" 
+                className="w-full"
+                onClick={() => {
+                  const tags = prompt('Enter tags (comma-separated):')
+                  if (tags) handleBatchUpdate({ tags })
+                }}
+              >
+                Update Tags
+              </Button>
+              <Button 
+                size="sm" 
+                variant="destructive" 
+                className="w-full"
+                onClick={handleBatchDelete}
+              >
+                Delete Files
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Context Menu */}
+        {contextMenu.show && contextMenu.file && (
+          <div 
+            className="fixed inset-0 z-40" 
+            onClick={() => setContextMenu({ show: false, x: 0, y: 0, file: null })}
+          >
+            <div 
+              className="fixed bg-white border border-gray-300 rounded-lg shadow-xl py-2 z-50 min-w-48"
+              style={{ left: contextMenu.x, top: contextMenu.y }}
+            >
+              <button 
+                className="w-full px-4 py-2 text-left hover:bg-gray-100 text-sm flex items-center gap-2"
+                onClick={() => handleContextAction('view', contextMenu.file!)}
+              >
+                👁️ View Details
+              </button>
+              <button 
+                className="w-full px-4 py-2 text-left hover:bg-gray-100 text-sm flex items-center gap-2"
+                onClick={() => handleContextAction('edit', contextMenu.file!)}
+              >
+                ✏️ Edit
+              </button>
+              <button 
+                className="w-full px-4 py-2 text-left hover:bg-gray-100 text-sm flex items-center gap-2"
+                onClick={() => handleContextAction('download', contextMenu.file!)}
+              >
+                💾 Download
+              </button>
+              <hr className="my-1" />
+              <button 
+                className="w-full px-4 py-2 text-left hover:bg-red-50 text-sm text-red-600 flex items-center gap-2"
+                onClick={() => handleContextAction('delete', contextMenu.file!)}
+              >
+                🗑️ Delete
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Empty State */}
         {filteredFiles.length === 0 && (
