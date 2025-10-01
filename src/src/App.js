@@ -63,170 +63,82 @@ class AirtableService {
     console.log('🔄 AirtableService: Processing records...', records);
    
     const processedFiles = records.map(record => {
-      const fields = record.fields || {};
+      // Handle Xano API direct field structure (not wrapped in fields property)
+      console.log('🔍 DEBUG: Available fields for record:', record.id, Object.keys(record));
+      console.log('🔍 DEBUG: Full record object:', record);
       
-      // DEBUG: Log all available fields to understand Airtable structure
-      console.log('🔍 DEBUG: Available fields for record:', record.id, Object.keys(fields));
-      console.log('🔍 DEBUG: Full fields object:', fields);
+      // Extract data from Xano record structure
+      let url = record.media_url || record.attachment || '';
+      let fileSize = record.file_size || 0;
+      let actualFilename = record.filename || '';
       
-      // Enhanced URL extraction - handle Airtable attachment fields
-      let url = '';
-      let fileSize = 0;
-      let actualFilename = '';
+      console.log('🔍 Xano fields - media_url:', record.media_url, 'filename:', record.filename, 'file_size:', record.file_size);
       
-      // Try different field names and formats with extensive debugging
-      console.log('🔍 Checking URL field:', fields['URL']);
-      console.log('🔍 Checking File URL field:', fields['File URL']);
-      console.log('🔍 Checking Attachments field:', fields['Attachments']);
-      console.log('🔍 Checking File field:', fields['File']);
-      console.log('🔍 Checking Image field:', fields['Image']);
-      console.log('🔍 Checking Media field:', fields['Media']);
-      console.log('🔍 Checking Link field:', fields['Link']);
-      
-      if (fields['URL'] && typeof fields['URL'] === 'string') {
-        url = fields['URL'];
-        console.log('✅ Found URL in URL field:', url);
-      } else if (fields['File URL'] && typeof fields['File URL'] === 'string') {
-        url = fields['File URL'];
-        console.log('✅ Found URL in File URL field:', url);
-      } else if (fields['Link'] && typeof fields['Link'] === 'string') {
-        url = fields['Link'];
-        console.log('✅ Found URL in Link field:', url);
-      } else if (fields['Attachments'] && Array.isArray(fields['Attachments']) && fields['Attachments'].length > 0) {
-        // Handle Airtable attachment field
-        const attachment = fields['Attachments'][0];
-        url = attachment.url || '';
-        fileSize = attachment.size || 0;
-        actualFilename = attachment.filename || '';
-        console.log('✅ Found URL in Attachments field:', { url, fileSize, actualFilename });
-      } else if (fields['File'] && Array.isArray(fields['File']) && fields['File'].length > 0) {
-        // Alternative attachment field name
-        const attachment = fields['File'][0];
-        url = attachment.url || '';
-        fileSize = attachment.size || 0;
-        actualFilename = attachment.filename || '';
-        console.log('✅ Found URL in File field:', { url, fileSize, actualFilename });
-      } else if (fields['Image'] && Array.isArray(fields['Image']) && fields['Image'].length > 0) {
-        // Image attachment field
-        const attachment = fields['Image'][0];
-        url = attachment.url || '';
-        fileSize = attachment.size || 0;
-        actualFilename = attachment.filename || '';
-        console.log('✅ Found URL in Image field:', { url, fileSize, actualFilename });
-      } else if (fields['Media'] && Array.isArray(fields['Media']) && fields['Media'].length > 0) {
-        // Media attachment field
-        const attachment = fields['Media'][0];
-        url = attachment.url || '';
-        fileSize = attachment.size || 0;
-        actualFilename = attachment.filename || '';
-        console.log('✅ Found URL in Media field:', { url, fileSize, actualFilename });
+      if (url) {
+        console.log('✅ Found URL in Xano record:', { url, fileSize, actualFilename });
       } else {
-        // Try to find any field that looks like a URL
-        for (const [fieldName, fieldValue] of Object.entries(fields)) {
+        // Fallback: try to find any field that looks like a URL
+        for (const [fieldName, fieldValue] of Object.entries(record)) {
           if (typeof fieldValue === 'string' && (
             fieldValue.startsWith('http://') || 
             fieldValue.startsWith('https://') ||
             fieldValue.includes('cloudinary.com') ||
-            fieldValue.includes('airtable.com')
+            fieldValue.includes('xano.io')
           )) {
             url = fieldValue;
             console.log(`✅ Found URL-like value in field '${fieldName}':`, url);
-            break;
-          } else if (Array.isArray(fieldValue) && fieldValue.length > 0 && fieldValue[0].url) {
-            const attachment = fieldValue[0];
-            url = attachment.url || '';
-            fileSize = attachment.size || 0;
-            actualFilename = attachment.filename || '';
-            console.log(`✅ Found attachment in field '${fieldName}':`, { url, fileSize, actualFilename });
             break;
           }
         }
       }
       
       if (!url) {
-        console.warn('⚠️ No URL found for record:', record.id, 'Available fields:', Object.keys(fields));
+        console.warn('⚠️ No URL found for record:', record.id, 'Available fields:', Object.keys(record));
       }
       
-      console.log(`📁 File processing: ${fields['Title']}, URL: ${url}, Size: ${fileSize}, Filename: ${actualFilename}`);
-     
-      // Enhanced file type detection with multiple fallbacks
-      let detectedType = this.detectFileTypeFromUrl(url);
+      // Extract other metadata from Xano record structure
+      const title = record.title || record.filename || 'Untitled';
+      const description = record.description || record.notes || '';
+      const tags = record.tags || '';
+      const category = record.category || 'other';
+      const uploadedBy = record.submitted_by || 'Unknown';
+      const uploadDate = record.created_at ? new Date(record.created_at).toISOString() : new Date().toISOString();
       
-      // Fallback: try to detect from filename if URL detection fails
-      if (detectedType === 'unknown' && actualFilename) {
-        detectedType = this.detectFileTypeFromUrl(actualFilename);
-        console.log(`🔄 Fallback type detection from filename: ${detectedType}`);
-      }
+      console.log('📁 File processing:', title, 'URL:', url, 'Size:', fileSize, 'Filename:', actualFilename);
       
-      // Fallback: try to detect from title
-      if (detectedType === 'unknown') {
-        detectedType = this.detectFileTypeFromUrl(fields['Title'] || '');
-        console.log(`🔄 Fallback type detection from title: ${detectedType}`);
-      }
+      const detectedType = this.detectFileTypeFromUrl(url || actualFilename);
+      console.log('🔍 Final file type for', title, ':', detectedType, 'from URL:', url);
       
-      // Final fallback: use category or default to 'file'
-      if (detectedType === 'unknown') {
-        const category = fields['Category'] || '';
-        if (category.toLowerCase().includes('image')) detectedType = 'image';
-        else if (category.toLowerCase().includes('video')) detectedType = 'video';
-        else if (category.toLowerCase().includes('audio')) detectedType = 'audio';
-        else if (category.toLowerCase().includes('document')) detectedType = 'document';
-        else detectedType = 'file';
-        console.log(`🔄 Final fallback type from category: ${detectedType}`);
-      }
-      
-      console.log(`🔍 Final file type for ${fields['Title']}: ${detectedType} from URL: ${url}`);
-     
-      // Generate thumbnail with enhanced logic
+      // Generate thumbnail
       const thumbnail = this.generateThumbnailFromUrl(url, detectedType);
-      console.log(`🖼️ Thumbnail generated for ${fields['Title']}: ${thumbnail}`);
-     
-      // Map old categories to new ones and auto-categorize based on file type
-      let category = fields['Category'] || 'other';
+      console.log('🖼️ Thumbnail generated for', title, ':', thumbnail);
       
       const categoryMapping = {
-        'news': 'other',
-        'sports': 'other', 
-        'weather': 'other',
-        'entertainment': 'other',
-        'commercial': 'other',
-        'uncategorized': 'other'
+        'image': 'image',
+        'video': 'video', 
+        'audio': 'audio',
+        'document': 'document',
+        'other': 'other'
       };
       
-      if (categoryMapping[category]) {
-        category = categoryMapping[category];
-      }
-      
-      if (!category || category === 'other' || category === 'uncategorized') {
-        if (detectedType === 'image') {
-          category = 'image';
-        } else if (detectedType === 'video') {
-          category = 'video';
-        } else if (detectedType === 'audio') {
-          category = 'audio';
-        } else if (detectedType === 'document' || detectedType === 'spreadsheet' || detectedType === 'presentation') {
-          category = 'document';
-        }
-      }
-
       const processedFile = {
         id: record.id,
-        title: fields['Title'] || fields['Name'] || actualFilename || 'Untitled',
+        title: title,
+        description: description,
         url: url,
-        category: category,
-        type: detectedType,
-        station: fields['Station'] || '',
-        description: fields['Description'] || '',
-        notes: fields['Notes'] || '',
-        tags: fields['Tags'] || '',
-        uploadDate: fields['Upload Date'] || fields['Created'] || new Date().toISOString(),
         thumbnail: thumbnail,
-        fileSize: fileSize || fields['File Size'] || 0,
-        duration: fields['Duration'] || '',
-        originalRecord: record,
-        filename: actualFilename
+        type: detectedType,
+        category: categoryMapping[category.toLowerCase()] || 'other',
+        size: fileSize,
+        filename: actualFilename || title,
+        tags: tags,
+        uploadedBy: uploadedBy,
+        uploadDate: uploadDate,
+        metadata: {
+          originalRecord: record
+        }
       };
-     
+      
       console.log('✅ Processed file:', processedFile);
       return processedFile;
     });
