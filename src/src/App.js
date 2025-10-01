@@ -142,8 +142,18 @@ class AirtableService {
       console.log('✅ Processed file:', processedFile);
       return processedFile;
     });
-    console.log('✅ AirtableService: All processed files:', processedFiles);
-    return processedFiles;
+    
+    const filteredFiles = processedFiles.filter(file => {
+      const hasValidUrl = file.url && file.url.trim() !== '';
+      if (!hasValidUrl) {
+        console.log('🚫 Filtering out record without URL:', file.title, 'ID:', file.id);
+      }
+      return hasValidUrl;
+    });
+    
+    console.log('✅ AirtableService: All processed files:', processedFiles.length);
+    console.log('✅ AirtableService: Filtered files with URLs:', filteredFiles.length);
+    return filteredFiles;
   }
   // Enhanced file type detection from URL
   detectFileTypeFromUrl(url) {
