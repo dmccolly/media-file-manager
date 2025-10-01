@@ -113,13 +113,22 @@ class AirtableService {
       const thumbnail = this.generateThumbnailFromUrl(url, detectedType);
       console.log('🖼️ Thumbnail generated for', title, ':', thumbnail);
       
-      const categoryMapping = {
+      const typeToCategory = {
         'image': 'image',
         'video': 'video', 
         'audio': 'audio',
         'document': 'document',
+        'pdf': 'document',
+        'text': 'document',
+        'spreadsheet': 'document',
+        'presentation': 'document',
+        'archive': 'other',
+        'unknown': 'other',
         'other': 'other'
       };
+      
+      const finalCategory = typeToCategory[detectedType] || 'other';
+      console.log('🏷️ Category mapping:', detectedType, '→', finalCategory, 'for file:', title);
       
       const processedFile = {
         id: record.id,
@@ -128,7 +137,7 @@ class AirtableService {
         url: url,
         thumbnail: thumbnail,
         type: detectedType,
-        category: categoryMapping[category.toLowerCase()] || 'other',
+        category: finalCategory,
         size: fileSize,
         filename: actualFilename || title,
         tags: tags,
@@ -142,8 +151,18 @@ class AirtableService {
       console.log('✅ Processed file:', processedFile);
       return processedFile;
     });
-    console.log('✅ AirtableService: All processed files:', processedFiles);
-    return processedFiles;
+    
+    const filteredFiles = processedFiles.filter(file => {
+      const hasValidUrl = file.url && file.url.trim() !== '';
+      if (!hasValidUrl) {
+        console.log('🚫 Filtering out record without URL:', file.title, 'ID:', file.id);
+      }
+      return hasValidUrl;
+    });
+    
+    console.log('✅ AirtableService: All processed files:', processedFiles.length);
+    console.log('✅ AirtableService: Filtered files with URLs:', filteredFiles.length);
+    return filteredFiles;
   }
   // Enhanced file type detection from URL
   detectFileTypeFromUrl(url) {
@@ -1724,6 +1743,11 @@ export default function App() {
     return tree;
   }, [files]);
   const currentFiles = useMemo(() => {
+    if (!files || files.length === 0) {
+      console.log('⏳ App: Waiting for files to load...');
+      return [];
+    }
+    
     const filtered = files.filter(file => file.category === currentFolder);
     const sorted = sortFiles(filtered, sortField, sortDirection);
     console.log(`📁 App: Files in ${currentFolder}:`, sorted.length);
@@ -1737,18 +1761,27 @@ export default function App() {
     try {
       const loadedFiles = await airtableService.fetchAllFiles();
       console.log('✅ App: Files loaded successfully:', loadedFiles);
-      setFiles(loadedFiles);
+      
+      setTimeout(() => {
+        setFiles(loadedFiles);
+        console.log('🔄 App: Files state updated with:', loadedFiles.length, 'files');
+      }, 50);
     } catch (err) {
       console.error('❌ App: Error loading files:', err);
       setError(err.message);
     } finally {
-      setLoading(false);
+      setTimeout(() => {
+        setLoading(false);
+      }, 100);
     }
   }, [airtableService]);
   // Initial load
   useEffect(() => {
     console.log('🔄 App: Component mounted, loading files...');
-    loadFiles();
+    const timer = setTimeout(() => {
+      loadFiles();
+    }, 100);
+    return () => clearTimeout(timer);
   }, [loadFiles]);
   // Clear selections when folder changes
   useEffect(() => {
