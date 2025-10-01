@@ -42,10 +42,12 @@ class AirtableService {
         const data = await response.json();
         console.log('📦 AirtableService: Raw response data:', data);
        
-        allRecords = allRecords.concat(data.records || []);
+        // Handle direct array response from Xano API (not wrapped in records property)
+        const records = Array.isArray(data) ? data : (data.records || []);
+        allRecords = allRecords.concat(records);
         offset = data.offset;
        
-        console.log(`📊 AirtableService: Page fetched. Records this page: ${data.records?.length || 0}, Total so far: ${allRecords.length}`);
+        console.log(`📊 AirtableService: Page fetched. Records this page: ${records.length}, Total so far: ${allRecords.length}`);
        
       } while (offset);
       console.log(`✅ AirtableService: Total records fetched: ${allRecords.length}`);
