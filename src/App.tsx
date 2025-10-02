@@ -10,7 +10,6 @@ import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { CloudinaryService } from './services/CloudinaryService'
 import { XanoService } from './services/XanoService'
-import { WebflowService } from './services/WebflowService'
 
 interface MediaFile {
   id: string
@@ -105,7 +104,6 @@ function App() {
 
   const cloudinaryService = new CloudinaryService()
   const xanoService = new XanoService()
-  const webflowService = new WebflowService()
 
   useEffect(() => {
     loadFiles()
@@ -287,12 +285,35 @@ function App() {
           await xanoService.saveFile(fileData)
           console.log('✅ App: File saved to database:', fileData.title)
           
-          console.log('🔄 App: Syncing to Webflow:', fileData.title)
-          const webflowResult = await webflowService.syncFileToWebflow(fileData)
-          if (webflowResult.assets.success || webflowResult.collection.success) {
-            console.log('✅ App: Webflow sync successful:', webflowResult)
-          } else {
-            console.warn('🔶 App: Webflow sync failed:', webflowResult)
+          console.log('🔄 App: Syncing to Webflow via Netlify Function:', fileData.title)
+          try {
+            const webflowResponse = await fetch('/.netlify/functions/webflow-sync', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                title: fileData.title,
+                name: fileData.name,
+                url: fileData.url,
+                description: fileData.description,
+                category: fileData.category,
+                type: fileData.type,
+                size: fileData.size,
+                tags: fileData.tags,
+                author: fileData.author
+              })
+            })
+            
+            if (webflowResponse.ok) {
+              const webflowResult = await webflowResponse.json()
+              console.log('✅ App: Webflow sync successful via Netlify Function:', webflowResult)
+            } else {
+              const errorData = await webflowResponse.text()
+              console.warn('🔶 App: Webflow sync failed via Netlify Function:', errorData)
+            }
+          } catch (webflowError) {
+            console.warn('🔶 App: Webflow sync error via Netlify Function:', webflowError)
           }
         } catch (error) {
           console.error('❌ App: Error saving file to database:', error)
