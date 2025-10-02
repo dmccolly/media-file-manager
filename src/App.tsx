@@ -526,11 +526,11 @@ function App() {
       )
     }
     
-    // Enhanced PDF handling - remove toolbar for cleaner view
+    // Enhanced PDF handling - use Google Docs Viewer to avoid 401 errors
     if (file.file_type.includes('pdf') || fileExt === 'pdf') {
       return (
         <iframe 
-          src={`${file.media_url}#toolbar=0&navpanes=0&scrollbar=0`} 
+          src={`https://docs.google.com/gview?url=${encodeURIComponent(file.media_url)}&embedded=true`}
           className="w-full h-96 border-none" 
           title={file.title}
         />
