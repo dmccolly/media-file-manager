@@ -10,6 +10,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { CloudinaryService } from './services/CloudinaryService'
 import { XanoService } from './services/XanoService'
+import { PreviewService } from './src/services/PreviewService'
 
 interface MediaFile {
   id: string
@@ -450,19 +451,7 @@ function App() {
   }
 
   const renderPreview = (file: MediaFile) => {
-    if (file.file_type.startsWith('image/')) {
-      return <img src={file.media_url} alt={file.title} className="max-w-full max-h-96 object-contain" />
-    }
-    if (file.file_type.startsWith('video/')) {
-      return <video src={file.media_url} controls className="max-w-full max-h-96" />
-    }
-    if (file.file_type.startsWith('audio/')) {
-      return <audio src={file.media_url} controls className="w-full" />
-    }
-    if (file.file_type.includes('pdf')) {
-      return <iframe src={file.media_url} className="w-full h-96" title={file.title} />
-    }
-    return <div className="p-8 text-center text-gray-500">Preview not available for this file type</div>
+    return PreviewService.renderPreview(file);
   }
 
   if (loading) {
