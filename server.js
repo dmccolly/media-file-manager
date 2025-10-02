@@ -1,7 +1,9 @@
 import express from "express";
 import path from "path";
 import compression from "compression";
+import cors from "cors";
 import { fileURLToPath } from 'url';
+import { WebflowService } from './src/services/WebflowService.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -9,6 +11,10 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const buildDir = path.join(__dirname, "dist");
 
+app.use(cors({
+  origin: ['http://localhost:5173', 'http://localhost:3000'],
+  credentials: true
+}));
 app.use(compression());
 app.use(express.json());
 
@@ -55,7 +61,8 @@ app.post("/api/upload", async (req, res) => {
       thumbnail: fileData.thumbnail,
       file_size: fileData.size,
       upload_date: new Date().toISOString(),
-      duration: fileData.duration || ''
+      duration: fileData.duration || '',
+      author: fileData.author || 'Unknown'
     };
     
     const response = await fetch(`https://xajo-bs7d-cagt.n7e.xano.io/api:pYeQctVX/user_submission`, {
@@ -75,6 +82,30 @@ app.post("/api/upload", async (req, res) => {
     
     const savedRecord = await response.json();
     console.log('✅ Server: File saved to Xano:', savedRecord);
+    
+    try {
+      console.log('🔄 Server: Starting Webflow sync for:', fileData.title);
+      const webflowService = new WebflowService();
+      
+      const webflowData = {
+        title: fileData.title,
+        name: fileData.name,
+        url: fileData.url,
+        thumbnail: fileData.thumbnail,
+        description: fileData.description,
+        category: fileData.category,
+        type: fileData.type,
+        size: fileData.size,
+        tags: fileData.tags,
+        author: fileData.author || 'Unknown'
+      };
+      
+      const webflowResult = await webflowService.syncFileToWebflow(webflowData);
+      console.log('✅ Server: Webflow sync result:', webflowResult);
+      
+    } catch (webflowError) {
+      console.error('❌ Server: Webflow sync failed (non-blocking):', webflowError);
+    }
     
     res.json({ 
       success: true, 
