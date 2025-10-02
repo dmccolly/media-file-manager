@@ -3,7 +3,6 @@ import path from "path";
 import compression from "compression";
 import cors from "cors";
 import { fileURLToPath } from 'url';
-import { WebflowService } from './src/services/WebflowService.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -171,6 +170,10 @@ app.use(cors({
 app.use(compression());
 app.use(express.json());
 
+// Serve static files from the dist directory
+app.use(express.static(buildDir));
+
+// Serve static files from the dist/assets directory with proper caching
 app.use("/assets", express.static(path.join(buildDir, "assets"), { maxAge: "1h", etag: true }));
 
 app.get("/api/media", async (req, res) => {
@@ -460,12 +463,6 @@ app.delete('/api/delete/:id', async (req, res) => {
     console.error('Delete error:', error);
     res.status(500).json({ error: 'Delete failed', details: error.message });
   }
-});
-
-app.use(express.static(buildDir));
-
-app.get('/', (req, res) => {
-  res.sendFile(path.join(buildDir, 'index.html'));
 });
 
 const port = process.env.PORT || 3000;
