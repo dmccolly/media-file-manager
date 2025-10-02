@@ -1,6 +1,5 @@
-web:
-  build:
-    docker:
-      web: Dockerfile
-  run:
-    web: node server.js
+build:
+  docker:
+    web: Dockerfile
+run:
+  web: node server.js
