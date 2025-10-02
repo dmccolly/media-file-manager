@@ -1,6 +1,5 @@
 build:
-  languages:
-    - nodejs
-
+  docker:
+    web: Dockerfile
 run:
   web: node server.js
