@@ -1,0 +1,19 @@
+name: Deploy to Heroku
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: akhileshns/heroku-deploy@v3.12.12
+        with:
+          heroku_api_key: ${{ secrets.HEROKU_API_KEY }}
+          heroku_app_name: "media-file-manager-43851dcc8421"
+          heroku_email: "dmccolly@gmail.com"
+          usedocker: true
+          docker_heroku_process_type: web
+          stack: "container"
