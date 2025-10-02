@@ -44,9 +44,8 @@ export class WebflowService {
         },
         body: JSON.stringify({
           url: fileData.url,
-          displayName: fileData.title,
-          altText: fileData.description || fileData.title,
-          fileName: fileData.name
+          displayName: fileData.title || fileData.name,
+          altText: fileData.description || fileData.title || fileData.name
         })
       });
 
@@ -86,10 +85,9 @@ export class WebflowService {
         isArchived: false,
         isDraft: false,
         fieldData: {
-          name: fileData.title,
-          slug: this.generateSlug(fileData.title),
+          name: fileData.title || fileData.name,
+          slug: this.generateSlug(fileData.title || fileData.name),
           'media-url': fileData.url,
-          'thumbnail-url': fileData.thumbnail,
           description: fileData.description || '',
           category: fileData.category || 'Files',
           'file-type': fileData.type || 'file',
