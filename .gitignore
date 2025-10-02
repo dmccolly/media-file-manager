@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 
+# Python virtual environment (obsolete)
+venv/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
