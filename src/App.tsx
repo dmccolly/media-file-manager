@@ -498,6 +498,15 @@ function App() {
   }
 
   const renderPreview = (file: MediaFile) => {
+    // Extract file extension from URL or title
+    const getFileExtension = (url: string, title: string) => {
+      const extFromUrl = url.split('.').pop()?.toLowerCase() || '';
+      const extFromTitle = title.split('.').pop()?.toLowerCase() || '';
+      return extFromUrl || extFromTitle || '';
+    };
+
+    const fileExt = getFileExtension(file.media_url, file.title);
+
     if (file.file_type.startsWith('image/')) {
       return <img src={file.media_url} alt={file.title} className="max-w-full max-h-96 object-contain" />
     }
@@ -517,43 +526,54 @@ function App() {
       )
     }
     
-    if (file.file_type.includes('pdf') || file.media_url.toLowerCase().includes('.pdf')) {
+    // Enhanced PDF handling - remove toolbar for cleaner view
+    if (file.file_type.includes('pdf') || fileExt === 'pdf') {
       return (
         <iframe 
-          src={`${file.media_url}#toolbar=1&navpanes=1&scrollbar=1`} 
-          className="w-full h-96" 
+          src={`${file.media_url}#toolbar=0&navpanes=0&scrollbar=0`} 
+          className="w-full h-96 border-none" 
           title={file.title}
         />
       )
     }
     
-    if (file.file_type.includes('document') || file.media_url.toLowerCase().match(/\.(doc|docx|txt|rtf)$/)) {
+    // Enhanced DOC/DOCX handling using Microsoft Office Web Viewer
+    if (fileExt === 'doc' || fileExt === 'docx') {
+      const officeSrc = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(file.media_url)}`;
       return (
         <iframe 
-          src={`https://docs.google.com/viewer?url=${encodeURIComponent(file.media_url)}&embedded=true`}
-          className="w-full h-96" 
+          src={officeSrc}
+          className="w-full h-96 border-none" 
           title={file.title}
         />
       )
     }
     
-    if (file.file_type.includes('spreadsheet') || file.media_url.toLowerCase().match(/\.(xls|xlsx|csv)$/)) {
+    // Handle other Office document types
+    if (['xls', 'xlsx', 'ppt', 'pptx'].includes(fileExt)) {
+      const officeSrc = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(file.media_url)}`;
       return (
         <iframe 
-          src={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(file.media_url)}`}
-          className="w-full h-96" 
+          src={officeSrc}
+          className="w-full h-96 border-none" 
           title={file.title}
         />
       )
     }
     
-    if (file.file_type.includes('presentation') || file.media_url.toLowerCase().match(/\.(ppt|pptx)$/)) {
+    // Handle text-based documents
+    if (['txt', 'rtf', 'csv'].includes(fileExt)) {
       return (
-        <iframe 
-          src={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(file.media_url)}`}
-          className="w-full h-96" 
-          title={file.title}
-        />
+        <div className="space-y-4">
+          <div className="flex items-center justify-center p-8 bg-gray-100 rounded-lg">
+            <FileText className="w-16 h-16 text-gray-400" />
+          </div>
+          <iframe 
+            src={`https://docs.google.com/viewer?url=${encodeURIComponent(file.media_url)}&embedded=true`}
+            className="w-full h-96 border-none" 
+            title={file.title}
+          />
+        </div>
       )
     }
     
