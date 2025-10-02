@@ -97,7 +97,7 @@ function App() {
   const [sortField, setSortField] = useState<'title' | 'file_type' | 'file_size' | 'created_at'>('title')
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
   const [searchFilters, setSearchFilters] = useState({
-    type: 'all',
+    type: '',
     dateFrom: '',
     dateTo: ''
   })
@@ -125,19 +125,7 @@ function App() {
       )
     }
 
-    if (searchFilters.type && searchFilters.type !== 'all') {
-      filtered = filtered.filter(file => {
-        const fileType = file.file_type.toLowerCase()
-        switch (searchFilters.type) {
-          case 'image': return fileType.startsWith('image/')
-          case 'video': return fileType.startsWith('video/')
-          case 'audio': return fileType.startsWith('audio/')
-          case 'document': return fileType.includes('document') || fileType.includes('text')
-          case 'pdf': return fileType.includes('pdf')
-          default: return true
-        }
-      })
-    }
+    if (searchFilters.type) filtered = filtered.filter(file => file.file_type === searchFilters.type)
     if (searchFilters.dateFrom) filtered = filtered.filter(file => new Date(file.created_at) >= new Date(searchFilters.dateFrom))
     if (searchFilters.dateTo) filtered = filtered.filter(file => new Date(file.created_at) <= new Date(searchFilters.dateTo))
 
@@ -284,37 +272,6 @@ function App() {
           console.log('🔄 App: Saving file to Xano:', fileData.title)
           await xanoService.saveFile(fileData)
           console.log('✅ App: File saved to database:', fileData.title)
-          
-          console.log('🔄 App: Syncing to Webflow via Netlify Function:', fileData.title)
-          try {
-            const webflowResponse = await fetch('/.netlify/functions/webflow-sync', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json'
-              },
-              body: JSON.stringify({
-                title: fileData.title,
-                name: fileData.name,
-                url: fileData.url,
-                description: fileData.description,
-                category: fileData.category,
-                type: fileData.type,
-                size: fileData.size,
-                tags: fileData.tags,
-                author: fileData.author
-              })
-            })
-            
-            if (webflowResponse.ok) {
-              const webflowResult = await webflowResponse.json()
-              console.log('✅ App: Webflow sync successful via Netlify Function:', webflowResult)
-            } else {
-              const errorData = await webflowResponse.text()
-              console.warn('🔶 App: Webflow sync failed via Netlify Function:', errorData)
-            }
-          } catch (webflowError) {
-            console.warn('🔶 App: Webflow sync error via Netlify Function:', webflowError)
-          }
         } catch (error) {
           console.error('❌ App: Error saving file to database:', error)
           throw error
@@ -359,8 +316,7 @@ function App() {
         category: editingFile.category,
         tags: editingFile.tags.join(', '),
         notes: editingFile.notes,
-        station: editingFile.station,
-        author: editingFile.author
+        station: editingFile.station
       }
       
       await xanoService.updateFile(editingFile.id, updates)
@@ -493,80 +449,20 @@ function App() {
     }
   }
 
-  const handleThumbnailMigration = async () => {
-    alert('Thumbnail generation is now handled automatically when files are loaded. No migration needed!')
-  }
-
   const renderPreview = (file: MediaFile) => {
     if (file.file_type.startsWith('image/')) {
       return <img src={file.media_url} alt={file.title} className="max-w-full max-h-96 object-contain" />
     }
-    
     if (file.file_type.startsWith('video/')) {
       return <video src={file.media_url} controls className="max-w-full max-h-96" />
     }
-    
     if (file.file_type.startsWith('audio/')) {
-      return (
-        <div className="space-y-4">
-          <div className="flex items-center justify-center p-8 bg-gray-100 rounded-lg">
-            <Music className="w-16 h-16 text-gray-400" />
-          </div>
-          <audio src={file.media_url} controls className="w-full" />
-        </div>
-      )
+      return <audio src={file.media_url} controls className="w-full" />
     }
-    
-    if (file.file_type.includes('pdf') || file.media_url.toLowerCase().includes('.pdf')) {
-      return (
-        <iframe 
-          src={`${file.media_url}#toolbar=1&navpanes=1&scrollbar=1`} 
-          className="w-full h-96" 
-          title={file.title}
-        />
-      )
+    if (file.file_type.includes('pdf')) {
+      return <iframe src={file.media_url} className="w-full h-96" title={file.title} />
     }
-    
-    if (file.file_type.includes('document') || file.media_url.toLowerCase().match(/\.(doc|docx|txt|rtf)$/)) {
-      return (
-        <iframe 
-          src={`https://docs.google.com/viewer?url=${encodeURIComponent(file.media_url)}&embedded=true`}
-          className="w-full h-96" 
-          title={file.title}
-        />
-      )
-    }
-    
-    if (file.file_type.includes('spreadsheet') || file.media_url.toLowerCase().match(/\.(xls|xlsx|csv)$/)) {
-      return (
-        <iframe 
-          src={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(file.media_url)}`}
-          className="w-full h-96" 
-          title={file.title}
-        />
-      )
-    }
-    
-    if (file.file_type.includes('presentation') || file.media_url.toLowerCase().match(/\.(ppt|pptx)$/)) {
-      return (
-        <iframe 
-          src={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(file.media_url)}`}
-          className="w-full h-96" 
-          title={file.title}
-        />
-      )
-    }
-    
-    return (
-      <div className="p-8 text-center text-gray-500 space-y-4">
-        <FileText className="w-16 h-16 mx-auto text-gray-400" />
-        <p>Preview not available for this file type</p>
-        <Button onClick={() => window.open(file.media_url, '_blank')} variant="outline">
-          <Download className="w-4 h-4 mr-2" />
-          Download File
-        </Button>
-      </div>
-    )
+    return <div className="p-8 text-center text-gray-500">Preview not available for this file type</div>
   }
 
   if (loading) {
@@ -646,9 +542,6 @@ function App() {
               onClick={() => setViewMode('list')}
             >
               <List className="w-4 h-4" />
-            </Button>
-            <Button variant="outline" onClick={handleThumbnailMigration}>
-              🔄 Fix Thumbnails
             </Button>
             <Dialog open={isUploadOpen} onOpenChange={(open) => {
               setIsUploadOpen(open)
@@ -873,7 +766,7 @@ function App() {
               <SelectValue placeholder="Type" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Types</SelectItem>
+              <SelectItem value="">All Types</SelectItem>
               <SelectItem value="image">Images</SelectItem>
               <SelectItem value="video">Videos</SelectItem>
               <SelectItem value="audio">Audio</SelectItem>

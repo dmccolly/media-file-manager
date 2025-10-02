@@ -1,0 +1,6 @@
+web:
+  build:
+    commands:
+      - npm install
+      - npm run build
+  run: node server.js
