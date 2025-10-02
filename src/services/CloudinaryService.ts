@@ -302,4 +302,14 @@ export class CloudinaryService {
     
     return iconMap[type] || iconMap['file'];
   }
+
+  generateThumbnailForExistingFile(mediaUrl: string, fileType: string): string {
+    if (!mediaUrl) return '';
+    
+    let resourceType = 'raw';
+    if (mediaUrl.includes('/image/upload/')) resourceType = 'image';
+    if (mediaUrl.includes('/video/upload/')) resourceType = 'video';
+    
+    return this.generateThumbnailUrl(mediaUrl, resourceType, fileType);
+  }
 }

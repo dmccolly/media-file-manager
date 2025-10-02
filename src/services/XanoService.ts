@@ -61,7 +61,7 @@ export class XanoService {
         category: record.category || record.Category || 'Files',
         file_type: detectedFileType,
         media_url: mediaUrl,
-        thumbnail: record.thumbnail || record.Thumbnail || mediaUrl,
+        thumbnail: this.generateThumbnailFromMediaUrl(mediaUrl, detectedFileType),
         file_size: record.file_size || record['File Size'] || 0,
         created_at: record.upload_date || record['Upload Date'] || record.created_at || new Date().toISOString(),
         tags: typeof record.tags === 'string' ? record.tags.split(',').map((t: string) => t.trim()) : [],
@@ -255,5 +255,111 @@ export class XanoService {
     }
     
     return 'application/octet-stream';
+  }
+
+  async getAllRecords(): Promise<XanoFileRecord[]> {
+    console.log('🔄 XanoService: Fetching all records for migration');
+    
+    try {
+      const response = await fetch(`${this.baseUrl}/media`);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      const records = Array.isArray(data) ? data : (data.records || []);
+      return records;
+    } catch (error) {
+      console.error('❌ XanoService: Error fetching all records:', error);
+      throw error;
+    }
+  }
+
+  async updateRecord(recordId: string, updates: any): Promise<any> {
+    return this.updateFile(recordId, updates);
+  }
+
+  private generateThumbnailFromMediaUrl(mediaUrl: string, fileType: string): string {
+    if (!mediaUrl) return '';
+    
+    try {
+      let resourceType = 'raw';
+      if (mediaUrl.includes('/image/upload/')) resourceType = 'image';
+      if (mediaUrl.includes('/video/upload/')) resourceType = 'video';
+      
+      if (resourceType === 'image') {
+        return mediaUrl.replace('/upload/', '/upload/w_150,h_150,c_fill/');
+      }
+      
+      if (resourceType === 'video') {
+        return mediaUrl.replace('/upload/', '/upload/w_150,h_150,c_fill,so_0/').replace(/\.[^.]+$/, '.jpg');
+      }
+      
+      if (fileType?.includes('pdf') || mediaUrl.toLowerCase().includes('.pdf')) {
+        return mediaUrl.replace('/upload/', '/upload/w_150,h_150,c_fill,pg_1/').replace(/\.pdf$/i, '.jpg');
+      }
+      
+      if (fileType?.startsWith('audio/') || this.isAudioFile(mediaUrl)) {
+        return '/icons/audio-placeholder.svg';
+      }
+      
+      if (this.isOfficeDocument(mediaUrl, fileType)) {
+        const docType = this.getOfficeDocumentType(mediaUrl, fileType);
+        return `/icons/${docType}-placeholder.svg`;
+      }
+      
+      if (this.isTextDocument(mediaUrl, fileType)) {
+        return '/icons/document-placeholder.svg';
+      }
+      
+      if (this.isArchiveFile(mediaUrl, fileType)) {
+        return '/icons/archive-placeholder.svg';
+      }
+      
+      return '/icons/file-placeholder.svg';
+      
+    } catch (error) {
+      console.error('❌ XanoService: Error generating thumbnail:', error);
+      return mediaUrl;
+    }
+  }
+
+  private isAudioFile(url: string): boolean {
+    const audioExtensions = ['.mp3', '.wav', '.flac', '.aac', '.ogg', '.m4a', '.wma'];
+    return audioExtensions.some(ext => url.toLowerCase().includes(ext));
+  }
+
+  private isOfficeDocument(url: string, fileType?: string): boolean {
+    const officeExtensions = ['.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx'];
+    const officeTypes = ['document', 'spreadsheet', 'presentation'];
+    
+    return officeExtensions.some(ext => url.toLowerCase().includes(ext)) ||
+           officeTypes.some(type => fileType?.includes(type));
+  }
+
+  private getOfficeDocumentType(url: string, fileType?: string): string {
+    if (url.toLowerCase().match(/\.(doc|docx)$/) || fileType?.includes('document')) {
+      return 'document';
+    }
+    if (url.toLowerCase().match(/\.(xls|xlsx|csv)$/) || fileType?.includes('spreadsheet')) {
+      return 'spreadsheet';
+    }
+    if (url.toLowerCase().match(/\.(ppt|pptx)$/) || fileType?.includes('presentation')) {
+      return 'presentation';
+    }
+    return 'document';
+  }
+
+  private isTextDocument(url: string, fileType?: string): boolean {
+    const textExtensions = ['.txt', '.rtf', '.md', '.json', '.xml', '.csv'];
+    return textExtensions.some(ext => url.toLowerCase().includes(ext)) ||
+           (fileType?.startsWith('text/') ?? false);
+  }
+
+  private isArchiveFile(url: string, fileType?: string): boolean {
+    const archiveExtensions = ['.zip', '.rar', '.7z', '.tar', '.gz'];
+    return archiveExtensions.some(ext => url.toLowerCase().includes(ext)) ||
+           (fileType?.includes('archive') ?? false) || (fileType?.includes('compressed') ?? false);
   }
 }

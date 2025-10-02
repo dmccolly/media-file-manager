@@ -493,6 +493,10 @@ function App() {
     }
   }
 
+  const handleThumbnailMigration = async () => {
+    alert('Thumbnail generation is now handled automatically when files are loaded. No migration needed!')
+  }
+
   const renderPreview = (file: MediaFile) => {
     if (file.file_type.startsWith('image/')) {
       return <img src={file.media_url} alt={file.title} className="max-w-full max-h-96 object-contain" />
@@ -642,6 +646,9 @@ function App() {
               onClick={() => setViewMode('list')}
             >
               <List className="w-4 h-4" />
+            </Button>
+            <Button variant="outline" onClick={handleThumbnailMigration}>
+              🔄 Fix Thumbnails
             </Button>
             <Dialog open={isUploadOpen} onOpenChange={(open) => {
               setIsUploadOpen(open)
