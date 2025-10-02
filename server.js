@@ -55,7 +55,7 @@ class BackendCloudinaryService {
       return '/icons/file-placeholder.svg';
       
     } catch (error) {
-      console.error('❌ CloudinaryService: Error generating thumbnail:', error);
+      console.error("❌ CloudinaryService: Error generating thumbnail:", error);
       return originalUrl;
     }
   }
@@ -95,7 +95,13 @@ class BackendXanoService {
   }
 
   async getAllRecords() {
-    console.log('🔄 BackendXanoService: Fetching all records for migration');
+    console.log("🔄 BackendXanoService: Fetching all records for migration");
+    
+    // Check if XANO_API_KEY is set
+    if (!process.env.XANO_API_KEY) {
+      console.warn("⚠️ BackendXanoService: XANO_API_KEY not set, returning empty array");
+      return [];
+    }
     
     try {
       const fetch = (await import('node-fetch')).default;
@@ -114,14 +120,20 @@ class BackendXanoService {
       const records = Array.isArray(data) ? data : (data.records || []);
       return records;
     } catch (error) {
-      console.error('❌ BackendXanoService: Error fetching all records:', error);
+      console.error("❌ BackendXanoService: Error fetching all records:", error);
       throw error;
     }
   }
 
   async updateRecord(recordId, updates) {
-    console.log('🔄 BackendXanoService: Updating record:', { recordId, updates });
-   
+    console.log("🔄 BackendXanoService: Updating record:", { recordId, updates });
+    
+    // Check if XANO_API_KEY is set
+    if (!process.env.XANO_API_KEY) {
+      console.warn("⚠️ BackendXanoService: XANO_API_KEY not set, skipping update");
+      return { success: false, error: "XANO_API_KEY not set" };
+    }
+    
     try {
       const fetch = (await import('node-fetch')).default;
       const response = await fetch(`${this.baseUrl}/user_submission/${recordId}`, {
@@ -139,11 +151,11 @@ class BackendXanoService {
       }
 
       const result = await response.json();
-      console.log('✅ BackendXanoService: Record updated successfully:', result);
+      console.log("✅ BackendXanoService: Record updated successfully:", result);
       return result;
      
     } catch (error) {
-      console.error('❌ BackendXanoService: Error updating record:', error);
+      console.error("❌ BackendXanoService: Error updating record:", error);
       throw error;
     }
   }
@@ -163,6 +175,12 @@ app.use("/assets", express.static(path.join(buildDir, "assets"), { maxAge: "1h",
 
 app.get("/api/media", async (req, res) => {
   try {
+    // Check if XANO_API_KEY is set
+    if (!process.env.XANO_API_KEY) {
+      console.warn("⚠️ Server: XANO_API_KEY not set, returning empty array");
+      return res.json([]);
+    }
+    
     const fetch = (await import('node-fetch')).default;
     const response = await fetch(`https://xajo-bs7d-cagt.n7e.xano.io/api:pYeQctVX/user_submission`, {
       headers: {
@@ -185,10 +203,20 @@ app.get("/api/media", async (req, res) => {
 
 app.post("/api/upload", async (req, res) => {
   try {
+    // Check if XANO_API_KEY is set
+    if (!process.env.XANO_API_KEY) {
+      console.warn("⚠️ Server: XANO_API_KEY not set, upload will not be saved to Xano");
+      return res.json({ 
+        success: true, 
+        record: { ...req.body, id: Date.now().toString() },
+        warning: "XANO_API_KEY not set, changes will not be persisted"
+      });
+    }
+    
     const fetch = (await import('node-fetch')).default;
     const fileData = req.body;
     
-    console.log('🔄 Server: Saving file to Xano:', fileData);
+    console.log("🔄 Server: Saving file to Xano:", fileData);
     
     const xanoData = {
       title: fileData.title,
@@ -217,15 +245,15 @@ app.post("/api/upload", async (req, res) => {
     
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('❌ Server: Xano API error:', response.status, errorText);
+      console.error("❌ Server: Xano API error:", response.status, errorText);
       throw new Error(`Xano API error: ${response.status} - ${errorText}`);
     }
     
     const savedRecord = await response.json();
-    console.log('✅ Server: File saved to Xano:', savedRecord);
+    console.log("✅ Server: File saved to Xano:", savedRecord);
     
     try {
-      console.log('🔄 Server: Starting Webflow sync for:', fileData.title);
+      console.log("🔄 Server: Starting Webflow sync for:", fileData.title);
       const webflowService = new WebflowService();
       
       const webflowData = {
@@ -242,10 +270,10 @@ app.post("/api/upload", async (req, res) => {
       };
       
       const webflowResult = await webflowService.syncFileToWebflow(webflowData);
-      console.log('✅ Server: Webflow sync result:', webflowResult);
+      console.log("✅ Server: Webflow sync result:", webflowResult);
       
     } catch (webflowError) {
-      console.error('❌ Server: Webflow sync failed (non-blocking):', webflowError);
+      console.error("❌ Server: Webflow sync failed (non-blocking):", webflowError);
     }
     
     res.json({ 
@@ -254,7 +282,7 @@ app.post("/api/upload", async (req, res) => {
     });
     
   } catch (error) {
-    console.error('❌ Server: Upload error:', error);
+    console.error("❌ Server: Upload error:", error);
     res.status(500).json({ 
       success: false, 
       error: error.message || 'Upload failed' 
@@ -367,7 +395,16 @@ app.patch('/api/update/:id', async (req, res) => {
 
 app.post('/api/migrate-thumbnails', async (req, res) => {
   try {
-    console.log('🔄 Starting thumbnail migration...');
+    console.log("🔄 Starting thumbnail migration...");
+    
+    // Check if XANO_API_KEY is set
+    if (!process.env.XANO_API_KEY) {
+      console.warn("⚠️ Server: XANO_API_KEY not set, thumbnail migration skipped");
+      return res.json({ 
+        success: false, 
+        error: "XANO_API_KEY not set" 
+      });
+    }
     
     const allFiles = await xanoService.getAllRecords();
     console.log(`📋 Found ${allFiles.length} files to process`);
@@ -396,7 +433,7 @@ app.post('/api/migrate-thumbnails', async (req, res) => {
       updatedFiles: updatedCount
     });
   } catch (error) {
-    console.error('❌ Thumbnail migration error:', error);
+    console.error("❌ Thumbnail migration error:", error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
