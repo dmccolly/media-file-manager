@@ -19,7 +19,8 @@ export class XanoService {
   private baseUrl: string;
 
   constructor() {
-    this.baseUrl = 'http://localhost:3000/api';
+    // Use the correct baseUrl for deployed environment
+    this.baseUrl = '/api';
   }
 
   async fetchAllFiles(): Promise<XanoFileRecord[]> {
