@@ -9,11 +9,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - uses: akhileshns/heroku-deploy@v3.12.12
-        with:
-          heroku_api_key: ${{ secrets.HEROKU_API_KEY }}
-          heroku_app_name: "media-file-manager-43851dcc8421"
-          heroku_email: "dmccolly@gmail.com"
-          usedocker: true
-          docker_heroku_process_type: web
-          stack: "container"
+
+      - name: Install Heroku CLI
+        run: |
+          curl https://cli-assets.heroku.com/install.sh | sh
+
+      - name: Login to Heroku Container Registry
+        run: heroku container:login
+        env:
+          HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
+
+      - name: Build and push Docker image
+        run: heroku container:push web -a media-file-manager-43851dcc8421
+        env:
+          HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
+
+      - name: Release Docker image
+        run: heroku container:release web -a media-file-manager-43851dcc8421
+        env:
+          HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
