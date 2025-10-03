@@ -34,7 +34,7 @@ This project was migrated from a Flask-based Python application to a modern Reac
 - **Backend**: Netlify Functions (serverless)
 - **Database**: Xano API
 - **File Storage**: Cloudinary
-- **PDF Rendering**: react-pdf with PDF.js
+- **PDF Preview**: Cloudinary transformations (PDF to JPG conversion)
 - **Deployment**: Netlify
 
 ## Prerequisites
