@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { Upload, Search, Grid, List, Eye, Edit, Download, FolderOpen, File, Image, Video, Music, FileText, X, Plus } from 'lucide-react'
+import { Upload, Search, Grid, List, Eye, Edit, Download, FolderOpen, File, Image, Video, Music, FileText, X, Plus, Menu } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -10,6 +10,8 @@ import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { CloudinaryService } from './services/CloudinaryService'
 import { XanoService } from './services/XanoService'
+import { FolderTree } from './components/FolderTree'
+import { Breadcrumb } from './components/Breadcrumb'
 
 interface MediaFile {
   id: string
@@ -25,6 +27,14 @@ interface MediaFile {
   notes?: string
   station?: string
   author?: string
+  folder_path?: string
+}
+
+interface FolderNode {
+  path: string
+  name: string
+  children: FolderNode[]
+  fileCount: number
 }
 
 const mockFiles: MediaFile[] = [
@@ -96,11 +106,13 @@ function App() {
   })
   const [sortField, setSortField] = useState<'title' | 'file_type' | 'file_size' | 'created_at'>('title')
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
-  const [searchFilters, setSearchFilters] = useState({
-    type: 'all',
-    dateFrom: '',
-    dateTo: ''
-  })
+  const [currentFolderPath, setCurrentFolderPath] = useState<string>('')
+  const [folderTree, setFolderTree] = useState<FolderNode[]>([])
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set([]))
+  const [isCreateFolderOpen, setIsCreateFolderOpen] = useState(false)
+  const [newFolderName, setNewFolderName] = useState('')
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+  const [emptyFolders, setEmptyFolders] = useState<Set<string>>(new Set())
 
   const cloudinaryService = new CloudinaryService()
   const xanoService = new XanoService()
@@ -123,23 +135,9 @@ function App() {
         (file.author && file.author.toLowerCase().includes(searchTerm.toLowerCase())) ||
         file.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()))
       )
+    } else {
+      filtered = filtered.filter(file => (file.folder_path || '') === currentFolderPath)
     }
-
-    if (searchFilters.type && searchFilters.type !== 'all') {
-      filtered = filtered.filter(file => {
-        const fileType = file.file_type.toLowerCase()
-        switch (searchFilters.type) {
-          case 'image': return fileType.startsWith('image/')
-          case 'video': return fileType.startsWith('video/')
-          case 'audio': return fileType.startsWith('audio/')
-          case 'document': return fileType.includes('document') || fileType.includes('text')
-          case 'pdf': return fileType.includes('pdf')
-          default: return true
-        }
-      })
-    }
-    if (searchFilters.dateFrom) filtered = filtered.filter(file => new Date(file.created_at) >= new Date(searchFilters.dateFrom))
-    if (searchFilters.dateTo) filtered = filtered.filter(file => new Date(file.created_at) <= new Date(searchFilters.dateTo))
 
     const sortedFiles = [...filtered].sort((a, b) => {
       let aValue = a[sortField]
@@ -162,7 +160,11 @@ function App() {
     })
 
     setFilteredFiles(sortedFiles)
-  }, [files, searchTerm, selectedCategory, searchFilters, sortField, sortDirection])
+  }, [files, searchTerm, selectedCategory, sortField, sortDirection, currentFolderPath])
+
+  useEffect(() => {
+    setFolderTree(buildFolderTree(files, emptyFolders))
+  }, [files, emptyFolders])
 
   const loadFiles = async () => {
     try {
@@ -268,7 +270,10 @@ function App() {
       
       const result = await cloudinaryService.uploadMultipleFiles(
         selectedFiles,
-        sharedMetadata,
+        {
+          ...sharedMetadata,
+          folder_path: currentFolderPath
+        },
         (_fileIndex: number, progress: number, fileName: string) => {
           setUploadProgress(prev => ({
             ...prev,
@@ -360,7 +365,8 @@ function App() {
         tags: editingFile.tags.join(', '),
         notes: editingFile.notes,
         station: editingFile.station,
-        author: editingFile.author
+        author: editingFile.author,
+        folder_path: editingFile.folder_path
       }
       
       await xanoService.updateFile(editingFile.id, updates)
@@ -497,6 +503,151 @@ function App() {
     alert('Thumbnail generation is now handled automatically when files are loaded. No migration needed!')
   }
 
+  const buildFolderTree = (files: MediaFile[], emptyFolderPaths: Set<string>): FolderNode[] => {
+    const tree: FolderNode[] = []
+    const pathMap = new Map<string, FolderNode>()
+    
+    const folderPaths = new Set<string>()
+    
+    files.forEach(file => {
+      if (file.folder_path && file.folder_path !== '') {
+        const parts = file.folder_path.split('/').filter(Boolean)
+        let currentPath = ''
+        parts.forEach(part => {
+          currentPath += '/' + part
+          folderPaths.add(currentPath)
+        })
+      }
+    })
+    
+    emptyFolderPaths.forEach(path => {
+      if (path && path !== '') {
+        folderPaths.add(path)
+        const parts = path.split('/').filter(Boolean)
+        let currentPath = ''
+        parts.forEach(part => {
+          currentPath += '/' + part
+          folderPaths.add(currentPath)
+        })
+      }
+    })
+    
+    Array.from(folderPaths).sort().forEach(path => {
+      const parts = path.split('/').filter(Boolean)
+      const name = parts[parts.length - 1]
+      const parentPath = parts.length > 1 ? '/' + parts.slice(0, -1).join('/') : ''
+      
+      const node: FolderNode = {
+        path,
+        name,
+        children: [],
+        fileCount: files.filter(f => f.folder_path === path).length
+      }
+      
+      pathMap.set(path, node)
+      
+      if (parentPath && pathMap.has(parentPath)) {
+        pathMap.get(parentPath)!.children.push(node)
+      } else if (!parentPath) {
+        tree.push(node)
+      }
+    })
+    
+    return tree
+  }
+
+  const handleCreateFolder = () => {
+    if (!newFolderName.trim()) return
+    
+    const newPath = currentFolderPath ? `${currentFolderPath}/${newFolderName}` : `/${newFolderName}`
+    
+    setEmptyFolders(prev => new Set(prev).add(newPath))
+    setExpandedFolders(prev => {
+      const next = new Set(prev)
+      if (currentFolderPath) {
+        next.add(currentFolderPath)
+      }
+      return next
+    })
+    setCurrentFolderPath(newPath)
+    setNewFolderName('')
+    setIsCreateFolderOpen(false)
+  }
+
+  const handleFolderClick = (path: string) => {
+    setCurrentFolderPath(path)
+  }
+
+  const handleFileDrop = async (fileId: string, targetFolderPath: string) => {
+    const file = files.find(f => f.id === fileId)
+    if (!file) return
+    
+    try {
+      await xanoService.updateFile(file.id, { folder_path: targetFolderPath })
+      
+      setFiles(prev => prev.map(f => 
+        f.id === fileId ? { ...f, folder_path: targetFolderPath } : f
+      ))
+      
+      if (targetFolderPath && emptyFolders.has(targetFolderPath)) {
+        setEmptyFolders(prev => {
+          const next = new Set(prev)
+          next.delete(targetFolderPath)
+          return next
+        })
+      }
+    } catch (error) {
+      console.error('Error moving file to folder:', error)
+      alert('Failed to move file to folder')
+    }
+  }
+
+  const handleDeleteFolder = async (folderPath: string) => {
+    if (!folderPath) return
+    
+    const filesInFolder = files.filter(f => f.folder_path === folderPath)
+    
+    if (filesInFolder.length > 0) {
+      const confirmDelete = window.confirm(
+        `This folder contains ${filesInFolder.length} file(s). They will be moved to Uncategorized. Continue?`
+      )
+      
+      if (!confirmDelete) return
+      
+      try {
+        for (const file of filesInFolder) {
+          await xanoService.updateFile(file.id, { folder_path: '' })
+        }
+        
+        setFiles(prev => prev.map(file => 
+          file.folder_path === folderPath ? { ...file, folder_path: '' } : file
+        ))
+        
+        setEmptyFolders(prev => {
+          const next = new Set(prev)
+          next.delete(folderPath)
+          return next
+        })
+        
+        setCurrentFolderPath('')
+        
+        alert('Folder deleted and files moved to Uncategorized.')
+      } catch (error: any) {
+        console.error('❌ App: Error deleting folder:', error)
+        alert('Error deleting folder: ' + (error?.message || 'Unknown error'))
+      }
+    } else {
+      setEmptyFolders(prev => {
+        const next = new Set(prev)
+        next.delete(folderPath)
+        return next
+      })
+      
+      setCurrentFolderPath('')
+      alert('Folder deleted.')
+    }
+  }
+
   const renderPreview = (file: MediaFile) => {
     // Extract file extension from URL or title
     const getFileExtension = (url: string, title: string) => {
@@ -526,15 +677,47 @@ function App() {
       )
     }
     
-    // Enhanced PDF handling - remove toolbar for cleaner view
+    // Enhanced PDF handling - use Cloudinary transformation to convert to JPG
     if (file.file_type.includes('pdf') || fileExt === 'pdf') {
-      return (
-        <iframe 
-          src={`${file.media_url}#toolbar=0&navpanes=0&scrollbar=0`} 
-          className="w-full h-96 border-none" 
-          title={file.title}
-        />
-      )
+      const mediaUrl = file.media_url
+      
+      if (mediaUrl?.includes('cloudinary.com')) {
+        const transformedUrl = mediaUrl.replace('/upload/', '/upload/w_600,h_800,c_fit,f_jpg,pg_1/')
+        
+        return (
+          <div className="w-full">
+            <img 
+              src={transformedUrl}
+              alt={file.title || 'PDF Document'}
+              className="w-full max-h-96 object-contain border border-gray-200 rounded"
+              onError={(e) => {
+                e.currentTarget.style.display = 'none'
+                const fallback = document.createElement('div')
+                fallback.className = 'flex flex-col items-center justify-center h-96 text-gray-500'
+                fallback.innerHTML = `
+                  <div class="text-4xl mb-4">📄</div>
+                  <div class="text-lg mb-2">PDF preview not available</div>
+                  <a href="${mediaUrl}" target="_blank" class="text-blue-500 hover:underline">Open PDF in new tab</a>
+                `
+                if (e.currentTarget.parentElement) {
+                  e.currentTarget.parentElement.appendChild(fallback)
+                }
+              }}
+            />
+            <div className="text-sm text-gray-500 mt-2 text-center">
+              Page 1 of PDF - <a href={mediaUrl} target="_blank" className="text-blue-500 hover:underline">Open full PDF</a>
+            </div>
+          </div>
+        )
+      } else {
+        return (
+          <iframe 
+            src={`${mediaUrl}#toolbar=1&navpanes=1&scrollbar=1`}
+            className="w-full h-96 border border-gray-200 rounded" 
+            title={file.title}
+          />
+        )
+      }
     }
     
     // Enhanced DOC/DOCX handling using Microsoft Office Web Viewer
@@ -618,58 +801,169 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-7xl mx-auto">
+    <div className="min-h-screen bg-gray-50 flex">
+      {/* Left Sidebar - Folder Tree */}
+      <div className={`${isSidebarOpen ? 'fixed inset-0 z-50 bg-black bg-opacity-50 lg:relative lg:bg-transparent' : 'hidden'} lg:block lg:w-64 lg:flex-shrink-0`}>
+        <div className={`${isSidebarOpen ? 'w-64' : 'w-full'} h-full bg-white border-r border-gray-200 shadow-lg flex flex-col lg:relative`}>
+          <div className="p-4 border-b border-gray-200 flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-gray-900">Folders</h2>
+            <button
+              onClick={() => setIsSidebarOpen(false)}
+              className="lg:hidden p-1 hover:bg-gray-100 rounded"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+          
+          <div className="flex-1 overflow-y-auto p-2">
+            <div
+              className={`flex items-center gap-2 py-2 px-3 mb-2 hover:bg-gray-100 cursor-pointer rounded-md transition-colors ${
+                currentFolderPath === '' ? 'bg-blue-50 text-blue-700 font-medium' : ''
+              }`}
+              onClick={() => {
+                handleFolderClick('')
+                setIsSidebarOpen(false)
+              }}
+              onDragOver={(e) => {
+                e.preventDefault()
+                e.currentTarget.classList.add('bg-blue-100')
+              }}
+              onDragLeave={(e) => {
+                e.currentTarget.classList.remove('bg-blue-100')
+              }}
+              onDrop={(e) => {
+                e.preventDefault()
+                e.currentTarget.classList.remove('bg-blue-100')
+                const fileId = e.dataTransfer.getData('fileId')
+                if (fileId) {
+                  handleFileDrop(fileId, '')
+                }
+              }}
+            >
+              <FolderOpen className="w-4 h-4 text-amber-600" />
+              <span className="flex-1 text-sm">Uncategorized</span>
+              <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
+                {files.filter(f => !f.folder_path || f.folder_path === '').length}
+              </span>
+            </div>
+            
+            <FolderTree
+              tree={folderTree}
+              currentPath={currentFolderPath}
+              expandedFolders={expandedFolders}
+              onFolderClick={(path: string) => {
+                handleFolderClick(path)
+                setIsSidebarOpen(false)
+              }}
+              onToggleExpand={(path: string) => {
+                setExpandedFolders(prev => {
+                  const next = new Set(prev)
+                  if (next.has(path)) {
+                    next.delete(path)
+                  } else {
+                    next.add(path)
+                  }
+                  return next
+                })
+              }}
+              onDrop={(path: string, e: React.DragEvent) => {
+                const fileId = e.dataTransfer.getData('fileId')
+                if (fileId) {
+                  handleFileDrop(fileId, path)
+                }
+              }}
+              onDeleteFolder={handleDeleteFolder}
+            />
+          </div>
+          
+          <div className="p-4 border-t border-gray-200 space-y-2">
+            <p className="text-xs text-gray-500 text-center">💡 Drag files into folders to organize</p>
+            <Button
+              onClick={() => setIsCreateFolderOpen(true)}
+              variant="outline"
+              size="sm"
+              className="w-full"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              New Folder
+            </Button>
+          </div>
+        </div>
+      </div>
+      
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col min-w-0">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Media File Manager</h1>
-          <p className="text-gray-600">Upload, organize, and manage your media files</p>
+        <div className="bg-gradient-to-r from-blue-600 to-blue-700 border-b border-blue-800 p-4 lg:p-6 shadow-md">
+          <div className="max-w-7xl mx-auto">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-4">
+                <button
+                  onClick={() => setIsSidebarOpen(true)}
+                  className="lg:hidden p-2 hover:bg-blue-500 rounded transition-colors text-white"
+                  aria-label="Open folder navigation"
+                >
+                  <Menu className="w-5 h-5" />
+                </button>
+                <div>
+                  <h1 className="text-2xl lg:text-3xl font-bold text-white">Media File Manager</h1>
+                  <p className="text-sm text-blue-100 hidden sm:block">Upload, organize, and manage your media files</p>
+                </div>
+              </div>
+            </div>
+            <Breadcrumb 
+              currentPath={currentFolderPath} 
+              onNavigate={handleFolderClick}
+            />
+          </div>
         </div>
 
         {/* Controls */}
-        <div className="mb-6 flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-          <div className="flex flex-col sm:flex-row gap-4 flex-1">
-            <div className="relative flex-1 max-w-md">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <Input
-                placeholder="Search files..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-            <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-              <SelectTrigger className="w-40">
-                <SelectValue placeholder="Category" />
-              </SelectTrigger>
-              <SelectContent>
-                {categories.map(category => (
-                  <SelectItem key={category} value={category}>
-                    {category.charAt(0).toUpperCase() + category.slice(1)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          
-          <div className="flex gap-2">
-            <Button
-              variant={viewMode === 'grid' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setViewMode('grid')}
-            >
-              <Grid className="w-4 h-4" />
-            </Button>
-            <Button
-              variant={viewMode === 'list' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setViewMode('list')}
-            >
-              <List className="w-4 h-4" />
-            </Button>
-            <Button variant="outline" onClick={handleThumbnailMigration}>
-              🔄 Fix Thumbnails
-            </Button>
+        <div className="bg-white border-b border-gray-200 p-4">
+          <div className="max-w-7xl mx-auto">
+            <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+              <div className="flex flex-col sm:flex-row gap-4 flex-1">
+                <div className="relative flex-1 max-w-md">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  <Input
+                    placeholder="Search files across all folders..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+                <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                  <SelectTrigger className="w-40">
+                    <SelectValue placeholder="Category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.map(category => (
+                      <SelectItem key={category} value={category}>
+                        {category.charAt(0).toUpperCase() + category.slice(1)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="flex gap-2">
+                <Button
+                  variant={viewMode === 'grid' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setViewMode('grid')}
+                >
+                  <Grid className="w-4 h-4" />
+                </Button>
+                <Button
+                  variant={viewMode === 'list' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setViewMode('list')}
+                >
+                  <List className="w-4 h-4" />
+                </Button>
+                <Button variant="outline" size="sm" onClick={handleThumbnailMigration}>
+                  🔄 Fix Thumbnails
+                </Button>
             <Dialog open={isUploadOpen} onOpenChange={(open) => {
               setIsUploadOpen(open)
               if (!open) resetUploadModal()
@@ -680,16 +974,16 @@ function App() {
                   Upload
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-2xl">
+              <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
                 <DialogHeader>
                   <DialogTitle>Batch Upload Files (Max 10)</DialogTitle>
                 </DialogHeader>
-                <div className="space-y-6">
+                <div className="space-y-6 overflow-y-auto flex-1 px-1">
                   {/* File Selection Area */}
                   <div className="space-y-4">
                     {/* Drag and Drop Zone */}
                     <div
-                      className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+                      className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
                         isDragOver 
                           ? 'border-blue-500 bg-blue-50' 
                           : 'border-gray-300 hover:border-gray-400'
@@ -698,15 +992,15 @@ function App() {
                       onDragLeave={handleDragLeave}
                       onDrop={handleDrop}
                     >
-                      <Upload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                      <p className="text-lg font-medium text-gray-900 mb-2">
+                      <Upload className="mx-auto h-10 w-10 text-gray-400 mb-3" />
+                      <p className="text-base font-medium text-gray-900 mb-1">
                         Drag and drop files here
                       </p>
-                      <p className="text-sm text-gray-500 mb-4">
+                      <p className="text-xs text-gray-500 mb-3">
                         or use the file picker below
                       </p>
                       <Label htmlFor="file-upload">
-                        <Button variant="outline" asChild>
+                        <Button variant="outline" size="sm" asChild>
                           <span className="cursor-pointer">
                             <Plus className="w-4 h-4 mr-2" />
                             Choose Files
@@ -728,7 +1022,7 @@ function App() {
                         <Label className="text-sm font-medium">
                           Selected Files ({selectedFiles.length}/10)
                         </Label>
-                        <div className="max-h-32 overflow-y-auto space-y-1">
+                        <div className="max-h-24 overflow-y-auto space-y-1 border rounded-md p-2">
                           {selectedFiles.map((file, index) => (
                             <div key={index} className="flex items-center justify-between bg-gray-50 p-2 rounded">
                               <div className="flex items-center gap-2">
@@ -866,59 +1160,6 @@ function App() {
           </div>
         </div>
 
-        {/* Search and Filters */}
-        <div className="flex flex-col sm:flex-row gap-4 mb-6">
-          <div className="flex-1">
-            <Input
-              placeholder="Search files by name, description, author, or tags..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full"
-            />
-          </div>
-          <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-            <SelectTrigger className="w-full sm:w-48">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {categories.map(category => (
-                <SelectItem key={category} value={category}>
-                  {category.charAt(0).toUpperCase() + category.slice(1)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={searchFilters.type} onValueChange={(value) => setSearchFilters(prev => ({ ...prev, type: value }))}>
-            <SelectTrigger className="w-full sm:w-32">
-              <SelectValue placeholder="Type" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Types</SelectItem>
-              <SelectItem value="image">Images</SelectItem>
-              <SelectItem value="video">Videos</SelectItem>
-              <SelectItem value="audio">Audio</SelectItem>
-              <SelectItem value="document">Documents</SelectItem>
-              <SelectItem value="pdf">PDFs</SelectItem>
-            </SelectContent>
-          </Select>
-          <div className="flex gap-2">
-            <Button
-              variant={viewMode === 'grid' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setViewMode('grid')}
-            >
-              <Grid className="w-4 h-4" />
-            </Button>
-            <Button
-              variant={viewMode === 'list' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setViewMode('list')}
-            >
-              <List className="w-4 h-4" />
-            </Button>
-          </div>
-        </div>
-
         {/* Selection Controls */}
         {filteredFiles.length > 0 && (
           <div className="flex items-center gap-4 mb-4 p-3 bg-blue-50 rounded-lg">
@@ -938,7 +1179,7 @@ function App() {
 
         {/* File Grid/List */}
         {viewMode === 'grid' ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 gap-4">
             {filteredFiles.map((file) => {
               const isSelected = selectedMediaFiles.some((f: MediaFile) => f.id === file.id)
               return (
@@ -947,6 +1188,14 @@ function App() {
                   className={`hover:shadow-lg transition-shadow cursor-pointer ${
                     isSelected ? 'ring-2 ring-blue-500 bg-blue-50' : ''
                   }`}
+                  draggable
+                  onDragStart={(e) => {
+                    e.dataTransfer.setData('fileId', file.id)
+                    e.currentTarget.classList.add('opacity-50')
+                  }}
+                  onDragEnd={(e) => {
+                    e.currentTarget.classList.remove('opacity-50')
+                  }}
                   onContextMenu={(e) => handleContextMenu(e, file)}
                 >
                   <CardHeader className="pb-3">
@@ -963,31 +1212,32 @@ function App() {
                       </div>
                     </div>
                   </CardHeader>
-                  <CardContent className="space-y-3">
+                  <CardContent className="space-y-2 p-3">
                     {file.thumbnail && (
-                      <img src={file.thumbnail} alt={file.title} className="w-full h-32 object-cover rounded" />
+                      <img src={file.thumbnail} alt={file.title} className="w-full h-20 object-cover rounded" />
                     )}
-                    <p className="text-sm text-gray-600 line-clamp-2">{file.description || 'No description'}</p>
+                    <p className="text-xs text-gray-600 line-clamp-2">{file.description || 'No description'}</p>
                     {file.author && (
                       <p className="text-xs text-gray-500">By: {file.author}</p>
                     )}
                     <div className="flex flex-wrap gap-1">
-                      {file.tags.map((tag) => (
-                        <Badge key={tag} variant="secondary" className="text-xs">{tag}</Badge>
+                      {file.tags.slice(0, 2).map((tag) => (
+                        <Badge key={tag} variant="secondary" className="text-xs px-1 py-0">{tag}</Badge>
                       ))}
+                      {file.tags.length > 2 && <Badge variant="secondary" className="text-xs px-1 py-0">+{file.tags.length - 2}</Badge>}
                     </div>
                     <div className="text-xs text-gray-500">
                       <div>{formatFileSize(file.file_size)}</div>
                       <div>{formatDate(file.created_at)}</div>
                     </div>
-                    <div className="flex gap-2">
-                      <Button size="sm" variant="outline" onClick={() => handlePreview(file)}>
+                    <div className="flex gap-1">
+                      <Button size="sm" variant="outline" onClick={() => handlePreview(file)} className="h-7 px-2">
                         <Eye className="w-3 h-3" />
                       </Button>
-                      <Button size="sm" variant="outline" onClick={() => handleEditFile(file)}>
+                      <Button size="sm" variant="outline" onClick={() => handleEditFile(file)} className="h-7 px-2">
                         <Edit className="w-3 h-3" />
                       </Button>
-                      <Button size="sm" variant="outline" asChild>
+                      <Button size="sm" variant="outline" asChild className="h-7 px-2">
                         <a href={file.media_url} download={file.title}>
                           <Download className="w-3 h-3" />
                         </a>
@@ -998,104 +1248,158 @@ function App() {
               )
             })}
           </div>
-        ) : (
-          <div className="bg-white rounded-lg shadow">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      <input
-                        type="checkbox"
-                        checked={selectedMediaFiles.length === filteredFiles.length && filteredFiles.length > 0}
-                        onChange={selectedMediaFiles.length === filteredFiles.length ? handleClearSelection : handleSelectAll}
-                        className="rounded"
-                      />
-                    </th>
-                    <th 
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                      onClick={() => handleSort('title')}
-                    >
-                      Name {getSortIcon('title')}
-                    </th>
-                    <th 
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                      onClick={() => handleSort('file_type')}
-                    >
-                      Type {getSortIcon('file_type')}
-                    </th>
-                    <th 
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                      onClick={() => handleSort('file_size')}
-                    >
-                      Size {getSortIcon('file_size')}
-                    </th>
-                    <th 
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                      onClick={() => handleSort('created_at')}
-                    >
-                      Date {getSortIcon('created_at')}
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredFiles.map((file) => {
-                    const isSelected = selectedMediaFiles.some((f: MediaFile) => f.id === file.id)
-                    return (
-                      <tr 
-                        key={file.id} 
-                        className={`hover:bg-gray-50 cursor-pointer ${
-                          isSelected ? 'bg-blue-50' : ''
-                        }`}
-                        onContextMenu={(e) => handleContextMenu(e, file)}
-                      >
-                        <td className="px-6 py-4 whitespace-nowrap">
+            ) : (
+              <div className="bg-white rounded-lg shadow">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           <input
                             type="checkbox"
-                            checked={isSelected}
-                            onChange={() => handleFileSelect(file)}
+                            checked={selectedMediaFiles.length === filteredFiles.length && filteredFiles.length > 0}
+                            onChange={selectedMediaFiles.length === filteredFiles.length ? handleClearSelection : handleSelectAll}
                             className="rounded"
                           />
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center">
-                            {getFileIcon(file.file_type)}
-                            <div className="ml-3">
-                              <div className="text-sm font-medium text-gray-900">{file.title}</div>
-                              <div className="text-sm text-gray-500">{file.description}</div>
-                              {file.author && (
-                                <div className="text-xs text-gray-400">By: {file.author}</div>
-                              )}
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{file.file_type}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatFileSize(file.file_size)}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatDate(file.created_at)}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                          <div className="flex gap-2">
-                            <Button size="sm" variant="outline" onClick={() => handlePreview(file)}>
-                              <Eye className="w-3 h-3" />
-                            </Button>
-                            <Button size="sm" variant="outline" onClick={() => handleEditFile(file)}>
-                              <Edit className="w-3 h-3" />
-                            </Button>
-                            <Button size="sm" variant="outline" asChild>
-                              <a href={file.media_url} download={file.title}>
-                                <Download className="w-3 h-3" />
-                              </a>
-                            </Button>
-                          </div>
-                        </td>
+                        </th>
+                        <th 
+                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                          onClick={() => handleSort('title')}
+                        >
+                          Name {getSortIcon('title')}
+                        </th>
+                        <th 
+                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                          onClick={() => handleSort('file_type')}
+                        >
+                          Type {getSortIcon('file_type')}
+                        </th>
+                        <th 
+                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                          onClick={() => handleSort('created_at')}
+                        >
+                          Modified {getSortIcon('created_at')}
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                       </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {filteredFiles.map((file) => {
+                          const isSelected = selectedMediaFiles.some((f: MediaFile) => f.id === file.id)
+                          return (
+                            <tr 
+                              key={file.id} 
+                              className={`hover:bg-gray-50 cursor-pointer ${
+                                isSelected ? 'bg-blue-50' : ''
+                              }`}
+                              draggable
+                              onDragStart={(e) => {
+                                e.dataTransfer.setData('fileId', file.id)
+                                e.currentTarget.classList.add('opacity-50')
+                              }}
+                              onDragEnd={(e) => {
+                                e.currentTarget.classList.remove('opacity-50')
+                              }}
+                              onContextMenu={(e) => handleContextMenu(e, file)}
+                            >
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={() => handleFileSelect(file)}
+                                  className="rounded"
+                                />
+                              </td>
+                              <td className="px-6 py-4">
+                                <div className="flex items-center">
+                                  {getFileIcon(file.file_type)}
+                                  <div className="ml-3 max-w-md">
+                                    <div className="text-sm font-medium text-gray-900 truncate">{file.title}</div>
+                                    <div className="text-xs text-gray-500 truncate">
+                                      {file.description 
+                                        ? file.description.split(' ').slice(0, 10).join(' ') + (file.description.split(' ').length > 10 ? '...' : '')
+                                        : 'No description'
+                                      }
+                                    </div>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{file.file_type}</td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatDate(file.created_at)}</td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                <div className="flex gap-1">
+                                  <Button size="sm" variant="outline" onClick={() => handlePreview(file)} className="h-7 px-2">
+                                    <Eye className="w-3 h-3" />
+                                  </Button>
+                                  <Button size="sm" variant="outline" onClick={() => handleEditFile(file)} className="h-7 px-2">
+                                    <Edit className="w-3 h-3" />
+                                  </Button>
+                                  <Button size="sm" variant="outline" asChild className="h-7 px-2">
+                                    <a href={file.media_url} download={file.title}>
+                                      <Download className="w-3 h-3" />
+                                    </a>
+                                  </Button>
+                                </div>
+                              </td>
+                            </tr>
+                          )
+                        })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+            
+            {/* Empty State */}
+            {filteredFiles.filter(file => (file.folder_path || '') === currentFolderPath).length === 0 && (
+              <div className="text-center py-12">
+                <FolderOpen className="mx-auto h-12 w-12 text-gray-400" />
+                <h3 className="mt-2 text-sm font-medium text-gray-900">No files found</h3>
+                <p className="mt-1 text-sm text-gray-500">
+                  {searchTerm || selectedCategory !== 'all' 
+                    ? 'Try adjusting your search or filter criteria.' 
+                    : 'Get started by uploading your first file or drag files into this folder.'}
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+      
+      {/* Create Folder Dialog */}
+      <Dialog open={isCreateFolderOpen} onOpenChange={setIsCreateFolderOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create New Folder</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Folder Name</Label>
+              <Input
+                value={newFolderName}
+                onChange={(e) => setNewFolderName(e.target.value)}
+                placeholder="Enter folder name..."
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleCreateFolder()
+                  }
+                }}
+              />
+            </div>
+            <div className="text-sm text-gray-500">
+              Will be created in: {currentFolderPath || 'Uncategorized'}
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setIsCreateFolderOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleCreateFolder}>
+                Create Folder
+              </Button>
             </div>
           </div>
-        )}
+        </DialogContent>
+      </Dialog>
 
         {/* Preview Modal */}
         <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
@@ -1202,6 +1506,30 @@ function App() {
                     onChange={(e) => setEditingFile({ ...editingFile, author: e.target.value })}
                   />
                 </div>
+                <div>
+                  <Label htmlFor="edit-folder">Folder</Label>
+                  <Select 
+                    value={editingFile.folder_path || ''} 
+                    onValueChange={(value) => setEditingFile({ ...editingFile, folder_path: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select folder" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">Uncategorized</SelectItem>
+                      {Array.from(new Set(files.map(f => f.folder_path).filter((path): path is string => !!path))).sort().map(folderPath => (
+                        <SelectItem key={folderPath} value={folderPath}>
+                          {folderPath}
+                        </SelectItem>
+                      ))}
+                      {Array.from(emptyFolders).sort().map(folderPath => (
+                        <SelectItem key={folderPath} value={folderPath}>
+                          {folderPath}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
                 <div className="flex gap-2 justify-end">
                   <Button variant="outline" onClick={() => setIsEditOpen(false)}>Cancel</Button>
                   <Button onClick={handleSaveEdit}>Save Changes</Button>
@@ -1296,19 +1624,6 @@ function App() {
           </div>
         )}
 
-        {/* Empty State */}
-        {filteredFiles.length === 0 && (
-          <div className="text-center py-12">
-            <FolderOpen className="mx-auto h-12 w-12 text-gray-400" />
-            <h3 className="mt-2 text-sm font-medium text-gray-900">No files found</h3>
-            <p className="mt-1 text-sm text-gray-500">
-              {searchTerm || selectedCategory !== 'all' 
-                ? 'Try adjusting your search or filter criteria.' 
-                : 'Get started by uploading your first file.'}
-            </p>
-          </div>
-        )}
-      </div>
     </div>
   )
 }

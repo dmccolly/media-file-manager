@@ -1,6 +1,8 @@
 [build]
+  command = "npm run build"
   functions = "netlify/functions"
   publish = "dist"
+  # Trigger redeploy to pick up XANO_API_KEY environment variable
 
 [functions]
   directory = "netlify/functions"
