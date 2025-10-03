@@ -112,6 +112,7 @@ function App() {
   const [isCreateFolderOpen, setIsCreateFolderOpen] = useState(false)
   const [newFolderName, setNewFolderName] = useState('')
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+  const [emptyFolders, setEmptyFolders] = useState<Set<string>>(new Set())
 
   const cloudinaryService = new CloudinaryService()
   const xanoService = new XanoService()
@@ -160,8 +161,8 @@ function App() {
   }, [files, searchTerm, selectedCategory, sortField, sortDirection])
 
   useEffect(() => {
-    setFolderTree(buildFolderTree(files))
-  }, [files])
+    setFolderTree(buildFolderTree(files, emptyFolders))
+  }, [files, emptyFolders])
 
   const loadFiles = async () => {
     try {
@@ -496,14 +497,27 @@ function App() {
     alert('Thumbnail generation is now handled automatically when files are loaded. No migration needed!')
   }
 
-  const buildFolderTree = (files: MediaFile[]): FolderNode[] => {
+  const buildFolderTree = (files: MediaFile[], emptyFolderPaths: Set<string>): FolderNode[] => {
     const tree: FolderNode[] = []
     const pathMap = new Map<string, FolderNode>()
     
     const folderPaths = new Set<string>()
+    
     files.forEach(file => {
       if (file.folder_path && file.folder_path !== '') {
         const parts = file.folder_path.split('/').filter(Boolean)
+        let currentPath = ''
+        parts.forEach(part => {
+          currentPath += '/' + part
+          folderPaths.add(currentPath)
+        })
+      }
+    })
+    
+    emptyFolderPaths.forEach(path => {
+      if (path && path !== '') {
+        folderPaths.add(path)
+        const parts = path.split('/').filter(Boolean)
         let currentPath = ''
         parts.forEach(part => {
           currentPath += '/' + part
@@ -541,6 +555,14 @@ function App() {
     
     const newPath = currentFolderPath ? `${currentFolderPath}/${newFolderName}` : `/${newFolderName}`
     
+    setEmptyFolders(prev => new Set(prev).add(newPath))
+    setExpandedFolders(prev => {
+      const next = new Set(prev)
+      if (currentFolderPath) {
+        next.add(currentFolderPath)
+      }
+      return next
+    })
     setCurrentFolderPath(newPath)
     setNewFolderName('')
     setIsCreateFolderOpen(false)
@@ -560,6 +582,14 @@ function App() {
       setFiles(prev => prev.map(f => 
         f.id === fileId ? { ...f, folder_path: targetFolderPath } : f
       ))
+      
+      if (targetFolderPath && emptyFolders.has(targetFolderPath)) {
+        setEmptyFolders(prev => {
+          const next = new Set(prev)
+          next.delete(targetFolderPath)
+          return next
+        })
+      }
     } catch (error) {
       console.error('Error moving file to folder:', error)
       alert('Failed to move file to folder')
