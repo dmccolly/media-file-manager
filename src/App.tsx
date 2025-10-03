@@ -10,14 +10,6 @@ import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { CloudinaryService } from './services/CloudinaryService'
 import { XanoService } from './services/XanoService'
-import { Document, Page, pdfjs } from 'react-pdf'
-import 'react-pdf/dist/Page/AnnotationLayer.css'
-import 'react-pdf/dist/Page/TextLayer.css'
-
-pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/build/pdf.worker.min.mjs',
-  import.meta.url,
-).toString()
 
 interface MediaFile {
   id: string
@@ -534,33 +526,47 @@ function App() {
       )
     }
     
-    // Enhanced PDF handling - use PDF.js to render PDFs directly
+    // Enhanced PDF handling - use Cloudinary transformation to convert to JPG
     if (file.file_type.includes('pdf') || fileExt === 'pdf') {
-      return (
-        <div className="w-full h-96 overflow-auto border border-gray-200 rounded">
-          <Document 
-            file={file.media_url}
-            onLoadError={(error) => {
-              console.error('PDF Document load error:', error)
-            }}
-            onLoadSuccess={() => {
-              console.log('PDF loaded successfully')
-            }}
-            loading={
-              <div className="flex items-center justify-center h-96">
-                <div className="text-gray-500">Loading PDF...</div>
-              </div>
-            }
-            error={
-              <div className="flex items-center justify-center h-96">
-                <div className="text-red-500">Failed to load PDF. Please try downloading the file.</div>
-              </div>
-            }
-          >
-            <Page pageNumber={1} width={600} />
-          </Document>
-        </div>
-      )
+      const mediaUrl = file.media_url
+      
+      if (mediaUrl?.includes('cloudinary.com')) {
+        const transformedUrl = mediaUrl.replace('/upload/', '/upload/w_600,h_800,c_fit,f_jpg,pg_1/')
+        
+        return (
+          <div className="w-full">
+            <img 
+              src={transformedUrl}
+              alt={file.title || 'PDF Document'}
+              className="w-full max-h-96 object-contain border border-gray-200 rounded"
+              onError={(e) => {
+                e.currentTarget.style.display = 'none'
+                const fallback = document.createElement('div')
+                fallback.className = 'flex flex-col items-center justify-center h-96 text-gray-500'
+                fallback.innerHTML = `
+                  <div class="text-4xl mb-4">📄</div>
+                  <div class="text-lg mb-2">PDF preview not available</div>
+                  <a href="${mediaUrl}" target="_blank" class="text-blue-500 hover:underline">Open PDF in new tab</a>
+                `
+                if (e.currentTarget.parentElement) {
+                  e.currentTarget.parentElement.appendChild(fallback)
+                }
+              }}
+            />
+            <div className="text-sm text-gray-500 mt-2 text-center">
+              Page 1 of PDF - <a href={mediaUrl} target="_blank" className="text-blue-500 hover:underline">Open full PDF</a>
+            </div>
+          </div>
+        )
+      } else {
+        return (
+          <iframe 
+            src={`${mediaUrl}#toolbar=1&navpanes=1&scrollbar=1`}
+            className="w-full h-96 border border-gray-200 rounded" 
+            title={file.title}
+          />
+        )
+      }
     }
     
     // Enhanced DOC/DOCX handling using Microsoft Office Web Viewer
