@@ -12,9 +12,7 @@ export function Breadcrumb({ currentPath, onNavigate }: BreadcrumbProps) {
     <div className="flex items-center gap-2 text-sm">
       <button
         onClick={() => onNavigate('')}
-        className={`flex items-center gap-1 px-3 py-1.5 hover:bg-gray-100 rounded transition-colors ${
-          currentPath === '' ? 'bg-blue-50 text-blue-700 font-medium' : ''
-        }`}
+        className="flex items-center gap-1 px-2 py-1 hover:bg-blue-500 rounded text-white transition-colors"
       >
         <Home className="w-4 h-4" />
         <span>All Files</span>
@@ -22,15 +20,12 @@ export function Breadcrumb({ currentPath, onNavigate }: BreadcrumbProps) {
       
       {parts.map((part, idx) => {
         const path = '/' + parts.slice(0, idx + 1).join('/')
-        const isLast = idx === parts.length - 1
         return (
           <div key={path} className="flex items-center gap-2">
-            <ChevronRight className="w-4 h-4 text-gray-400" />
+            <ChevronRight className="w-4 h-4 text-blue-200" />
             <button
               onClick={() => onNavigate(path)}
-              className={`px-3 py-1.5 hover:bg-gray-100 rounded transition-colors ${
-                isLast ? 'bg-blue-50 text-blue-700 font-medium' : ''
-              }`}
+              className="px-2 py-1 hover:bg-blue-500 rounded text-white transition-colors"
             >
               {part}
             </button>

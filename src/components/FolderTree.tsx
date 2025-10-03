@@ -77,7 +77,8 @@ export function FolderTree({
               onDeleteFolder(node.path)
             }}
             className="p-1 hover:bg-red-100 rounded transition-colors opacity-0 group-hover:opacity-100"
-            title="Delete folder"
+            title="Delete folder (files will move to Uncategorized)"
+            aria-label="Delete folder"
           >
             <Trash2 className="w-3 h-3 text-red-600" />
           </button>

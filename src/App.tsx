@@ -804,7 +804,7 @@ function App() {
     <div className="min-h-screen bg-gray-50 flex">
       {/* Left Sidebar - Folder Tree */}
       <div className={`${isSidebarOpen ? 'fixed inset-0 z-50 bg-black bg-opacity-50 lg:relative lg:bg-transparent' : 'hidden'} lg:block lg:w-64 lg:flex-shrink-0`}>
-        <div className={`${isSidebarOpen ? 'w-64' : 'w-full'} h-full bg-white border-r border-gray-200 flex flex-col lg:relative`}>
+        <div className={`${isSidebarOpen ? 'w-64' : 'w-full'} h-full bg-white border-r border-gray-200 shadow-lg flex flex-col lg:relative`}>
           <div className="p-4 border-b border-gray-200 flex items-center justify-between">
             <h2 className="text-lg font-semibold text-gray-900">Folders</h2>
             <button
@@ -876,7 +876,8 @@ function App() {
             />
           </div>
           
-          <div className="p-4 border-t border-gray-200">
+          <div className="p-4 border-t border-gray-200 space-y-2">
+            <p className="text-xs text-gray-500 text-center">💡 Drag files into folders to organize</p>
             <Button
               onClick={() => setIsCreateFolderOpen(true)}
               variant="outline"
@@ -893,20 +894,20 @@ function App() {
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Header */}
-        <div className="bg-white border-b border-gray-200 p-4 lg:p-6">
+        <div className="bg-gradient-to-r from-blue-600 to-blue-700 border-b border-blue-800 p-4 lg:p-6 shadow-md">
           <div className="max-w-7xl mx-auto">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-4">
                 <button
                   onClick={() => setIsSidebarOpen(true)}
-                  className="lg:hidden p-2 hover:bg-gray-100 rounded transition-colors"
+                  className="lg:hidden p-2 hover:bg-blue-500 rounded transition-colors text-white"
                   aria-label="Open folder navigation"
                 >
                   <Menu className="w-5 h-5" />
                 </button>
                 <div>
-                  <h1 className="text-2xl lg:text-3xl font-bold text-gray-900">Media File Manager</h1>
-                  <p className="text-sm text-gray-600 hidden sm:block">Upload, organize, and manage your media files</p>
+                  <h1 className="text-2xl lg:text-3xl font-bold text-white">Media File Manager</h1>
+                  <p className="text-sm text-blue-100 hidden sm:block">Upload, organize, and manage your media files</p>
                 </div>
               </div>
             </div>
@@ -973,16 +974,16 @@ function App() {
                   Upload
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-2xl">
+              <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
                 <DialogHeader>
                   <DialogTitle>Batch Upload Files (Max 10)</DialogTitle>
                 </DialogHeader>
-                <div className="space-y-6">
+                <div className="space-y-6 overflow-y-auto flex-1 px-1">
                   {/* File Selection Area */}
                   <div className="space-y-4">
                     {/* Drag and Drop Zone */}
                     <div
-                      className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+                      className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
                         isDragOver 
                           ? 'border-blue-500 bg-blue-50' 
                           : 'border-gray-300 hover:border-gray-400'
@@ -991,15 +992,15 @@ function App() {
                       onDragLeave={handleDragLeave}
                       onDrop={handleDrop}
                     >
-                      <Upload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                      <p className="text-lg font-medium text-gray-900 mb-2">
+                      <Upload className="mx-auto h-10 w-10 text-gray-400 mb-3" />
+                      <p className="text-base font-medium text-gray-900 mb-1">
                         Drag and drop files here
                       </p>
-                      <p className="text-sm text-gray-500 mb-4">
+                      <p className="text-xs text-gray-500 mb-3">
                         or use the file picker below
                       </p>
                       <Label htmlFor="file-upload">
-                        <Button variant="outline" asChild>
+                        <Button variant="outline" size="sm" asChild>
                           <span className="cursor-pointer">
                             <Plus className="w-4 h-4 mr-2" />
                             Choose Files
@@ -1021,7 +1022,7 @@ function App() {
                         <Label className="text-sm font-medium">
                           Selected Files ({selectedFiles.length}/10)
                         </Label>
-                        <div className="max-h-32 overflow-y-auto space-y-1">
+                        <div className="max-h-24 overflow-y-auto space-y-1 border rounded-md p-2">
                           {selectedFiles.map((file, index) => (
                             <div key={index} className="flex items-center justify-between bg-gray-50 p-2 rounded">
                               <div className="flex items-center gap-2">
@@ -1178,7 +1179,7 @@ function App() {
 
         {/* File Grid/List */}
         {viewMode === 'grid' ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 gap-4">
             {filteredFiles.map((file) => {
               const isSelected = selectedMediaFiles.some((f: MediaFile) => f.id === file.id)
               return (
@@ -1211,31 +1212,32 @@ function App() {
                       </div>
                     </div>
                   </CardHeader>
-                  <CardContent className="space-y-3">
+                  <CardContent className="space-y-2 p-3">
                     {file.thumbnail && (
-                      <img src={file.thumbnail} alt={file.title} className="w-full h-32 object-cover rounded" />
+                      <img src={file.thumbnail} alt={file.title} className="w-full h-20 object-cover rounded" />
                     )}
-                    <p className="text-sm text-gray-600 line-clamp-2">{file.description || 'No description'}</p>
+                    <p className="text-xs text-gray-600 line-clamp-2">{file.description || 'No description'}</p>
                     {file.author && (
                       <p className="text-xs text-gray-500">By: {file.author}</p>
                     )}
                     <div className="flex flex-wrap gap-1">
-                      {file.tags.map((tag) => (
-                        <Badge key={tag} variant="secondary" className="text-xs">{tag}</Badge>
+                      {file.tags.slice(0, 2).map((tag) => (
+                        <Badge key={tag} variant="secondary" className="text-xs px-1 py-0">{tag}</Badge>
                       ))}
+                      {file.tags.length > 2 && <Badge variant="secondary" className="text-xs px-1 py-0">+{file.tags.length - 2}</Badge>}
                     </div>
                     <div className="text-xs text-gray-500">
                       <div>{formatFileSize(file.file_size)}</div>
                       <div>{formatDate(file.created_at)}</div>
                     </div>
-                    <div className="flex gap-2">
-                      <Button size="sm" variant="outline" onClick={() => handlePreview(file)}>
+                    <div className="flex gap-1">
+                      <Button size="sm" variant="outline" onClick={() => handlePreview(file)} className="h-7 px-2">
                         <Eye className="w-3 h-3" />
                       </Button>
-                      <Button size="sm" variant="outline" onClick={() => handleEditFile(file)}>
+                      <Button size="sm" variant="outline" onClick={() => handleEditFile(file)} className="h-7 px-2">
                         <Edit className="w-3 h-3" />
                       </Button>
-                      <Button size="sm" variant="outline" asChild>
+                      <Button size="sm" variant="outline" asChild className="h-7 px-2">
                         <a href={file.media_url} download={file.title}>
                           <Download className="w-3 h-3" />
                         </a>
@@ -1274,15 +1276,9 @@ function App() {
                         </th>
                         <th 
                           className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                          onClick={() => handleSort('file_size')}
-                        >
-                          Size {getSortIcon('file_size')}
-                        </th>
-                        <th 
-                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                           onClick={() => handleSort('created_at')}
                         >
-                          Date {getSortIcon('created_at')}
+                          Modified {getSortIcon('created_at')}
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                       </tr>
@@ -1314,30 +1310,31 @@ function App() {
                                   className="rounded"
                                 />
                               </td>
-                              <td className="px-6 py-4 whitespace-nowrap">
+                              <td className="px-6 py-4">
                                 <div className="flex items-center">
                                   {getFileIcon(file.file_type)}
-                                  <div className="ml-3">
-                                    <div className="text-sm font-medium text-gray-900">{file.title}</div>
-                                    <div className="text-sm text-gray-500">{file.description}</div>
-                                    {file.author && (
-                                      <div className="text-xs text-gray-400">By: {file.author}</div>
-                                    )}
+                                  <div className="ml-3 max-w-md">
+                                    <div className="text-sm font-medium text-gray-900 truncate">{file.title}</div>
+                                    <div className="text-xs text-gray-500 truncate">
+                                      {file.description 
+                                        ? file.description.split(' ').slice(0, 10).join(' ') + (file.description.split(' ').length > 10 ? '...' : '')
+                                        : 'No description'
+                                      }
+                                    </div>
                                   </div>
                                 </div>
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{file.file_type}</td>
-                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatFileSize(file.file_size)}</td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatDate(file.created_at)}</td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                <div className="flex gap-2">
-                                  <Button size="sm" variant="outline" onClick={() => handlePreview(file)}>
+                                <div className="flex gap-1">
+                                  <Button size="sm" variant="outline" onClick={() => handlePreview(file)} className="h-7 px-2">
                                     <Eye className="w-3 h-3" />
                                   </Button>
-                                  <Button size="sm" variant="outline" onClick={() => handleEditFile(file)}>
+                                  <Button size="sm" variant="outline" onClick={() => handleEditFile(file)} className="h-7 px-2">
                                     <Edit className="w-3 h-3" />
                                   </Button>
-                                  <Button size="sm" variant="outline" asChild>
+                                  <Button size="sm" variant="outline" asChild className="h-7 px-2">
                                     <a href={file.media_url} download={file.title}>
                                       <Download className="w-3 h-3" />
                                     </a>
