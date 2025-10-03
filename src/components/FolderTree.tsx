@@ -1,4 +1,4 @@
-import { ChevronRight, ChevronDown, Folder, FolderOpen } from 'lucide-react'
+import { ChevronRight, ChevronDown, Folder, FolderOpen, Trash2 } from 'lucide-react'
 
 interface FolderNode {
   path: string
@@ -14,6 +14,7 @@ interface FolderTreeProps {
   onFolderClick: (path: string) => void
   onToggleExpand: (path: string) => void
   onDrop: (path: string, e: React.DragEvent) => void
+  onDeleteFolder: (path: string) => void
 }
 
 export function FolderTree({ 
@@ -22,7 +23,8 @@ export function FolderTree({
   expandedFolders, 
   onFolderClick, 
   onToggleExpand,
-  onDrop 
+  onDrop,
+  onDeleteFolder
 }: FolderTreeProps) {
   const renderFolder = (node: FolderNode, depth: number = 0) => {
     const isExpanded = expandedFolders.has(node.path)
@@ -31,7 +33,7 @@ export function FolderTree({
     return (
       <div key={node.path}>
         <div
-          className={`flex items-center gap-2 py-2 px-3 hover:bg-gray-100 cursor-pointer rounded-md transition-colors ${
+          className={`group flex items-center gap-2 py-2 px-3 hover:bg-gray-100 cursor-pointer rounded-md transition-colors ${
             isCurrent ? 'bg-blue-50 text-blue-700 font-medium' : ''
           }`}
           style={{ paddingLeft: `${depth * 1.5 + 0.75}rem` }}
@@ -69,6 +71,16 @@ export function FolderTree({
           )}
           <span className="flex-1 text-sm">{node.name}</span>
           <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">{node.fileCount}</span>
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              onDeleteFolder(node.path)
+            }}
+            className="p-1 hover:bg-red-100 rounded transition-colors opacity-0 group-hover:opacity-100"
+            title="Delete folder"
+          >
+            <Trash2 className="w-3 h-3 text-red-600" />
+          </button>
         </div>
         {isExpanded && node.children.length > 0 && (
           <div>

@@ -135,6 +135,8 @@ function App() {
         (file.author && file.author.toLowerCase().includes(searchTerm.toLowerCase())) ||
         file.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()))
       )
+    } else {
+      filtered = filtered.filter(file => (file.folder_path || '') === currentFolderPath)
     }
 
     const sortedFiles = [...filtered].sort((a, b) => {
@@ -158,7 +160,7 @@ function App() {
     })
 
     setFilteredFiles(sortedFiles)
-  }, [files, searchTerm, selectedCategory, sortField, sortDirection])
+  }, [files, searchTerm, selectedCategory, sortField, sortDirection, currentFolderPath])
 
   useEffect(() => {
     setFolderTree(buildFolderTree(files, emptyFolders))
@@ -268,7 +270,10 @@ function App() {
       
       const result = await cloudinaryService.uploadMultipleFiles(
         selectedFiles,
-        sharedMetadata,
+        {
+          ...sharedMetadata,
+          folder_path: currentFolderPath
+        },
         (_fileIndex: number, progress: number, fileName: string) => {
           setUploadProgress(prev => ({
             ...prev,
@@ -360,7 +365,8 @@ function App() {
         tags: editingFile.tags.join(', '),
         notes: editingFile.notes,
         station: editingFile.station,
-        author: editingFile.author
+        author: editingFile.author,
+        folder_path: editingFile.folder_path
       }
       
       await xanoService.updateFile(editingFile.id, updates)
@@ -596,6 +602,52 @@ function App() {
     }
   }
 
+  const handleDeleteFolder = async (folderPath: string) => {
+    if (!folderPath) return
+    
+    const filesInFolder = files.filter(f => f.folder_path === folderPath)
+    
+    if (filesInFolder.length > 0) {
+      const confirmDelete = window.confirm(
+        `This folder contains ${filesInFolder.length} file(s). They will be moved to Uncategorized. Continue?`
+      )
+      
+      if (!confirmDelete) return
+      
+      try {
+        for (const file of filesInFolder) {
+          await xanoService.updateFile(file.id, { folder_path: '' })
+        }
+        
+        setFiles(prev => prev.map(file => 
+          file.folder_path === folderPath ? { ...file, folder_path: '' } : file
+        ))
+        
+        setEmptyFolders(prev => {
+          const next = new Set(prev)
+          next.delete(folderPath)
+          return next
+        })
+        
+        setCurrentFolderPath('')
+        
+        alert('Folder deleted and files moved to Uncategorized.')
+      } catch (error: any) {
+        console.error('❌ App: Error deleting folder:', error)
+        alert('Error deleting folder: ' + (error?.message || 'Unknown error'))
+      }
+    } else {
+      setEmptyFolders(prev => {
+        const next = new Set(prev)
+        next.delete(folderPath)
+        return next
+      })
+      
+      setCurrentFolderPath('')
+      alert('Folder deleted.')
+    }
+  }
+
   const renderPreview = (file: MediaFile) => {
     // Extract file extension from URL or title
     const getFileExtension = (url: string, title: string) => {
@@ -820,6 +872,7 @@ function App() {
                   handleFileDrop(fileId, path)
                 }
               }}
+              onDeleteFolder={handleDeleteFolder}
             />
           </div>
           
@@ -1133,6 +1186,14 @@ function App() {
                   className={`hover:shadow-lg transition-shadow cursor-pointer ${
                     isSelected ? 'ring-2 ring-blue-500 bg-blue-50' : ''
                   }`}
+                  draggable
+                  onDragStart={(e) => {
+                    e.dataTransfer.setData('fileId', file.id)
+                    e.currentTarget.classList.add('opacity-50')
+                  }}
+                  onDragEnd={(e) => {
+                    e.currentTarget.classList.remove('opacity-50')
+                  }}
                   onContextMenu={(e) => handleContextMenu(e, file)}
                 >
                   <CardHeader className="pb-3">
@@ -1193,8 +1254,8 @@ function App() {
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           <input
                             type="checkbox"
-                            checked={selectedMediaFiles.length === filteredFiles.filter(f => (f.folder_path || '') === currentFolderPath).length && filteredFiles.filter(f => (f.folder_path || '') === currentFolderPath).length > 0}
-                            onChange={selectedMediaFiles.length === filteredFiles.filter(f => (f.folder_path || '') === currentFolderPath).length ? handleClearSelection : handleSelectAll}
+                            checked={selectedMediaFiles.length === filteredFiles.length && filteredFiles.length > 0}
+                            onChange={selectedMediaFiles.length === filteredFiles.length ? handleClearSelection : handleSelectAll}
                             className="rounded"
                           />
                         </th>
@@ -1226,9 +1287,7 @@ function App() {
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {filteredFiles
-                        .filter(file => (file.folder_path || '') === currentFolderPath)
-                        .map((file) => {
+                      {filteredFiles.map((file) => {
                           const isSelected = selectedMediaFiles.some((f: MediaFile) => f.id === file.id)
                           return (
                             <tr 

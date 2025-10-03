@@ -24,6 +24,7 @@ export interface FileUploadData {
   thumbnail: string;
   size: number;
   duration?: string;
+  folder_path?: string;
   originalFile: File;
   cloudinaryData: CloudinaryUploadResult;
   error?: string;
@@ -145,6 +146,7 @@ export class CloudinaryService {
           thumbnail: this.generateThumbnailUrl(cloudinaryResult.url, cloudinaryResult.resourceType, file.type),
           size: file.size,
           duration: cloudinaryResult.duration?.toString() || '',
+          folder_path: sharedMetadata.folder_path || '',
           originalFile: file,
           cloudinaryData: cloudinaryResult
         };
@@ -167,6 +169,7 @@ export class CloudinaryService {
           thumbnail: '',
           size: file.size,
           duration: '',
+          folder_path: sharedMetadata.folder_path || '',
           originalFile: file,
           cloudinaryData: {} as CloudinaryUploadResult,
           error: error?.message || 'Upload failed',
