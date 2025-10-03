@@ -1508,6 +1508,30 @@ function App() {
                     onChange={(e) => setEditingFile({ ...editingFile, author: e.target.value })}
                   />
                 </div>
+                <div>
+                  <Label htmlFor="edit-folder">Folder</Label>
+                  <Select 
+                    value={editingFile.folder_path || ''} 
+                    onValueChange={(value) => setEditingFile({ ...editingFile, folder_path: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select folder" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">Uncategorized</SelectItem>
+                      {Array.from(new Set(files.map(f => f.folder_path).filter((path): path is string => !!path))).sort().map(folderPath => (
+                        <SelectItem key={folderPath} value={folderPath}>
+                          {folderPath}
+                        </SelectItem>
+                      ))}
+                      {Array.from(emptyFolders).sort().map(folderPath => (
+                        <SelectItem key={folderPath} value={folderPath}>
+                          {folderPath}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
                 <div className="flex gap-2 justify-end">
                   <Button variant="outline" onClick={() => setIsEditOpen(false)}>Cancel</Button>
                   <Button onClick={handleSaveEdit}>Save Changes</Button>
