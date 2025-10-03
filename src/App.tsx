@@ -96,11 +96,6 @@ function App() {
   })
   const [sortField, setSortField] = useState<'title' | 'file_type' | 'file_size' | 'created_at'>('title')
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
-  const [searchFilters, setSearchFilters] = useState({
-    type: 'all',
-    dateFrom: '',
-    dateTo: ''
-  })
 
   const cloudinaryService = new CloudinaryService()
   const xanoService = new XanoService()
@@ -125,22 +120,6 @@ function App() {
       )
     }
 
-    if (searchFilters.type && searchFilters.type !== 'all') {
-      filtered = filtered.filter(file => {
-        const fileType = file.file_type.toLowerCase()
-        switch (searchFilters.type) {
-          case 'image': return fileType.startsWith('image/')
-          case 'video': return fileType.startsWith('video/')
-          case 'audio': return fileType.startsWith('audio/')
-          case 'document': return fileType.includes('document') || fileType.includes('text')
-          case 'pdf': return fileType.includes('pdf')
-          default: return true
-        }
-      })
-    }
-    if (searchFilters.dateFrom) filtered = filtered.filter(file => new Date(file.created_at) >= new Date(searchFilters.dateFrom))
-    if (searchFilters.dateTo) filtered = filtered.filter(file => new Date(file.created_at) <= new Date(searchFilters.dateTo))
-
     const sortedFiles = [...filtered].sort((a, b) => {
       let aValue = a[sortField]
       let bValue = b[sortField]
@@ -162,7 +141,7 @@ function App() {
     })
 
     setFilteredFiles(sortedFiles)
-  }, [files, searchTerm, selectedCategory, searchFilters, sortField, sortDirection])
+  }, [files, searchTerm, selectedCategory, sortField, sortDirection])
 
   const loadFiles = async () => {
     try {
@@ -895,59 +874,6 @@ function App() {
                 </div>
               </DialogContent>
             </Dialog>
-          </div>
-        </div>
-
-        {/* Search and Filters */}
-        <div className="flex flex-col sm:flex-row gap-4 mb-6">
-          <div className="flex-1">
-            <Input
-              placeholder="Search files by name, description, author, or tags..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full"
-            />
-          </div>
-          <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-            <SelectTrigger className="w-full sm:w-48">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {categories.map(category => (
-                <SelectItem key={category} value={category}>
-                  {category.charAt(0).toUpperCase() + category.slice(1)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={searchFilters.type} onValueChange={(value) => setSearchFilters(prev => ({ ...prev, type: value }))}>
-            <SelectTrigger className="w-full sm:w-32">
-              <SelectValue placeholder="Type" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Types</SelectItem>
-              <SelectItem value="image">Images</SelectItem>
-              <SelectItem value="video">Videos</SelectItem>
-              <SelectItem value="audio">Audio</SelectItem>
-              <SelectItem value="document">Documents</SelectItem>
-              <SelectItem value="pdf">PDFs</SelectItem>
-            </SelectContent>
-          </Select>
-          <div className="flex gap-2">
-            <Button
-              variant={viewMode === 'grid' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setViewMode('grid')}
-            >
-              <Grid className="w-4 h-4" />
-            </Button>
-            <Button
-              variant={viewMode === 'list' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setViewMode('list')}
-            >
-              <List className="w-4 h-4" />
-            </Button>
           </div>
         </div>
 
