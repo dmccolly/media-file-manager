@@ -526,11 +526,11 @@ function App() {
       )
     }
     
-    // Enhanced PDF handling - use Google Docs Viewer to avoid 401 errors
+    // Enhanced PDF handling - use proxy to avoid 401 errors
     if (file.file_type.includes('pdf') || fileExt === 'pdf') {
       return (
         <iframe 
-          src={`https://docs.google.com/gview?url=${encodeURIComponent(file.media_url)}&embedded=true`}
+          src={`/api/pdf-proxy?url=${encodeURIComponent(file.media_url)}`}
           className="w-full h-96 border-none" 
           title={file.title}
         />
