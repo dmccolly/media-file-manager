@@ -540,6 +540,12 @@ function App() {
         <div className="w-full h-96 overflow-auto border border-gray-200 rounded">
           <Document 
             file={file.media_url}
+            onLoadError={(error) => {
+              console.error('PDF Document load error:', error)
+            }}
+            onLoadSuccess={() => {
+              console.log('PDF loaded successfully')
+            }}
             loading={
               <div className="flex items-center justify-center h-96">
                 <div className="text-gray-500">Loading PDF...</div>
