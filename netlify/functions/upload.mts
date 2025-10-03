@@ -43,7 +43,8 @@ export default async (req: Request, context: Context) => {
       thumbnail: fileData.thumbnail,
       file_size: fileData.size,
       upload_date: new Date().toISOString(),
-      duration: fileData.duration || ''
+      duration: fileData.duration || '',
+      folder_path: fileData.folder_path || ''
     };
     
     const response = await fetch(`https://xajo-bs7d-cagt.n7e.xano.io/api:pYeQctVX/user_submission`, {

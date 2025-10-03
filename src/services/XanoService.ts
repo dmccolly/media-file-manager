@@ -13,6 +13,7 @@ export interface XanoFileRecord {
   station?: string;
   author?: string;
   submitted_by?: string;
+  folder_path?: string;
 }
 
 export class XanoService {
@@ -69,7 +70,8 @@ export class XanoService {
         notes: record.notes || record.Notes || '',
         station: record.station || record.Station || '',
         author: record.author || record.submitted_by || 'Unknown',
-        submitted_by: record.submitted_by || record.author || 'Unknown'
+        submitted_by: record.submitted_by || record.author || 'Unknown',
+        folder_path: record.folder_path || ''
       };
       
       return processedFile;
