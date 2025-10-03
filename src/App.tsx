@@ -10,6 +10,11 @@ import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { CloudinaryService } from './services/CloudinaryService'
 import { XanoService } from './services/XanoService'
+import { Document, Page, pdfjs } from 'react-pdf'
+import 'react-pdf/dist/Page/AnnotationLayer.css'
+import 'react-pdf/dist/Page/TextLayer.css'
+
+pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.js`
 
 interface MediaFile {
   id: string
@@ -526,14 +531,26 @@ function App() {
       )
     }
     
-    // Enhanced PDF handling - use proxy to avoid 401 errors
+    // Enhanced PDF handling - use PDF.js to render PDFs directly
     if (file.file_type.includes('pdf') || fileExt === 'pdf') {
       return (
-        <iframe 
-          src={`/api/pdf-proxy?url=${encodeURIComponent(file.media_url)}`}
-          className="w-full h-96 border-none" 
-          title={file.title}
-        />
+        <div className="w-full h-96 overflow-auto border border-gray-200 rounded">
+          <Document 
+            file={file.media_url}
+            loading={
+              <div className="flex items-center justify-center h-96">
+                <div className="text-gray-500">Loading PDF...</div>
+              </div>
+            }
+            error={
+              <div className="flex items-center justify-center h-96">
+                <div className="text-red-500">Failed to load PDF. Please try downloading the file.</div>
+              </div>
+            }
+          >
+            <Page pageNumber={1} width={600} />
+          </Document>
+        </div>
       )
     }
     
