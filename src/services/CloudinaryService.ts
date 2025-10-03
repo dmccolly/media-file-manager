@@ -218,16 +218,16 @@ export class CloudinaryService {
     if (!originalUrl) return '';
     
     try {
+      if (fileType?.includes('pdf') || originalUrl.toLowerCase().includes('.pdf')) {
+        return originalUrl.replace('/upload/', '/upload/w_150,h_150,c_fill,pg_1/').replace(/\.pdf$/i, '.jpg');
+      }
+      
       if (resourceType === 'image') {
         return originalUrl.replace('/upload/', '/upload/w_150,h_150,c_fill/');
       }
       
       if (resourceType === 'video') {
         return originalUrl.replace('/upload/', '/upload/w_150,h_150,c_fill,so_0/').replace(/\.[^.]+$/, '.jpg');
-      }
-      
-      if (fileType?.includes('pdf') || originalUrl.toLowerCase().includes('.pdf')) {
-        return originalUrl.replace('/upload/', '/upload/w_150,h_150,c_fill,pg_1/').replace(/\.pdf$/i, '.jpg');
       }
       
       if (resourceType === 'raw' && (fileType?.startsWith('audio/') || this.isAudioFile(originalUrl))) {
