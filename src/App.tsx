@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { Upload, Search, Grid, List, Eye, Edit, Download, FolderOpen, File, Image, Video, Music, FileText, X, Plus } from 'lucide-react'
+import { Upload, Search, Grid, List, Eye, Edit, Download, FolderOpen, File, Image, Video, Music, FileText, X, Plus, Menu } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -899,9 +899,10 @@ function App() {
               <div className="flex items-center gap-4">
                 <button
                   onClick={() => setIsSidebarOpen(true)}
-                  className="lg:hidden p-2 hover:bg-gray-100 rounded"
+                  className="lg:hidden p-2 hover:bg-gray-100 rounded transition-colors"
+                  aria-label="Open folder navigation"
                 >
-                  <FolderOpen className="w-5 h-5" />
+                  <Menu className="w-5 h-5" />
                 </button>
                 <div>
                   <h1 className="text-2xl lg:text-3xl font-bold text-gray-900">Media File Manager</h1>
