@@ -1,4 +1,3 @@
-import type { Handler } from '@netlify/functions'
 
 /**
  * Placeholder Webflow sync function.
@@ -10,7 +9,10 @@ import type { Handler } from '@netlify/functions'
  * interacts with the Webflow API or performs whatever synchronization
  * your application requires.
  */
-export const handler: Handler = async (event) => {
+// Exported Netlify function. Written without external type imports so that
+// no additional dependencies are required during build. Avoid importing
+// '@netlify/functions' to prevent missing dependency errors.
+exports.handler = async (event) => {
   // Only allow POST requests; respond with 405 for all other methods
   if (event.httpMethod !== 'POST') {
     return {
