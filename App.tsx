@@ -97,8 +97,9 @@ function App() {
   })
   const [sortField, setSortField] = useState<'title' | 'file_type' | 'file_size' | 'created_at'>('title')
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
+  // initialize search type to 'all' instead of empty string to avoid invalid Select item values
   const [searchFilters, setSearchFilters] = useState({
-    type: '',
+    type: 'all',
     dateFrom: '',
     dateTo: ''
   })
@@ -126,7 +127,10 @@ function App() {
       )
     }
 
-    if (searchFilters.type) filtered = filtered.filter(file => file.file_type === searchFilters.type)
+    // Only filter by type if a specific type (not 'all') is selected
+    if (searchFilters.type && searchFilters.type !== 'all') {
+      filtered = filtered.filter(file => file.file_type === searchFilters.type)
+    }
     if (searchFilters.dateFrom) filtered = filtered.filter(file => new Date(file.created_at) >= new Date(searchFilters.dateFrom))
     if (searchFilters.dateTo) filtered = filtered.filter(file => new Date(file.created_at) <= new Date(searchFilters.dateTo))
 
@@ -285,7 +289,16 @@ function App() {
 
   // Modified to default tags to an empty array if undefined
   const handleEditFile = (file: MediaFile) => {
-    setEditingFile({ ...file, tags: file.tags ?? [] })
+    // When editing a file, ensure optional properties are always defined. Without
+    // these defaults, undefined values (particularly tags) can cause runtime
+    // errors when the edit dialog attempts to join arrays or bind inputs.
+    setEditingFile({
+      ...file,
+      tags: Array.isArray(file.tags) ? file.tags : [],
+      notes: file.notes ?? '',
+      station: file.station ?? '',
+      author: file.author ?? ''
+    })
     setIsEditOpen(true)
   }
 
@@ -717,7 +730,7 @@ function App() {
               <SelectValue placeholder="Type" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All Types</SelectItem>
+              <SelectItem value="all">All Types</SelectItem>
               <SelectItem value="image">Images</SelectItem>
               <SelectItem value="video">Videos</SelectItem>
               <SelectItem value="audio">Audio</SelectItem>
