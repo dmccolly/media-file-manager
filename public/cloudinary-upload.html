@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Cloudinary Chunked Uploader</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <!-- Cloudinary Upload Widget (handles chunking automatically) -->
+  <script src="https://upload-widget.cloudinary.com/latest/global/all.js"></script>
+
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; margin: 2rem; }
+    .wrap { max-width: 760px; margin: 0 auto; }
+    .btn { display:inline-block; padding:.75rem 1rem; border-radius:.5rem; border:1px solid #ccc; cursor:pointer; }
+    .btn-primary { background:#111827; color:#fff; border-color:#111827; }
+    .log { margin-top:1rem; padding:1rem; border:1px solid #e5e7eb; background:#f9fafb; border-radius:.5rem; height:220px; overflow:auto; font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:.9rem; }
+    code { background:#eef2ff; padding:.1rem .25rem; border-radius:.25rem; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Cloudinary Chunked Uploader</h1>
+    <p>This page opens the Cloudinary Upload Widget with chunked uploads enabled. Use it directly or call <code>window.openCloudinaryWidget()</code> from your app.</p>
+    <p>
+      <button id="openBtn" class="btn btn-primary">Upload files</button>
+    </p>
+    <div class="log" id="log"></div>
+  </div>
+
+  <script>
+    // ======= CONFIG — CHANGE THESE TWO LINES ONLY =======
+    const CLOUD_NAME   = "dzrw8nopf";   // your Cloudinary cloud name
+    const UPLOAD_PRESET = "HIBF_MASTER"; // your unsigned preset name
+    // ====================================================
+
+    function logLine(msg) {
+      const el = document.getElementById("log");
+      const time = new Date().toLocaleTimeString();
+      el.innerText += `[${time}] ${msg}\n`;
+      el.scrollTop = el.scrollHeight;
+    }
+
+    function thumbFrom(info) {
+      const url = info.secure_url || "";
+      if (!url) return "";
+      if (info.resource_type === "image") {
+        return url.replace("/upload/", "/upload/w_300,h_300,c_fill,q_auto,f_auto/");
+      }
+      if (info.resource_type === "video") {
+        // first-frame JPG for video
+        return url
+          .replace("/upload/", "/upload/so_0,w_300,h_300,c_fill,q_auto,f_jpg/")
+          .replace(/\.[^.]+$/, ".jpg");
+      }
+      return ""; // raw files: no thumbnail
+    }
+
+    // Normalize Cloudinary widget result to a consistent asset object
+    function normalize(info) {
+      return {
+        name: info.original_filename + (info.format ? "." + info.format : ""),
+        title: info.original_filename,
+        type: info.resource_type, // "image", "video", or "raw"
+        url: info.secure_url,
+        thumbnail: thumbFrom(info),
+        size: info.bytes,
+        duration: info.duration || "",
+        width: info.width,
+        height: info.height,
+        publicId: info.public_id,
+        format: info.format,
+        cloudinaryData: info
+      };
+    }
+
+    // Expose a global function to open the upload widget and handle results
+    window.openCloudinaryWidget = function openCloudinaryWidget(onAsset, onClose, options = {}) {
+      const widget = window.cloudinary.createUploadWidget(
+        {
+          cloudName: CLOUD_NAME,
+          uploadPreset: UPLOAD_PRESET,
+          resourceType: "auto",
+          multiple: options.multiple ?? true,
+          folder: options.folder ?? "uploads",
+          // Chunked uploads for large files (20MB default)
+          maxChunkSize: options.maxChunkSize ?? 20 * 1024 * 1024,
+          sources: ["local", "url", "camera", "google_drive", "dropbox"]
+          // You can optionally set maxFileSize: 2 * 1024 * 1024 * 1024 for a 2GB guard
+        },
+        (error, result) => {
+          if (error) {
+            logLine("ERROR: " + (error.message || JSON.stringify(error)));
+            return;
+          }
+          if (!result) return;
+          if (result.event === "display-changed") {
+            if (result.info === "shown") logLine("Widget opened");
+            if (result.info === "hidden") logLine("Widget hidden");
+          }
+          if (result.event === "success" && result.info) {
+            const asset = normalize(result.info);
+            logLine(`Uploaded: ${asset.name} (${asset.size} bytes)`);
+            try {
+              if (typeof onAsset === "function") onAsset(asset);
+              // Post message to parent or opener for iframe contexts
+              window.parent?.postMessage({ type: "cloudinary-upload", asset }, "*");
+              window.opener?.postMessage({ type: "cloudinary-upload", asset }, "*");
+            } catch (e) {
+              // ignore cross-origin errors
+            }
+          }
+          if (result.event === "close") {
+            logLine("Widget closed");
+            if (typeof onClose === "function") onClose();
+          }
+        }
+      );
+      widget.open();
+    };
+
+    // Attach click handler to open the widget from this page
+    document.getElementById("openBtn").addEventListener("click", () => {
+      window.openCloudinaryWidget();
+    });
+
+    logLine("Ready. Click Upload files.");
+  </script>
+</body>
+</html>
