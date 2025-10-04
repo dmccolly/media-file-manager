@@ -16,4 +16,6 @@
 [[headers]]
   for = "/*"
   [headers.values]
-    Content-Security-Policy = "default-src 'self' https://upload-widget.cloudinary.com https://res.cloudinary.com https://api.webflow.com; img-src 'self' data: https://res.cloudinary.com; media-src 'self' https://res.cloudinary.com; connect-src 'self' https://api.webflow.com https://res.cloudinary.com https://*.netlify.app *.netlify.app https://*; frame-src 'self' https://upload-widget.cloudinary.com;"
+    # Allow inline styles by specifying a style-src directive with 'unsafe-inline'.
+    # Without this, the Cloudinary widget and other scripts that inject inline styles will be blocked by the Content Security Policy.
+    Content-Security-Policy = "default-src 'self' https://upload-widget.cloudinary.com https://res.cloudinary.com https://api.webflow.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://res.cloudinary.com; media-src 'self' https://res.cloudinary.com; connect-src 'self' https://api.webflow.com https://res.cloudinary.com https://*.netlify.app *.netlify.app https://*; frame-src 'self' https://upload-widget.cloudinary.com;"
