@@ -214,15 +214,6 @@ function App() {
       return
     }
     
-    const MAX_FILE_SIZE = 10 * 1024 * 1024
-    const oversizedFiles = fileArray.filter(file => file.size > MAX_FILE_SIZE)
-    
-    if (oversizedFiles.length > 0) {
-      const fileNames = oversizedFiles.map(f => `${f.name} (${formatFileSize(f.size)})`).join('\n')
-      alert(`The following files exceed the 10 MB upload limit and cannot be uploaded:\n\n${fileNames}\n\nPlease compress or resize these files before uploading.`)
-      return
-    }
-    
     setSelectedFiles(prev => [...prev, ...fileArray])
   }
 
@@ -338,7 +329,13 @@ function App() {
       await Promise.all(savePromises)
       
       if (result.failed.length > 0) {
-        alert(`Upload complete! ${result.successful.length} files uploaded successfully, ${result.failed.length} failed.`)
+        console.error('❌ Upload failures:', result.failed.map(f => ({
+          name: f.name,
+          size: f.size,
+          error: f.error
+        })))
+        const failedDetails = result.failed.map(f => `${f.name}: ${f.error || 'Unknown error'}`).join('\n')
+        alert(`Upload complete! ${result.successful.length} files uploaded successfully. ${result.failed.length} failed:\n\n${failedDetails}`)
       } else {
         alert(`All ${result.successful.length} files uploaded successfully!`)
       }
