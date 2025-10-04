@@ -510,7 +510,7 @@ function App() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="">📁 Uncategorized</SelectItem>
-                {Array.from(new Set(files.map(f => f.folder_path).filter(Boolean))).map(path => (
+                {files && files.length > 0 && Array.from(new Set(files.map(f => f.folder_path).filter(Boolean))).map(path => (
                   <SelectItem key={path} value={path!}>
                     📁 {path?.split('/').pop() || path}
                   </SelectItem>
