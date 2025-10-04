@@ -95,8 +95,15 @@ export class CloudinaryService {
               reject(parseError);
             }
           } else {
-            console.error('❌ CloudinaryService: Upload failed with status:', xhr.status);
-            reject(new Error(`Upload failed with status: ${xhr.status}`));
+            try {
+              const errorResponse = JSON.parse(xhr.responseText);
+              const errorMessage = errorResponse?.error?.message || `Upload failed with status: ${xhr.status}`;
+              console.error('❌ CloudinaryService: Upload failed:', errorMessage);
+              reject(new Error(errorMessage));
+            } catch (parseError) {
+              console.error('❌ CloudinaryService: Upload failed with status:', xhr.status);
+              reject(new Error(`Upload failed with status: ${xhr.status}`));
+            }
           }
         };
 

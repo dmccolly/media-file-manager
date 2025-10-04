@@ -329,7 +329,13 @@ function App() {
       await Promise.all(savePromises)
       
       if (result.failed.length > 0) {
-        alert(`Upload complete! ${result.successful.length} files uploaded successfully, ${result.failed.length} failed.`)
+        console.error('❌ Upload failures:', result.failed.map(f => ({
+          name: f.name,
+          size: f.size,
+          error: f.error
+        })))
+        const failedDetails = result.failed.map(f => `${f.name}: ${f.error || 'Unknown error'}`).join('\n')
+        alert(`Upload complete! ${result.successful.length} files uploaded successfully. ${result.failed.length} failed:\n\n${failedDetails}`)
       } else {
         alert(`All ${result.successful.length} files uploaded successfully!`)
       }
