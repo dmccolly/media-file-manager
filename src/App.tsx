@@ -30,6 +30,7 @@ interface MediaFile {
   notes?: string
   station?: string
   author?: string
+  folder_path?: string
 }
 
 const mockFiles: MediaFile[] = [
@@ -107,6 +108,9 @@ function App() {
     dateFrom: '',
     dateTo: ''
   })
+  
+  // Folder Management State
+  const [currentFolderPath, setCurrentFolderPath] = useState<string>('')
 
   const cloudinaryService = new CloudinaryService()
   const xanoService = new XanoService()
@@ -117,6 +121,14 @@ function App() {
 
   useEffect(() => {
     let filtered = files
+
+    // Filter by current folder path
+    if (currentFolderPath !== '') {
+      filtered = filtered.filter(file => file.folder_path === currentFolderPath)
+    } else {
+      // Show Uncategorized files (those without folder_path or with empty folder_path)
+      filtered = filtered.filter(file => !file.folder_path || file.folder_path === '')
+    }
 
     if (selectedCategory !== 'all') {
       filtered = filtered.filter(file => file.category === selectedCategory)
@@ -156,7 +168,7 @@ function App() {
       return 0
     })
     setFilteredFiles(sortedFiles)
-  }, [files, searchTerm, selectedCategory, searchFilters, sortField, sortDirection])
+  }, [files, searchTerm, selectedCategory, searchFilters, sortField, sortDirection, currentFolderPath])
 
   const loadFiles = async () => {
     try {
@@ -492,6 +504,19 @@ function App() {
                 className="pl-10"
               />
             </div>
+            <Select value={currentFolderPath} onValueChange={setCurrentFolderPath}>
+              <SelectTrigger className="w-48">
+                <SelectValue placeholder="Select folder" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">📁 Uncategorized</SelectItem>
+                {Array.from(new Set(files.map(f => f.folder_path).filter(Boolean))).map(path => (
+                  <SelectItem key={path} value={path!}>
+                    📁 {path?.split('/').pop() || path}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <Select value={selectedCategory} onValueChange={setSelectedCategory}>
               <SelectTrigger className="w-40">
                 <SelectValue placeholder="Category" />
