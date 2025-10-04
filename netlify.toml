@@ -1,13 +1,19 @@
 [build]
   command = "npm run build"
-  functions = "netlify/functions"
   publish = "dist"
-  # Trigger redeploy to pick up XANO_API_KEY environment variable
+  functions = "netlify/functions"
 
-[functions]
-  directory = "netlify/functions"
+[dev]
+  functionsPort = 9999
 
-[[redirects]]
-  from = "/api/*"
-  to = "/.netlify/functions/:splat"
-  status = 200
+[[headers]]
+  for = "/.netlify/functions/*"
+  [headers.values]
+    Access-Control-Allow-Origin = "*"
+    Access-Control-Allow-Methods = "GET, POST, OPTIONS"
+    Access-Control-Allow-Headers = "Content-Type, Authorization"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Content-Security-Policy = "default-src 'self' https://upload-widget.cloudinary.com https://res.cloudinary.com https://api.webflow.com; img-src 'self' data: https://res.cloudinary.com; media-src 'self' https://res.cloudinary.com; connect-src 'self' https://api.webflow.com https://res.cloudinary.com https://*.netlify.app *.netlify.app https://*; frame-src 'self' https://upload-widget.cloudinary.com;"
