@@ -1,10 +1,9 @@
-name: Deploy to Netlify
+name: Deploy to Netlify - eclectic-caramel-34e317
 
 on:
   push:
-    branches: [ main, folder-management-basic, advanced-folder-management ]
-  pull_request:
     branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   deploy:
@@ -12,10 +11,10 @@ jobs:
     
     steps:
     - name: Checkout code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
     
     - name: Setup Node.js
-      uses: actions/setup-node@v3
+      uses: actions/setup-node@v4
       with:
         node-version: '18'
         cache: 'npm'
@@ -26,16 +25,16 @@ jobs:
     - name: Build project
       run: npm run build
     
-    - name: Deploy to Netlify
-      uses: nwtgck/actions-netlify@v2.0
+    - name: Deploy to Netlify Site
+      uses: nwtgck/actions-netlify@v3.0
       with:
         publish-dir: './dist'
         production-branch: main
         github-token: ${{ secrets.GITHUB_TOKEN }}
-        deploy-message: "Deploy from GitHub Actions"
+        deploy-message: "Deploy Folder Management Features to eclectic-caramel-34e317"
         enable-pull-request-comment: true
         enable-commit-comment: true
         overwrites-pull-request-comment: true
       env:
         NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
-        NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+        NETLIFY_SITE_ID: 'eclectic-caramel-34e317'
