@@ -15,6 +15,8 @@ import { XanoService } from './services/XanoService'
 // itself resides in src. Adjusting the path prevents build-time 'Cannot find
 // module' errors.
 import { PreviewService } from './services/PreviewService'
+import { FolderTree } from './components/FolderTree'
+import { Breadcrumb } from './components/Breadcrumb'
 
 interface MediaFile {
   id: string
@@ -31,6 +33,20 @@ interface MediaFile {
   station?: string
   author?: string
   folder_path?: string
+}
+
+interface FolderNode {
+  path: string
+  name: string
+  children: FolderNode[]
+  fileCount: number
+}
+
+interface FolderNode {
+  path: string
+  name: string
+  children: FolderNode[]
+  fileCount: number
 }
 
 const mockFiles: MediaFile[] = [
@@ -71,6 +87,7 @@ const mockFiles: MediaFile[] = [
 ]
 
 const categories = ['all', 'images', 'videos', 'documents', 'audio', 'other']
+
 
 // Radix Select treats an empty string as a special clearing value. If an
 // option’s value is '' then selecting it will clear the Select and show the
@@ -119,6 +136,11 @@ function App() {
   
   // Folder Management State
   const [currentFolderPath, setCurrentFolderPath] = useState<string>('')
+  const [folderTree, setFolderTree] = useState<FolderNode[]>([])
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set([]))
+  const [isCreateFolderOpen, setIsCreateFolderOpen] = useState(false)
+  const [newFolderName, setNewFolderName] = useState('')
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
 
   const cloudinaryService = new CloudinaryService()
   const xanoService = new XanoService()
@@ -126,6 +148,18 @@ function App() {
   useEffect(() => {
     loadFiles()
   }, [])
+
+  useEffect(() => {
+    // Build folder tree when files change
+    const tree = buildFolderTree(files)
+    setFolderTree(tree)
+  }, [files])
+
+  useEffect(() => {
+    // Build folder tree when files change
+    const tree = buildFolderTree(files)
+    setFolderTree(tree)
+  }, [files])
 
   useEffect(() => {
     let filtered = files
@@ -442,26 +476,356 @@ function App() {
       }))
       handleClearSelection()
     } catch (error) {
+  // Folder Management Functions\  const buildFolderTree = (files: MediaFile[]): FolderNode[] => {\    const tree: FolderNode[] = []\    const pathMap = new Map<string, FolderNode>()\    \    const folderPaths = new Set<string>()\    files.forEach(file => {\      if (file.folder_path && file.folder_path !== "") {\        const parts = file.folder_path.split("/").filter(Boolean)\        let currentPath = ""\        parts.forEach(part => {\          currentPath += "/" + part\          folderPaths.add(currentPath)\        })\      }\    })\    \    folderPaths.forEach(path => {\      const parts = path.split("/").filter(Boolean)\      let currentPath = ""\      let parentPath = ""\      \      parts.forEach((part, index) => {\        currentPath += "/" + part\        const name = part\        const fileCount = files.filter(f => f.folder_path === currentPath).length\        \        if (index === 0) {\          // Root level folder\          if (!pathMap.has(currentPath)) {\            const node: FolderNode = {\              path: currentPath,\              name: name,\              children: [],\              fileCount: fileCount\            }\            tree.push(node)\            pathMap.set(currentPath, node)\          }\        } else {\          // Nested folder\          const parentNode = pathMap.get(parentPath)\          if (parentNode && !pathMap.has(currentPath)) {\            const node: FolderNode = {\              path: currentPath,\              name: name,\              children: [],\              fileCount: fileCount\            }\            parentNode.children.push(node)\            pathMap.set(currentPath, node)\          }\        }\        \        parentPath = currentPath\      })\    })\    \    return tree\  }\  \  const handleCreateFolder = () => {\    if (!newFolderName.trim()) return\    \    const newPath = currentFolderPath ? `${currentFolderPath}/${newFolderName}` : `/${newFolderName}`\    \    // Reset form\    setNewFolderName("")\    setIsCreateFolderOpen(false)\  }\  \  const handleFolderClick = (path: string) => {\    setCurrentFolderPath(path)\  }\  \  const handleFileDrop = async (fileId: string, targetFolderPath: string) => {\    const file = files.find(f => f.id === fileId)\    if (!file) return\    \    // Update the file is folder_path\    const updatedFile = { ...file, folder_path: targetFolderPath }\    \    // Update in state\    setFiles(prev => prev.map(f => f.id === fileId ? updatedFile : f))\  }
       console.error('Error batch updating files:', error)
       alert('Failed to update files')
-    }
-  }
-
-  const handleBatchDelete = async () => {
-    if (!confirm(`Are you sure you want to delete ${selectedMediaFiles.length} files?`)) return
-    try {
-      const ids = selectedMediaFiles.map(f => f.id)
-      await xanoService.batchDeleteFiles(ids)
-      setFiles(prev => prev.filter(file => !ids.includes(file.id)))
-      handleClearSelection()
-    } catch (error) {
       console.error('Error batch deleting files:', error)
       alert('Failed to delete files')
     }
   }
 
-  const renderPreview = (file: MediaFile) => {
-    return PreviewService.renderPreview(file)
+  // Folder Management Functions
+  const buildFolderTree = (files: MediaFile[]): FolderNode[] => {
+    const tree: FolderNode[] = []
+    const pathMap = new Map<string, FolderNode>()
+    
+    const folderPaths = new Set<string>()
+    files.forEach(file => {
+      if (file.folder_path && file.folder_path !== '') {
+        const parts = file.folder_path.split('/').filter(Boolean)
+        let currentPath = ''
+        parts.forEach(part => {
+          currentPath += '/' + part
+          folderPaths.add(currentPath)
+        })
+      }
+    })
+    
+    folderPaths.forEach(path => {
+      const parts = path.split('/').filter(Boolean)
+      let currentPath = ''
+      let parentPath = ''
+      
+      parts.forEach((part, index) => {
+        currentPath += '/' + part
+        const name = part
+        const fileCount = files.filter(f => f.folder_path === currentPath).length
+        
+        if (index === 0) {
+          // Root level folder
+          if (!pathMap.has(currentPath)) {
+            const node: FolderNode = {
+              path: currentPath,
+              name: name,
+              children: [],
+              fileCount: fileCount
+            }
+            tree.push(node)
+            pathMap.set(currentPath, node)
+          }
+        } else {
+          // Nested folder
+          const parentNode = pathMap.get(parentPath)
+          if (parentNode && !pathMap.has(currentPath)) {
+            const node: FolderNode = {
+              path: currentPath,
+              name: name,
+              children: [],
+              fileCount: fileCount
+            }
+            parentNode.children.push(node)
+            pathMap.set(currentPath, node)
+          }
+        }
+        
+        parentPath = currentPath
+      })
+    })
+    
+    return tree
+  }
+
+  const handleCreateFolder = () => {
+    if (!newFolderName.trim()) return
+    
+    const newPath = currentFolderPath ? `${currentFolderPath}/${newFolderName}` : `/${newFolderName}`
+    
+    // Reset form
+    setNewFolderName('')
+    setIsCreateFolderOpen(false)
+  }
+
+  const handleFolderClick = (path: string) => {
+    setCurrentFolderPath(path)
+  }
+
+  const handleFileDrop = async (fileId: string, targetFolderPath: string) => {
+    const file = files.find(f => f.id === fileId)
+    if (!file) return
+    
+    // Update the file's folder_path
+    const updatedFile = { ...file, folder_path: targetFolderPath }
+    
+    // Update in state
+    setFiles(prev => prev.map(f => f.id === fileId ? updatedFile : f))
+  }
+
+  // Folder Management Functions
+  const buildFolderTree = (files: MediaFile[]): FolderNode[] => {
+    const tree: FolderNode[] = []
+    const pathMap = new Map<string, FolderNode>()
+    
+    const folderPaths = new Set<string>()
+    files.forEach(file => {
+      if (file.folder_path && file.folder_path !== '') {
+        const parts = file.folder_path.split('/').filter(Boolean)
+        let currentPath = ''
+        parts.forEach(part => {
+          currentPath += '/' + part
+          folderPaths.add(currentPath)
+        })
+      }
+    })
+    
+    folderPaths.forEach(path => {
+      const parts = path.split('/').filter(Boolean)
+      let currentPath = ''
+      let parentPath = ''
+      
+      parts.forEach((part, index) => {
+        currentPath += '/' + part
+        const name = part
+        const fileCount = files.filter(f => f.folder_path === currentPath).length
+        
+        if (index === 0) {
+          // Root level folder
+          if (!pathMap.has(currentPath)) {
+            const node: FolderNode = {
+              path: currentPath,
+              name: name,
+              children: [],
+              fileCount: fileCount
+            }
+            tree.push(node)
+            pathMap.set(currentPath, node)
+          }
+        } else {
+          // Nested folder
+          const parentNode = pathMap.get(parentPath)
+          if (parentNode && !pathMap.has(currentPath)) {
+            const node: FolderNode = {
+              path: currentPath,
+              name: name,
+              children: [],
+              fileCount: fileCount
+            }
+            parentNode.children.push(node)
+            pathMap.set(currentPath, node)
+          }
+        }
+        
+        parentPath = currentPath
+      })
+    })
+    
+    return tree
+  }
+
+  const handleCreateFolder = () => {
+    if (!newFolderName.trim()) return
+    
+    const newPath = currentFolderPath ? `${currentFolderPath}/${newFolderName}` : `/${newFolderName}`
+    
+    // Reset form
+    setNewFolderName('')
+    setIsCreateFolderOpen(false)
+  }
+
+  const handleFolderClick = (path: string) => {
+    setCurrentFolderPath(path)
+  }
+
+  const handleFileDrop = async (fileId: string, targetFolderPath: string) => {
+    const file = files.find(f => f.id === fileId)
+    if (!file) return
+    
+    // Update the file's folder_path
+    const updatedFile = { ...file, folder_path: targetFolderPath }
+    
+    // Update in state
+    setFiles(prev => prev.map(f => f.id === fileId ? updatedFile : f))
+  }
+
+  // Folder Management Functions
+  const buildFolderTree = (files: MediaFile[]): FolderNode[] => {
+    const tree: FolderNode[] = []
+    const pathMap = new Map<string, FolderNode>()
+    
+    const folderPaths = new Set<string>()
+    files.forEach(file => {
+      if (file.folder_path && file.folder_path !== '') {
+        const parts = file.folder_path.split('/').filter(Boolean)
+        let currentPath = ''
+        parts.forEach(part => {
+          currentPath += '/' + part
+          folderPaths.add(currentPath)
+        })
+      }
+    })
+    
+    folderPaths.forEach(path => {
+      const parts = path.split('/').filter(Boolean)
+      let currentPath = ''
+      let parentPath = ''
+      
+      parts.forEach((part, index) => {
+        currentPath += '/' + part
+        const name = part
+        const fileCount = files.filter(f => f.folder_path === currentPath).length
+        
+        if (index === 0) {
+          // Root level folder
+          if (!pathMap.has(currentPath)) {
+            const node: FolderNode = {
+              path: currentPath,
+              name: name,
+              children: [],
+              fileCount: fileCount
+            }
+            tree.push(node)
+            pathMap.set(currentPath, node)
+          }
+        } else {
+          // Nested folder
+          const parentNode = pathMap.get(parentPath)
+          if (parentNode && !pathMap.has(currentPath)) {
+            const node: FolderNode = {
+              path: currentPath,
+              name: name,
+              children: [],
+              fileCount: fileCount
+            }
+            parentNode.children.push(node)
+            pathMap.set(currentPath, node)
+          }
+        }
+        
+        parentPath = currentPath
+      })
+    })
+    
+    return tree
+  }
+
+  const handleCreateFolder = () => {
+    if (!newFolderName.trim()) return
+    
+    const newPath = currentFolderPath ? `${currentFolderPath}/${newFolderName}` : `/${newFolderName}`
+    
+    // Reset form
+    setNewFolderName('')
+    setIsCreateFolderOpen(false)
+  }
+
+  const handleFolderClick = (path: string) => {
+    setCurrentFolderPath(path)
+  }
+
+  const handleFileDrop = async (fileId: string, targetFolderPath: string) => {
+    const file = files.find(f => f.id === fileId)
+    if (!file) return
+    
+    // Update the file's folder_path
+    const updatedFile = { ...file, folder_path: targetFolderPath }
+    
+    // Update in state
+    setFiles(prev => prev.map(f => f.id === fileId ? updatedFile : f))
+  }
+
+  // Folder Management Functions
+  const buildFolderTree = (files: MediaFile[]): FolderNode[] => {
+    const tree: FolderNode[] = []
+    const pathMap = new Map<string, FolderNode>()
+    
+    const folderPaths = new Set<string>()
+    files.forEach(file => {
+      if (file.folder_path && file.folder_path !== '') {
+        const parts = file.folder_path.split('/').filter(Boolean)
+        let currentPath = ''
+        parts.forEach(part => {
+          currentPath += '/' + part
+          folderPaths.add(currentPath)
+        })
+      }
+    })
+    
+    folderPaths.forEach(path => {
+      const parts = path.split('/').filter(Boolean)
+      let currentPath = ''
+      let parentPath = ''
+      
+      parts.forEach((part, index) => {
+        currentPath += '/' + part
+        const name = part
+        const fileCount = files.filter(f => f.folder_path === currentPath).length
+        
+        if (index === 0) {
+          // Root level folder
+          if (!pathMap.has(currentPath)) {
+            const node: FolderNode = {
+              path: currentPath,
+              name: name,
+              children: [],
+              fileCount: fileCount
+            }
+            tree.push(node)
+            pathMap.set(currentPath, node)
+          }
+        } else {
+          // Nested folder
+          const parentNode = pathMap.get(parentPath)
+          if (parentNode && !pathMap.has(currentPath)) {
+            const node: FolderNode = {
+              path: currentPath,
+              name: name,
+              children: [],
+              fileCount: fileCount
+            }
+            parentNode.children.push(node)
+            pathMap.set(currentPath, node)
+          }
+        }
+        
+        parentPath = currentPath
+      })
+    })
+    
+    return tree
+  }
+
+  const handleCreateFolder = () => {
+    if (!newFolderName.trim()) return
+    
+    const newPath = currentFolderPath ? `${currentFolderPath}/${newFolderName}` : `/${newFolderName}`
+    
+    // Reset form
+    setNewFolderName('')
+    setIsCreateFolderOpen(false)
+  }
+
+  const handleFolderClick = (path: string) => {
+    setCurrentFolderPath(path)
+  }
+
+  const handleFileDrop = async (fileId: string, targetFolderPath: string) => {
+    const file = files.find(f => f.id === fileId)
+    if (!file) return
+    
+    // Update the file's folder_path
+    const updatedFile = { ...file, folder_path: targetFolderPath }
+    
+    // Update in state
+    setFiles(prev => prev.map(f => f.id === fileId ? updatedFile : f))
   }
 
   if (loading) {
@@ -493,9 +857,119 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-7xl mx-auto">
+    <div className="min-h-screen bg-gray-50 flex">
+      {/* Left Sidebar - Folder Tree */}
+      <div className={`${isSidebarOpen ? 'fixed inset-0 z-50 bg-black bg-opacity-50 lg:relative lg:bg-transparent' : 'hidden'} lg:block lg:w-64 lg:flex-shrink-0`}>
+        <div className={`${isSidebarOpen ? 'w-64' : 'w-full'} h-full bg-white border-r border-gray-200 flex flex-col lg:relative`}>
+          <div className="p-4 border-b border-gray-200 flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-gray-900">Folders</h2>
+            <button
+              onClick={() => setIsSidebarOpen(false)}
+              className="lg:hidden p-1 hover:bg-gray-100 rounded"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+          
+          <div className="flex-1 overflow-y-auto p-2">
+            <div
+              className={`flex items-center gap-2 py-2 px-3 mb-2 hover:bg-gray-100 cursor-pointer rounded-md transition-colors ${
+                currentFolderPath === '' ? 'bg-blue-50 text-blue-700 font-medium' : ''
+              }`}
+              onClick={() => {
+                handleFolderClick('')
+                setIsSidebarOpen(false)
+              }}
+              onDragOver={(e) => {
+                e.preventDefault()
+                e.currentTarget.classList.add('bg-blue-100')
+              }}
+              onDragLeave={(e) => {
+                e.currentTarget.classList.remove('bg-blue-100')
+              }}
+              onDrop={(e) => {
+                e.preventDefault()
+                e.currentTarget.classList.remove('bg-blue-100')
+                const fileId = e.dataTransfer.getData('fileId')
+                if (fileId) {
+                  handleFileDrop(fileId, '')
+                }
+              }}
+            >
+              <FolderOpen className="w-4 h-4 text-amber-600" />
+              <span className="flex-1 text-sm">Uncategorized</span>
+              <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
+                {files.filter(f => !f.folder_path || f.folder_path === '').length}
+              </span>
+            </div>
+            
+            <FolderTree
+              tree={folderTree}
+              currentPath={currentFolderPath}
+              expandedFolders={expandedFolders}
+              onFolderClick={(path: string) => {
+                handleFolderClick(path)
+                setIsSidebarOpen(false)
+              }}
+              onToggleExpand={(path: string) => {
+                setExpandedFolders(prev => {
+                  const next = new Set(prev)
+                  if (next.has(path)) {
+                    next.delete(path)
+                  } else {
+                    next.add(path)
+                  }
+                  return next
+                })
+              }}
+              onDrop={(path: string, e: React.DragEvent) => {
+                const fileId = e.dataTransfer.getData('fileId')
+                if (fileId) {
+                  handleFileDrop(fileId, path)
+                }
+              }}
+            />
+          </div>
+          
+          <div className="p-4 border-t border-gray-200">
+            <Button
+              onClick={() => setIsCreateFolderOpen(true)}
+              variant="outline"
+              size="sm"
+              className="w-full"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              New Folder
+            </Button>
+          </div>
+        </div>
+      </div>
+      
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col min-w-0">
         {/* Header */}
+        <div className="bg-white border-b border-gray-200 p-4 lg:p-6">
+          <div className="max-w-7xl mx-auto">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-4">
+                <button
+                  onClick={() => setIsSidebarOpen(true)}
+                  className="lg:hidden p-2 hover:bg-gray-100 rounded"
+                >
+                  <FolderOpen className="w-5 h-5" />
+                </button>
+                <div>
+                  <h1 className="text-2xl lg:text-3xl font-bold text-gray-900">Media File Manager</h1>
+                  <p className="text-sm text-gray-600 hidden sm:block">Upload, organize, and manage your media files</p>
+                </div>
+              </div>
+            </div>
+            <Breadcrumb 
+              currentPath={currentFolderPath} 
+              onNavigate={handleFolderClick}
+            />
+          </div>
+        </div>
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Media File Manager</h1>
           <p className="text-gray-600">Upload, organize, and manage your media files</p>
@@ -1181,6 +1655,39 @@ function App() {
             </div>
           </div>
         )}
+        {/* Create Folder Dialog */}
+        <Dialog open={isCreateFolderOpen} onOpenChange={setIsCreateFolderOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Create New Folder</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="folder-name">Folder Name</Label>
+                <Input
+                  id="folder-name"
+                  placeholder="Enter folder name..."
+                  value={newFolderName}
+                  onChange={(e) => setNewFolderName(e.target.value)}
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter') {
+                      handleCreateFolder()
+                    }
+                  }}
+                />
+              </div>
+              <div className="flex gap-2 justify-end">
+                <Button variant="outline" onClick={() => setIsCreateFolderOpen(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleCreateFolder}>
+                  Create Folder
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
         {/* Empty State */}
         {filteredFiles.length === 0 && (
           <div className="text-center py-12">
@@ -1193,6 +1700,35 @@ function App() {
             </p>
           </div>
         )}
+
+        {/* Create Folder Dialog */}
+        <Dialog open={isCreateFolderOpen} onOpenChange={setIsCreateFolderOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Create New Folder</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="folder-name">Folder Name</Label>
+                <Input
+                  id="folder-name"
+                  placeholder="Enter folder name..."
+                  value={newFolderName}
+                  onChange={(e) => setNewFolderName(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && handleCreateFolder()}
+                />
+              </div>
+              <div className="flex gap-2 justify-end">
+                <Button variant="outline" onClick={() => setIsCreateFolderOpen(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleCreateFolder} disabled={!newFolderName.trim()}>
+                  Create Folder
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   )
