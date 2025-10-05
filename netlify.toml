@@ -1,26 +1,34 @@
+# netlify.toml – deploy config for media-file-manager
+
 [build]
-  command = "npm run build"
-  publish = "dist"
+  command   = "npm run build"
+  publish   = "dist"
   functions = "netlify/functions"
 
 [dev]
   functionsPort = 9999
 
+# Allow SPA routing (prevents white screen on refresh)
 [[redirects]]
   from = "/*"
-  to = "/index.html"
+  to   = "/index.html"
   status = 200
 
+# Allow CORS for serverless functions
 [[headers]]
   for = "/.netlify/functions/*"
   [headers.values]
-    Access-Control-Allow-Origin = "*"
+    Access-Control-Allow-Origin  = "*"
     Access-Control-Allow-Methods = "GET, POST, OPTIONS"
     Access-Control-Allow-Headers = "Content-Type, Authorization"
 
+# Global Content Security Policy (Cloudinary, Webflow, Netlify)
 [[headers]]
   for = "/*"
   [headers.values]
-    # Allow inline styles by specifying a style-src directive with 'unsafe-inline'.
-    # Without this, the Cloudinary widget and other scripts that inject inline styles will be blocked by the Content Security Policy.
-    Content-Security-Policy = "default-src 'self' https://upload-widget.cloudinary.com https://res.cloudinary.com https://api.webflow.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://res.cloudinary.com; media-src 'self' https://res.cloudinary.com; connect-src 'self' https://api.webflow.com https://res.cloudinary.com https://*.netlify.app *.netlify.app https://*; frame-src 'self' https://upload-widget.cloudinary.com;"
+    Content-Security-Policy = "default-src 'self' https://upload-widget.cloudinary.com https://res.cloudinary.com https://api.webflow.com;
+      style-src 'self' 'unsafe-inline';
+      img-src 'self' data: https://res.cloudinary.com;
+      media-src 'self' https://res.cloudinary.com;
+      connect-src 'self' https://api.webflow.com https://res.cloudinary.com https://*.netlify.app *.netlify.app https://*;
+      frame-src 'self' https://upload-widget.cloudinary.com;"
