@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { Upload, Search, Grid, List, Eye, Edit, Download, FolderOpen, File, Image, Video, Music, FileText, X, Plus } from 'lucide-react'
+import { Upload, Search, Grid, List, Eye, Edit, Download, FolderOpen, File, Image, Video, Music, FileText, X, Plus, Copy, ExternalLink } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -1332,6 +1332,33 @@ function App() {
                     {file.author && (
                       <p className="text-xs text-gray-500">By: {file.author}</p>
                     )}
+                    <div className="space-y-2 border-t pt-2">
+                      <div className="text-xs text-gray-500 font-medium">Webflow URL:</div>
+                      <div className="text-xs font-mono bg-gray-50 p-2 rounded break-all">
+                        {file.media_url}
+                      </div>
+                      <div className="flex gap-1">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-6 px-2 text-xs"
+                          onClick={() => {
+                            navigator.clipboard.writeText(file.media_url);
+                            toast.success("URL copied for Webflow!");
+                          }}
+                        >
+                          Copy
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-6 px-2 text-xs"
+                          onClick={() => window.open(file.media_url, "_blank")}
+                        >
+                          Open
+                        </Button>
+                      </div>
+                    </div>
                     <div className="flex flex-wrap gap-1">
                       {file.tags.map((tag) => (
                         <Badge key={tag} variant="secondary" className="text-xs">{tag}</Badge>
@@ -1398,6 +1425,7 @@ function App() {
                       Date {getSortIcon('created_at')}
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">URL</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
@@ -1435,6 +1463,24 @@ function App() {
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatFileSize(file.file_size)}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatDate(file.created_at)}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center space-x-2">
+                            <div className="text-xs font-mono text-gray-600 truncate max-w-xs">
+                              {file.media_url}
+                            </div>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-6 px-2 text-xs"
+                              onClick={() => {
+                                navigator.clipboard.writeText(file.media_url);
+                                toast.success("URL copied for Webflow!");
+                              }}
+                            >
+                              Copy
+                            </Button>
+                          </div>
+                        </td>
                           <div className="flex gap-2">
                             <Button size="sm" variant="outline" onClick={() => handlePreview(file)}>
                               <Eye className="w-3 h-3" />
@@ -1480,6 +1526,33 @@ function App() {
                       {selectedFile.tags.map((tag) => (
                         <Badge key={tag} variant="secondary">{tag}</Badge>
                       ))}
+                  <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+                    <h4 className="text-sm font-medium text-gray-900 mb-2">Webflow Integration</h4>
+                    <div className="space-y-2">
+                      <div className="text-xs font-mono bg-white p-2 rounded border break-all">
+                        {selectedFile.media_url}
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            navigator.clipboard.writeText(selectedFile.media_url);
+                            toast.success("URL copied for Webflow!");
+                          }}
+                        >
+                          Copy URL
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => window.open(selectedFile.media_url, "_blank")}
+                        >
+                          Open in New Tab
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
                     </div>
                   )}
                 </div>
