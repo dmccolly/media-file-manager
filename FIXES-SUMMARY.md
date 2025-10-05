@@ -1,14 +1,11 @@
 # Document Preview Functionality Fixes
 
 ## Issues Identified
-1. Heroku deployment was failing due to an incorrectly formatted `heroku.yml` file
 2. Document preview functionality was not working properly for any file type
 3. The original preview implementation only supported basic file types with limited fallback options
 
 ## Changes Made
 
-### 1. Fixed Heroku Deployment Configuration
-- **File:** `heroku.yml`
 - **Issue:** The file was missing the proper `run` section and had formatting issues
 - **Fix:** Updated the configuration to properly specify how to run the application:
   ```yaml
@@ -59,4 +56,3 @@
 The fixes have been pushed to the `fix-document-preview` branch and a pull request has been created:
 https://github.com/dmccolly/media-file-manager/pull/31
 
-After merging this PR, the Heroku deployment should succeed and document previews should work for all supported file types.

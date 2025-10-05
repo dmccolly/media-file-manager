@@ -1,7 +1,7 @@
 # Xano API Key Handling Fix
 
 ## Problem
-The application was crashing when deployed to Heroku because the `XANO_API_KEY` environment variable was not set. The server was trying to use this undefined variable to authenticate with the Xano API, which caused unhandled exceptions.
+The application was crashing when deployed because the `XANO_API_KEY` environment variable was not set. The server was trying to use this undefined variable to authenticate with the Xano API, which caused unhandled exceptions.
 
 ## Solution
 I've implemented graceful error handling for cases when the `XANO_API_KEY` environment variable is not set:
@@ -14,23 +14,39 @@ I've implemented graceful error handling for cases when the `XANO_API_KEY` envir
 
 4. **BackendXanoService**: Added checks for `XANO_API_KEY` in the `getAllRecords` and `updateRecord` methods.
 
+## Environment Variables
+
+The application requires the following environment variables for full functionality:
+
+- `XANO_API_KEY`: API key for Xano backend service
+- `VITE_API_URL`: API endpoint URL (for frontend)
+- `PORT`: Port number (for server deployment)
+
+## Setting Environment Variables
+
+### For Netlify Deployment
+Set these in your Netlify site settings under "Environment variables":
+- `VITE_API_URL`: Your API endpoint URL
+- `VITE_XANO_API_KEY`: Your Xano API key
+
+### For Local Development
+Create a `.env` file in the root directory:
+```
+XANO_API_KEY=your_xano_api_key_here
+VITE_API_URL=http://localhost:3001/api/media
+```
+
+### For Other Deployments
+Consult your deployment platform's documentation for setting environment variables.
+
 ## Testing
-After deploying these changes, the application should no longer crash even if the `XANO_API_KEY` environment variable is not set. However, to fully utilize the Xano integration features, you should:
-
-1. Set the `XANO_API_KEY` environment variable in your Heroku app settings
-2. Set the `PORT` environment variable if not already set (Heroku usually provides this automatically)
-
-## How to Set Environment Variables in Heroku
-1. Go to your Heroku Dashboard
-2. Select your app
-3. Go to Settings tab
-4. Click "Reveal Config Vars"
-5. Add the following variables:
-   - Key: `XANO_API_KEY`, Value: [Your Xano API key]
-   - Key: `PORT`, Value: [Port number, typically provided by Heroku]
+After setting these environment variables, the application should:
+1. No longer crash when Xano API key is missing
+2. Successfully connect to Xano when the API key is provided
+3. Return proper data from the `/api/media` endpoint
 
 ## Verification
-After setting the environment variables, you can verify the API is working by visiting:
-`https://media-file-manager-43851dcc8421.herokuapp.com/api/media`
+You can verify the API is working by visiting your deployed API endpoint:
+`[YOUR_API_URL]/api/media`
 
 This should return a JSON array of media files from your Xano database instead of an empty array.

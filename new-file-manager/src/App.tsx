@@ -26,7 +26,7 @@ interface MediaFile {
 }
 
 class MediaService {
-  private baseUrl = 'https://media-file-manager-1759033107-47e71840442b.herokuapp.com/api/media'
+  private baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api/media'
 
   async fetchFiles(): Promise<MediaFile[]> {
     try {
