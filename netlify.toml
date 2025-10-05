@@ -10,11 +10,6 @@
   from = "/api/*"
   to   = "/.netlify/functions/:splat"
   status = 200
-  
-[[redirects]]
-  from = "/api/*"
-  to   = "/.netlify/functions/:splat"
-  status = 200
 
 [[redirects]]
   from = "/*"
@@ -33,4 +28,3 @@
   [headers.values]
     # CSP tuned for Cloudinary/Webflow/Netlify (already in your repo)
     Content-Security-Policy = "default-src 'self' https://upload-widget.cloudinary.com https://res.cloudinary.com https://api.webflow.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://res.cloudinary.com; media-src 'self' https://res.cloudinary.com; connect-src 'self' https://api.webflow.com https://res.cloudinary.com https://*.netlify.app *.netlify.app https://*; frame-src 'self' https://upload-widget.cloudinary.com;"
-
