@@ -72,6 +72,14 @@ const mockFiles: MediaFile[] = [
 
 const categories = ['all', 'images', 'videos', 'documents', 'audio', 'other']
 
+// Radix Select treats an empty string as a special clearing value. If an
+// option’s value is '' then selecting it will clear the Select and show the
+// placeholder, which causes runtime errors (see Radix docs). To support an
+// "Uncategorized" option we use a non‑empty sentinel for its value. When
+// reading from state we convert '' to the sentinel and back again when
+// updating the state.
+const UNCATEGORIZED_VALUE = '__UNCATEGORIZED__';
+
 function App() {
   const [files, setFiles] = useState<MediaFile[]>([])
   const [filteredFiles, setFilteredFiles] = useState<MediaFile[]>([])
@@ -504,12 +512,27 @@ function App() {
                 className="pl-10"
               />
             </div>
-            <Select value={currentFolderPath} onValueChange={setCurrentFolderPath}>
+            <Select
+              // Convert an empty folder path to the sentinel so Radix
+              // Select doesn’t treat it as a clearing value. See
+              // UNCATEGORIZED_VALUE definition above.
+              value={currentFolderPath === '' ? UNCATEGORIZED_VALUE : currentFolderPath}
+              onValueChange={(value) => {
+                // Map the sentinel back to an empty string when the user
+                // selects the "Uncategorized" option.
+                if (value === UNCATEGORIZED_VALUE) {
+                  setCurrentFolderPath('');
+                } else {
+                  setCurrentFolderPath(value);
+                }
+              }}
+            >
               <SelectTrigger className="w-48">
                 <SelectValue placeholder="Select folder" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">📁 Uncategorized</SelectItem>
+                {/* Use a non‑empty sentinel value for the Uncategorized option */}
+                <SelectItem value={UNCATEGORIZED_VALUE}>📁 Uncategorized</SelectItem>
                 {files && files.length > 0 && Array.from(new Set(files.map(f => f.folder_path).filter(Boolean))).map(path => (
                   <SelectItem key={path} value={path!}>
                     📁 {path?.split('/').pop() || path}
