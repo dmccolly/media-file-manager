@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { Upload, Search, Grid, List, Eye, Edit, Download, FolderOpen, File, Image, Video, Music, FileText, X, Plus, Copy, ExternalLink } from 'lucide-react'
+import { Upload, Search, Grid, List, Eye, Edit, Download, FolderOpen, File, Image, Video, Music, FileText, X, Plus, Copy, ExternalLink, Filter, CheckSquare, Square } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -15,6 +15,11 @@ import { XanoService } from './services/XanoService'
 // itself resides in src. Adjusting the path prevents build-time 'Cannot find
 // module' errors.
 import { PreviewService } from './services/PreviewService'
+import { BulkOperationsPanel } from './components/BulkOperationsPanel'
+import { bulkOperations } from './services/BulkOperationsService'
+import { AdvancedSearch } from './components/AdvancedSearch'
+import { smartFoldersService, SmartFolder } from './services/SmartFoldersService'
+import { versioningService, FileVersion } from './services/VersioningService'
 import { FolderTree } from './components/FolderTree'
 import { Breadcrumb } from './components/Breadcrumb'
 
@@ -131,8 +136,30 @@ function App() {
   const [searchFilters, setSearchFilters] = useState({
     type: 'all',
     dateFrom: '',
-    dateTo: ''
+    dateTo: '',
+    fileType: 'all',
+    category: 'all',
+    sizeMin: '',
+    sizeMax: '',
+    author: '',
+  // Load smart folders on component mount
+  useEffect(() => {
+    const loadSmartFolders = async () => {
+      const defaultFolders = smartFoldersService.getDefaultSmartFolders()
+      const foldersWithStats = await Promise.all(
+        defaultFolders.map(async folder => {
+          const stats = await smartFoldersService.calculateFolderStats(folder)
+          return { ...folder, ...stats }
+        })
+      )
+      setSmartFolders(foldersWithStats)
+    }
+    loadSmartFolders()
+  }, [])
+    tags: ''
   })
+  const [smartFolders, setSmartFolders] = useState<SmartFolder[]>([])
+  const [selectedSmartFolder, setSelectedSmartFolder] = useState<string>('')
   
   // Folder Management State
   const [currentFolderPath, setCurrentFolderPath] = useState<string>('')
@@ -189,8 +216,22 @@ function App() {
     if (searchFilters.type && searchFilters.type !== 'all') {
       filtered = filtered.filter(file => file.file_type === searchFilters.type)
     }
+    if (searchFilters.fileType && searchFilters.fileType !== 'all') {
+      const typePrefix = searchFilters.fileType === 'image' ? 'image/' : 
+                        searchFilters.fileType === 'video' ? 'video/' :
+                        searchFilters.fileType === 'audio' ? 'audio/' :
+                        searchFilters.fileType === 'document' ? 'application/' : '';
+      filtered = filtered.filter(file => file.file_type.startsWith(typePrefix))
+    }
+    if (searchFilters.category && searchFilters.category !== 'all') {
+      filtered = filtered.filter(file => file.category === searchFilters.category)
+    }
     if (searchFilters.dateFrom) filtered = filtered.filter(file => new Date(file.created_at) >= new Date(searchFilters.dateFrom))
     if (searchFilters.dateTo) filtered = filtered.filter(file => new Date(file.created_at) <= new Date(searchFilters.dateTo))
+    if (searchFilters.sizeMin) filtered = filtered.filter(file => file.file_size >= parseInt(searchFilters.sizeMin) * 1024 * 1024)
+    if (searchFilters.sizeMax) filtered = filtered.filter(file => file.file_size <= parseInt(searchFilters.sizeMax) * 1024 * 1024)
+    if (searchFilters.author) filtered = filtered.filter(file => file.author?.toLowerCase().includes(searchFilters.author.toLowerCase()))
+    if (searchFilters.tags) filtered = filtered.filter(file => file.tags.some(tag => tag.toLowerCase().includes(searchFilters.tags.toLowerCase())))
 
     const sortedFiles = [...filtered].sort((a, b) => {
       let aValue: any = a[sortField]
@@ -397,6 +438,20 @@ function App() {
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')
     } else {
       setSortField(field)
+
+  const handleSmartFolderSelect = async (folderId: string) => {
+    if (selectedSmartFolder === folderId) {
+      setSelectedSmartFolder("")
+      return
+    }
+    
+    setSelectedSmartFolder(folderId)
+    const folder = smartFolders.find(f => f.id === folderId)
+    if (folder) {
+      const files = await smartFoldersService.getFilesForSmartFolder(folder)
+      setFilteredFiles(files)
+    }
+  }
       setSortDirection('asc')
     }
   }
@@ -1213,6 +1268,22 @@ function App() {
                                 <span>{progress}%</span>
                               </div>
                               <div className="w-full bg-gray-200 rounded-full h-2">
+
+        {/* Smart Folders */}
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-lg font-medium">Smart Folders</h3>
+            <Button size="sm" variant="ghost">
+              <FolderOpen className="w-4 h-4 mr-2" />
+              Manage
+            </Button>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {smartFolders.map(folder => (
+              <div
+                key={folder.id}
+                className={`p-3 rounded-lg border cursor-pointer hover:shadow-md transition-shadow ${
+                  selectedSmartFolder === folder.id ? border-blue-500
                                 <div
                                   className="bg-blue-600 h-2 rounded-full transition-all duration-300"
                                   style={{ width: `${progress}%` }}
@@ -1232,12 +1303,37 @@ function App() {
         {/* Search and Filters */}
         <div className="flex flex-col sm:flex-row gap-4 mb-6">
           <div className="flex-1">
-            <Input
-              placeholder="Search files by name, description, author, or tags..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full"
-            />
+          <AdvancedSearch
+            searchTerm={searchTerm}
+            onSearchChange={setSearchTerm}
+            filters={searchFilters}
+            onFiltersChange={setSearchFilters}
+            onClearFilters={() => setSearchFilters({
+              type: "all",
+              dateFrom: "",
+              dateTo: "",
+              fileType: "all",
+
+        {/* Smart Folders */}
+        <div className="mb-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {smartFolders.map(folder => (
+              <div key={folder.id} className="p-3 rounded-lg border border-gray-200 cursor-pointer hover:shadow-md">
+                <div className="text-lg">{folder.icon}</div>
+                <div className="font-medium text-sm">{folder.name}</div>
+                <div className="text-xs text-gray-500">{folder.fileCount} files</div>
+              </div>
+            ))}
+          </div>
+        </div>
+              category: "all",
+              sizeMin: "",
+              sizeMax: "",
+              author: "",
+              tags: ""
+            })}
+            categories={categories}
+          />
           </div>
           <Select value={selectedCategory} onValueChange={setSelectedCategory}>
             <SelectTrigger className="w-full sm:w-48">
@@ -1648,44 +1744,11 @@ function App() {
         </Dialog>
         {/* Batch Operations Panel */}
         {showBatchPanel && selectedMediaFiles.length > 0 && (
-          <div className="fixed bottom-4 right-4 bg-white border border-gray-300 rounded-lg shadow-xl p-4 w-80 z-40">
-            <div className="flex items-center justify-between mb-3">
-              <h4 className="font-medium text-gray-800">
-                Batch Operations ({selectedMediaFiles.length} files)
-              </h4>
-              <Button size="sm" variant="ghost" onClick={handleClearSelection}>
-                ✕
-              </Button>
-            </div>
-            <div className="space-y-3">
-              <Button
-                size="sm"
-                variant="outline"
-                className="w-full"
-                onClick={() => {
-                  const category = prompt('Enter new category:')
-                  if (category) handleBatchUpdate({ category })
-                }}
-              >
-                Move to Category
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                className="w-full"
-                onClick={() => {
-                  const tags = prompt('Enter tags (comma-separated):')
-                  if (tags) handleBatchUpdate({ tags })
-                }}
-              >
-                Update Tags
-              </Button>
-              <Button
-                size="sm"
-                variant="destructive"
-                className="w-full"
-                onClick={handleBatchDelete}
-              >
+          <BulkOperationsPanel
+            selectedFiles={selectedMediaFiles}
+            onComplete={handleClearSelection}
+          />
+        )
                 Delete Files
               </Button>
             </div>
