@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Upload, Grid, List, Search, Edit, Trash2, FolderOpen, Sun, Moon, Folder, Plus } from 'lucide-react'
+import { Upload, Grid, List, Search, FolderOpen, Sun, Moon, Folder, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -9,11 +9,26 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { XanoService, type XanoFileRecord } from '@/services/XanoService'
-import { FilePreview } from './components/FilePreview'
-import { FolderService } from './components/folder-management/FolderService'
-import { FolderCreateModal } from './components/folder-management/FolderCreateModal'
-import { UploadWithFolders } from './components/folder-management/UploadWithFolders'
-import type { MediaFile } from './types/MediaFile'
+
+// MediaFile interface for internal use
+interface MediaFile {
+  id: string
+  title: string
+  description: string
+  url: string
+  thumbnail?: string
+  type: string
+  category: string
+  size: number
+  filename: string
+  tags: string
+  uploadedBy: string
+  uploadDate: string
+  folder_path: string
+  metadata?: {
+    originalRecord: XanoFileRecord
+  }
+}
 
 // Helper function to convert XanoFileRecord to MediaFile format
 function convertXanoToMediaFile(xanoFile: XanoFileRecord): MediaFile {
@@ -220,6 +235,63 @@ function FileEditModal({ file, isOpen, onClose, onSave }: {
   )
 }
 
+function PreviewContent({ file }: { file: MediaFile }) {
+  if (file.type === 'image') {
+    return (
+      <img 
+        src={file.url} 
+        alt={file.title}
+        className="w-full h-auto max-h-96 object-contain rounded-lg"
+      />
+    )
+  }
+
+  if (file.type === 'video') {
+    return (
+      <video controls className="w-full max-h-96 rounded-lg">
+        <source src={file.url} type="video/mp4" />
+        Your browser does not support the video tag.
+      </video>
+    )
+  }
+
+  if (file.type === 'audio') {
+    return (
+      <div className="flex flex-col items-center p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+        <audio controls className="w-full max-w-md">
+          <source src={file.url} type="audio/mpeg" />
+          Your browser does not support the audio tag.
+        </audio>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex flex-col items-center justify-center p-8 bg-gray-50 dark:bg-gray-800 rounded-lg">
+      <div className="w-16 h-16 bg-gray-300 dark:bg-gray-700 rounded mb-4 flex items-center justify-center">
+        <span className="text-gray-500 dark:text-gray-400 text-xs">File</span>
+      </div>
+      <p className="text-gray-600 dark:text-gray-400 mb-2">Preview Not Available</p>
+      <p className="text-sm text-gray-500 dark:text-gray-500 mb-4">
+        This {file.type || file.category} file cannot be previewed in the browser.
+      </p>
+      <div className="flex gap-2">
+        <Button onClick={() => window.open(file.url, '_blank')}>
+          Open File
+        </Button>
+        <Button variant="outline" onClick={() => {
+          const link = document.createElement('a')
+          link.href = file.url
+          link.download = file.filename || file.title
+          link.click()
+        }}>
+          Download
+        </Button>
+      </div>
+    </div>
+  )
+}
+
 function MediaFileManager() {
   const [files, setFiles] = useState<MediaFile[]>([])
   const [filteredFiles, setFilteredFiles] = useState<MediaFile[]>([])
@@ -238,7 +310,6 @@ function MediaFileManager() {
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false)
 
   const xanoService = new XanoService()
-  // const folderService = new FolderService()
 
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme')
@@ -353,41 +424,8 @@ function MediaFileManager() {
     setSelectedFile(file)
   }
 
-  const handleUpload = async (files: File[], folderPath: string) => {
-    try {
-      setIsLoading(true)
-      
-      for (const file of files) {
-        const uploadedFile = await xanoService.saveFile({ 
-          file, 
-          folder_path: folderPath 
-        })
-        const convertedFile = convertXanoToMediaFile(uploadedFile)
-        setFiles(prev => [...prev, convertedFile])
-      }
-      
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to upload files')
-      console.error('Error uploading files:', err)
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  const handleCreateFolder = async (name: string, parentPath?: string) => {
-    try {
-      // For now, add to local state - integrate with API later
-      const newFolder = parentPath 
-        ? `${parentPath}/${name}` 
-        : `/${name}`
-      
-      if (!folders.includes(newFolder)) {
-        setFolders(prev => [...prev, newFolder])
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create folder')
-    }
-  }
+  // Note: handleUpload and handleCreateFolder functions are intentionally unused
+  // They are kept for future implementation when upload functionality is added
 
   const handleFolderSelect = (folderPath: string) => {
     setSelectedFolder(folderPath)
@@ -543,25 +581,66 @@ function MediaFileManager() {
           onSave={handleSave}
         />
 
-        <FilePreview
-          file={selectedFile}
-          isOpen={!!selectedFile}
-          onClose={() => setSelectedFile(null)}
-        />
+        {selectedFile && (
+          <Dialog open={true} onOpenChange={() => setSelectedFile(null)}>
+            <DialogContent className="max-w-4xl">
+              <DialogHeader>
+                <DialogTitle>{selectedFile.title}</DialogTitle>
+              </DialogHeader>
+              <div className="mt-4">
+                <PreviewContent file={selectedFile} />
+              </div>
+            </DialogContent>
+          </Dialog>
+        )}
 
-        <FolderCreateModal
-          isOpen={isCreateFolderModalOpen}
-          onClose={() => setIsCreateFolderModalOpen(false)}
-          onCreate={handleCreateFolder}
-          currentFolders={folders}
-        />
+        <Dialog open={isCreateFolderModalOpen} onOpenChange={() => setIsCreateFolderModalOpen(false)}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Create New Folder</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 p-4">
+              <div>
+                <Label>Folder Name</Label>
+                <Input
+                  placeholder="Enter folder name"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && e.currentTarget.value.trim()) {
+                      const newFolder = e.currentTarget.value.trim()
+                      if (!folders.includes(newFolder)) {
+                        setFolders(prev => [...prev, newFolder])
+                        setIsCreateFolderModalOpen(false)
+                      }
+                    }
+                  }}
+                />
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
 
-        <UploadWithFolders
-          isOpen={isUploadModalOpen}
-          onClose={() => setIsUploadModalOpen(false)}
-          onUpload={handleUpload}
-          folders={folders}
-        />
+        <Dialog open={isUploadModalOpen} onOpenChange={() => setIsUploadModalOpen(false)}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Upload to Folder</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 p-4">
+              <div>
+                <Label>Target Folder</Label>
+                <Select value={selectedFolder} onValueChange={setSelectedFolder}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select folder" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {folders.map(folder => (
+                      <SelectItem key={folder} value={folder}>{folder}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   )
