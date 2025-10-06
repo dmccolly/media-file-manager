@@ -1,4 +1,4 @@
-import { MediaFile } from '@/types/MediaFile';
+import { MediaFile } from '../../types/MediaFile';
 
 interface FolderRecord {
   id: string;

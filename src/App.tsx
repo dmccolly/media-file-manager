@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Upload, Grid, List, Search, Edit, Trash2, FolderOpen, Sun, Moon, Folder, Plus, MoreVertical } from 'lucide-react'
+import { Upload, Grid, List, Search, Edit, Trash2, FolderOpen, Sun, Moon, Folder, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -9,11 +9,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { XanoService, type XanoFileRecord } from '@/services/XanoService'
-import { FilePreview } from '@/components/FilePreview'
-import { FolderService } from '@/components/folder-management/FolderService'
-import { FolderCreateModal } from '@/components/folder-management/FolderCreateModal'
-import { UploadWithFolders } from '@/components/folder-management/UploadWithFolders'
-import type { MediaFile, FolderNode } from '@/types/MediaFile'
+import { FilePreview } from './components/FilePreview'
+import { FolderService } from './components/folder-management/FolderService'
+import { FolderCreateModal } from './components/folder-management/FolderCreateModal'
+import { UploadWithFolders } from './components/folder-management/UploadWithFolders'
+import type { MediaFile } from './types/MediaFile'
 
 // Helper function to convert XanoFileRecord to MediaFile format
 function convertXanoToMediaFile(xanoFile: XanoFileRecord): MediaFile {
@@ -238,7 +238,7 @@ function MediaFileManager() {
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false)
 
   const xanoService = new XanoService()
-  const folderService = new FolderService()
+  // const folderService = new FolderService()
 
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme')
