@@ -612,6 +612,7 @@ function App() {
               <input
                 type="file"
                 multiple
+                accept="*/*"
                 onChange={(e) => e.target.files && handleUpload(e.target.files)}
                 className="hidden"
                 id="file-upload"
