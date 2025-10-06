@@ -24,7 +24,7 @@ export class FolderAPIService {
     return files.filter(file => file.folder_path === folderPath);
   }
 
-  async createFolder(folderPath: string): Promise<boolean> {
+  async createFolder(_folderPath: string): Promise<boolean> {
     // Create folder by ensuring it exists in the path structure
     return true;
   }

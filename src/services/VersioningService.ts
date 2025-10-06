@@ -81,13 +81,13 @@ export class VersioningService {
     };
   }
 
-  async restoreVersion(fileId: string, versionId: string): Promise<boolean> {
+  async restoreVersion(_fileId: string, _versionId: string): Promise<boolean> {
     // In real implementation, this would update the file record
     // and mark the specified version as current
     return true;
   }
 
-  async deleteVersion(fileId: string, versionId: string): Promise<boolean> {
+  async deleteVersion(_fileId: string, _versionId: string): Promise<boolean> {
     // In real implementation, this would delete the version from storage
     return true;
   }
