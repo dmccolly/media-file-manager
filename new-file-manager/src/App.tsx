@@ -111,7 +111,7 @@ function FileCard({ file, onEdit, onDelete, onPreview }: {
   return (
     <Card className="group hover:shadow-lg transition-shadow">
       <CardContent className="p-4">
-        <div className="aspect-square mb-3 bg-gray-100 rounded-lg overflow-hidden">
+        <div className="aspect-square mb-3 glass-panel rounded-lg overflow-hidden">
           {file.type === 'image' ? (
             <img 
               src={file.thumbnail || file.url} 
@@ -122,7 +122,7 @@ function FileCard({ file, onEdit, onDelete, onPreview }: {
               }}
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center bg-gray-200">
+            <div className="w-full h-full flex items-center justify-center glass-panel">
               <FolderOpen className="w-12 h-12 text-gray-400" />
             </div>
           )}
@@ -447,11 +447,11 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white shadow-sm border-b">
+    <div className="min-h-screen" style={{background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)"}}>
+      <header className="glass-panel m-4 rounded-xl">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
-            <h1 className="text-xl font-semibold text-gray-900">Media File Manager</h1>
+            <h1 className="text-xl font-semibold text-white">Media File Manager</h1>
             <div className="flex items-center gap-4">
               <Button onClick={() => setShowUploadModal(true)}>
                 <Upload className="w-4 h-4 mr-2" />
