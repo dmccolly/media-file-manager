@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Upload, Grid, List, Search, Download, Edit, Trash2, Eye, FolderOpen } from 'lucide-react'
+import { Upload, Grid, List, Search, Download, Edit, Trash2, Eye, FolderOpen, Sun, Moon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -50,52 +50,37 @@ function convertXanoToMediaFile(xanoFile: XanoFileRecord): MediaFile {
 function FileCard({ file, onEdit, onDelete, onPreview, viewMode = 'grid' }: {
   file: MediaFile
   onEdit: (file: MediaFile) => void
-  onDelete: (file: MediaFile) => void
+  onDelete: (id: string) => void
   onPreview: (file: MediaFile) => void
   viewMode?: 'grid' | 'list'
 }) {
   if (viewMode === 'list') {
     return (
-      <div className="group glass-panel rounded-lg p-2 hover:shadow-md transition-shadow flex items-center gap-3">
-        {/* Thumbnail */}
-        <div className="w-8 h-8 rounded overflow-hidden flex-shrink-0">
-          {file.type === 'image' ? (
-            <img 
-              src={file.thumbnail || file.url} 
-              alt={file.title}
-              className="w-full h-full object-cover"
-              onError={(e) => {
-                e.currentTarget.src = '/placeholder-image.png'
-              }}
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center bg-gray-100">
-              <FolderOpen className="w-4 h-4 text-gray-400" />
-            </div>
-          )}
+      <div className="glass-panel flex items-center space-x-4 p-4 interactive-element">
+        <div className="flex-shrink-0">
+          <img 
+            src={file.thumbnail || '/placeholder-image.jpg'} 
+            alt={file.title}
+            className="w-16 h-16 rounded-lg object-cover"
+          />
         </div>
-        
-        {/* File Info */}
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <h3 className="font-medium text-sm truncate">{file.title}</h3>
-            <Badge variant="secondary" className="text-xs flex-shrink-0">{file.category}</Badge>
+          <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 truncate">{file.title}</h3>
+          <p className="text-sm text-gray-600 dark:text-gray-300 truncate">{file.description}</p>
+          <div className="flex items-center space-x-2 mt-1">
+            <Badge variant="secondary">{file.type}</Badge>
+            <Badge variant="outline">{file.category}</Badge>
           </div>
-          {file.description && (
-            <p className="text-xs text-gray-500 truncate mt-0.5">{file.description}</p>
-          )}
         </div>
-        
-        {/* Actions */}
-        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-          <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={() => onPreview(file)}>
-            <Eye className="w-3 h-3" />
+        <div className="flex items-center space-x-2">
+          <Button variant="ghost" size="sm" onClick={() => onPreview(file)}>
+            <Eye className="w-4 h-4" />
           </Button>
-          <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={() => onEdit(file)}>
-            <Edit className="w-3 h-3" />
+          <Button variant="ghost" size="sm" onClick={() => onEdit(file)}>
+            <Edit className="w-4 h-4" />
           </Button>
-          <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={() => onDelete(file)}>
-            <Trash2 className="w-3 h-3" />
+          <Button variant="ghost" size="sm" onClick={() => onDelete(file.id)}>
+            <Trash2 className="w-4 h-4" />
           </Button>
         </div>
       </div>
@@ -103,34 +88,29 @@ function FileCard({ file, onEdit, onDelete, onPreview, viewMode = 'grid' }: {
   }
 
   return (
-    <Card className="group hover:shadow-lg transition-shadow">
-      <CardContent className="p-4">
-        <div className="aspect-square mb-3 glass-panel rounded-lg overflow-hidden">
-          {file.type === 'image' ? (
-            <img 
-              src={file.thumbnail || file.url} 
-              alt={file.title}
-              className="w-full h-full object-cover"
-              onError={(e) => {
-                e.currentTarget.src = '/placeholder-image.png'
-              }}
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center glass-panel">
-              <FolderOpen className="w-12 h-12 text-gray-400" />
-            </div>
-          )}
+    <Card className="glass-panel interactive-element">
+      <CardHeader>
+        <img 
+          src={file.thumbnail || '/placeholder-image.jpg'} 
+          alt={file.title}
+          className="w-full h-48 object-cover rounded-lg"
+        />
+      </CardHeader>
+      <CardContent>
+        <CardTitle className="text-lg mb-2">{file.title}</CardTitle>
+        <p className="text-sm text-gray-600 dark:text-gray-300 mb-3">{file.description}</p>
+        <div className="flex flex-wrap gap-2 mb-3">
+          <Badge variant="secondary">{file.type}</Badge>
+          <Badge variant="outline">{file.category}</Badge>
         </div>
-        <h3 className="font-medium text-sm mb-1 truncate">{file.title}</h3>
-        <Badge variant="secondary" className="text-xs mb-2">{file.category}</Badge>
-        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-          <Button size="sm" variant="ghost" onClick={() => onPreview(file)}>
+        <div className="flex justify-between items-center">
+          <Button variant="ghost" size="sm" onClick={() => onPreview(file)}>
             <Eye className="w-4 h-4" />
           </Button>
-          <Button size="sm" variant="ghost" onClick={() => onEdit(file)}>
+          <Button variant="ghost" size="sm" onClick={() => onEdit(file)}>
             <Edit className="w-4 h-4" />
           </Button>
-          <Button size="sm" variant="ghost" onClick={() => onDelete(file)}>
+          <Button variant="ghost" size="sm" onClick={() => onDelete(file.id)}>
             <Trash2 className="w-4 h-4" />
           </Button>
         </div>
@@ -139,149 +119,97 @@ function FileCard({ file, onEdit, onDelete, onPreview, viewMode = 'grid' }: {
   )
 }
 
-
-
-function FilePreviewModal({ file, isOpen, onClose }: {
-  file: MediaFile | null
-  isOpen: boolean
-  onClose: () => void
-}) {
-  if (!file) return null
-
-  return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-auto">
-        <DialogHeader>
-          <DialogTitle>{file.title}</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4">
-          {file.type === 'image' && (
-            <img src={file.url} alt={file.title} className="w-full rounded-lg" />
-          )}
-          {file.type === 'video' && (
-            <video controls className="w-full rounded-lg">
-              <source src={file.url} />
-            </video>
-          )}
-          {file.type === 'audio' && (
-            <audio controls className="w-full">
-              <source src={file.url} />
-            </audio>
-          )}
-          {file.type === 'pdf' && (
-            <iframe src={file.url} className="w-full h-96 rounded-lg" />
-          )}
-          {!['image', 'video', 'audio', 'pdf'].includes(file.type) && (
-            <div className="text-center p-8 bg-gray-50 rounded-lg">
-              <FolderOpen className="w-16 h-16 mx-auto mb-4 text-gray-400" />
-              <p className="text-gray-600">Preview not available for this file type</p>
-              <Button className="mt-4" onClick={() => window.open(file.url, '_blank')}>
-                <Download className="w-4 h-4 mr-2" />
-                Download File
-              </Button>
-            </div>
-          )}
-          <div className="grid grid-cols-2 gap-4 text-sm">
-            <div><strong>Category:</strong> {file.category}</div>
-            <div><strong>Type:</strong> {file.type}</div>
-            <div><strong>Size:</strong> {file.size ? `${(file.size / 1024 / 1024).toFixed(2)} MB` : 'Unknown'}</div>
-            <div><strong>Uploaded:</strong> {file.uploadDate || 'Unknown'}</div>
-          </div>
-          {file.description && (
-            <div>
-              <strong>Description:</strong>
-              <p className="mt-1 text-gray-600">{file.description}</p>
-            </div>
-          )}
-        </div>
-      </DialogContent>
-    </Dialog>
-  )
-}
-
 function FileEditModal({ file, isOpen, onClose, onSave }: {
   file: MediaFile | null
   isOpen: boolean
   onClose: () => void
-  onSave: (file: MediaFile, updates: Partial<MediaFile>) => void
+  onSave: (file: MediaFile) => void
 }) {
-  const [formData, setFormData] = useState({
-    title: '',
-    description: '',
-    tags: '',
-    category: ''
-  })
+  const [formData, setFormData] = useState<MediaFile | null>(file)
+  const [isSaving, setIsSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (file) {
-      setFormData({
-        title: file.title || '',
-        description: file.description || '',
-        tags: file.tags || '',
-        category: file.category || ''
-      })
-    }
+    setFormData(file)
+    setError(null)
   }, [file])
 
-  const handleSave = () => {
-    if (file) {
-      onSave(file, formData)
+  const handleSave = async () => {
+    if (!formData) return
+    
+    setIsSaving(true)
+    setError(null)
+    
+    try {
+      await onSave(formData)
       onClose()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save changes')
+      console.error('Save error:', err)
+    } finally {
+      setIsSaving(false)
     }
   }
 
-  if (!file) return null
+  if (!formData) return null
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent>
+      <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>Edit File</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
           <div>
-            <Label htmlFor="title">Title</Label>
+            <Label>Title</Label>
             <Input
-              id="title"
               value={formData.title}
-              onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
+              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
             />
           </div>
           <div>
-            <Label htmlFor="description">Description</Label>
+            <Label>Description</Label>
             <Textarea
-              id="description"
               value={formData.description}
-              onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
             />
           </div>
           <div>
-            <Label htmlFor="tags">Tags</Label>
-            <Input
-              id="tags"
-              value={formData.tags}
-              onChange={(e) => setFormData(prev => ({ ...prev, tags: e.target.value }))}
-              placeholder="Comma-separated tags"
-            />
-          </div>
-          <div>
-            <Label htmlFor="category">Category</Label>
-            <Select value={formData.category} onValueChange={(value) => setFormData(prev => ({ ...prev, category: value }))}>
+            <Label>Category</Label>
+            <Select
+              value={formData.category}
+              onValueChange={(value) => setFormData({ ...formData, category: value })}
+            >
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="Image">Image</SelectItem>
-                <SelectItem value="Video">Video</SelectItem>
-                <SelectItem value="Audio">Audio</SelectItem>
-                <SelectItem value="Document">Document</SelectItem>
-                <SelectItem value="Other">Other</SelectItem>
+                <SelectItem value="image">Image</SelectItem>
+                <SelectItem value="video">Video</SelectItem>
+                <SelectItem value="audio">Audio</SelectItem>
+                <SelectItem value="document">Document</SelectItem>
+                <SelectItem value="other">Other</SelectItem>
               </SelectContent>
             </Select>
           </div>
-          <div className="flex gap-2 justify-end">
-            <Button variant="outline" onClick={onClose}>Cancel</Button>
-            <Button onClick={handleSave}>Save Changes</Button>
+          <div>
+            <Label>Tags</Label>
+            <Input
+              value={formData.tags}
+              onChange={(e) => setFormData({ ...formData, tags: e.target.value })}
+              placeholder="Enter tags separated by commas"
+            />
+          </div>
+          {error && (
+            <div className="text-red-500 text-sm">{error}</div>
+          )}
+          <div className="flex space-x-2">
+            <Button onClick={handleSave} disabled={isSaving}>
+              {isSaving ? 'Saving...' : 'Save Changes'}
+            </Button>
+            <Button variant="outline" onClick={onClose} disabled={isSaving}>
+              Cancel
+            </Button>
           </div>
         </div>
       </DialogContent>
@@ -289,351 +217,303 @@ function FileEditModal({ file, isOpen, onClose, onSave }: {
   )
 }
 
-function App() {
+function MediaFileManager() {
   const [files, setFiles] = useState<MediaFile[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [filteredFiles, setFilteredFiles] = useState<MediaFile[]>([])
   const [searchTerm, setSearchTerm] = useState('')
-  const [selectedCategory, setSelectedCategory] = useState('All')
+  const [selectedCategory, setSelectedCategory] = useState('all')
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
-  const [previewFile, setPreviewFile] = useState<MediaFile | null>(null)
-  const [editFile, setEditFile] = useState<MediaFile | null>(null)
-  const [showUploadModal, setShowUploadModal] = useState(false)
-  const [uploading, setUploading] = useState(false)
-  const [sortBy, setSortBy] = useState<'title' | 'date' | 'size' | 'category'>('title')
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
+  const [selectedFile, setSelectedFile] = useState<MediaFile | null>(null)
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  const [fileToEdit, setFileToEdit] = useState<MediaFile | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [isDarkMode, setIsDarkMode] = useState(false)
 
   const xanoService = new XanoService()
+
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('theme')
+    if (savedTheme === 'dark') {
+      setIsDarkMode(true)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark')
+      localStorage.setItem('theme', 'dark')
+    } else {
+      document.documentElement.classList.remove('dark')
+      localStorage.setItem('theme', 'light')
+    }
+  }, [isDarkMode])
 
   useEffect(() => {
     loadFiles()
   }, [])
 
+  useEffect(() => {
+    filterFiles()
+  }, [files, searchTerm, selectedCategory])
+
   const loadFiles = async () => {
     try {
-      setLoading(true)
+      setIsLoading(true)
       setError(null)
-      const xanoFiles = await xanoService.fetchAllFiles()
-      const mediaFiles = xanoFiles.map(convertXanoToMediaFile)
-      setFiles(mediaFiles)
-      console.log(`✅ Loaded ${mediaFiles.length} files successfully`)
+      const xanoFiles = await xanoService.getAllFiles()
+      const convertedFiles = xanoFiles.map(convertXanoToMediaFile)
+      setFiles(convertedFiles)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load files')
-      console.error('❌ Error loading files:', err)
+      console.error('Error loading files:', err)
     } finally {
-      setLoading(false)
+      setIsLoading(false)
     }
   }
 
-  const filteredFiles = files.filter(file => {
-    const matchesSearch = file.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         file.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         file.tags?.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesCategory = selectedCategory === 'All' || file.category === selectedCategory
-    return matchesSearch && matchesCategory
-  })
+  const filterFiles = () => {
+    let filtered = files
 
-  const categories = ['All', ...Array.from(new Set(files.map(f => f.category)))]
+    if (searchTerm) {
+      filtered = filtered.filter(file =>
+        file.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        file.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        file.tags.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+    }
 
-  const handleEdit = (file: MediaFile) => {
-    setEditFile(file)
+    if (selectedCategory !== 'all') {
+      filtered = filtered.filter(file => file.category === selectedCategory)
+    }
+
+    setFilteredFiles(filtered)
   }
 
-  const handleDelete = async (file: MediaFile) => {
-    if (confirm(`Are you sure you want to delete "${file.title}"?`)) {
-      try {
-        await xanoService.deleteFile(file.id)
-        setFiles(prev => prev.filter(f => f.id !== file.id))
-        console.log('✅ File deleted successfully')
-      } catch (error) {
-        console.error('❌ Error deleting file:', error)
-        setError('Failed to delete file')
+  const handleEdit = (file: MediaFile) => {
+    setFileToEdit(file)
+    setIsEditModalOpen(true)
+  }
+
+  const handleSave = async (updatedFile: MediaFile) => {
+    try {
+      const originalRecord = updatedFile.metadata?.originalRecord
+      if (!originalRecord) {
+        throw new Error('Original record not found')
       }
+
+      const updatedXanoFile = {
+        ...originalRecord,
+        title: updatedFile.title,
+        description: updatedFile.description,
+        category: updatedFile.category,
+        tags: updatedFile.tags.split(',').map(tag => tag.trim())
+      }
+
+      await xanoService.updateFile(originalRecord.id, updatedXanoFile)
+      
+      const updatedFiles = files.map(f => 
+        f.id === updatedFile.id ? updatedFile : f
+      )
+      setFiles(updatedFiles)
+      
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : 'Failed to update file')
+    }
+  }
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this file?')) return
+
+    try {
+      await xanoService.deleteFile(id)
+      setFiles(files.filter(f => f.id !== id))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete file')
+      console.error('Error deleting file:', err)
     }
   }
 
   const handlePreview = (file: MediaFile) => {
-    setPreviewFile(file)
+    setSelectedFile(file)
   }
 
-  const handleSave = async (file: MediaFile, updates: Partial<MediaFile>) => {
-    try {
-      // Convert updates to Xano format
-      const xanoUpdates = {
-        title: updates.title,
-        description: updates.description,
-        category: updates.category,
-        tags: updates.tags ? updates.tags.split(',').map(t => t.trim()) : []
-      }
-      
-      await xanoService.updateFile(file.id, xanoUpdates)
-      setFiles(prev => prev.map(f => f.id === file.id ? { ...f, ...updates } : f))
-      console.log('✅ File updated successfully')
-    } catch (error) {
-      console.error('❌ Error updating file:', error)
-      setError('Failed to update file')
-    }
-  }
+  const handleUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
 
-  const handleUpload = async (uploadFiles: FileList) => {
-    setUploading(true)
     try {
-      for (const file of Array.from(uploadFiles)) {
-        const newFile: MediaFile = {
-          id: Math.random().toString(),
-          title: file.name,
-          description: '',
-          url: URL.createObjectURL(file),
-          thumbnail: file.type.startsWith('image/') ? URL.createObjectURL(file) : '/placeholder-file.png',
-          type: file.type.split('/')[0] || 'other',
-          category: file.type.startsWith('image/') ? 'Image' : 
-                   file.type.startsWith('video/') ? 'Video' :
-                   file.type.startsWith('audio/') ? 'Audio' : 'Document',
-          size: file.size,
-          filename: file.name,
-          tags: '',
-          uploadedBy: 'Current User',
-          uploadDate: new Date().toISOString(),
-          metadata: { file }
-        }
-        setFiles(prev => [newFile, ...prev])
-      }
-      setShowUploadModal(false)
-    } catch (error) {
-      console.error('Upload error:', error)
+      setIsLoading(true)
+      const uploadedFile = await xanoService.uploadFile(file)
+      const convertedFile = convertXanoToMediaFile(uploadedFile)
+      setFiles([...files, convertedFile])
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to upload file')
+      console.error('Error uploading file:', err)
     } finally {
-      setUploading(false)
+      setIsLoading(false)
     }
   }
 
-  const handleSort = (field: 'title' | 'date' | 'size' | 'category') => {
-    if (sortBy === field) {
-      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')
-    } else {
-      setSortBy(field)
-      setSortOrder('asc')
-    }
-  }
-
-  const sortedFiles = [...filteredFiles].sort((a, b) => {
-    let aVal: any, bVal: any
-    switch (sortBy) {
-      case 'title':
-        aVal = a.title.toLowerCase()
-        bVal = b.title.toLowerCase()
-        break
-      case 'date':
-        aVal = new Date(a.uploadDate || 0).getTime()
-        bVal = new Date(b.uploadDate || 0).getTime()
-        break
-      case 'size':
-        aVal = a.size || 0
-        bVal = b.size || 0
-        break
-      case 'category':
-        aVal = a.category.toLowerCase()
-        bVal = b.category.toLowerCase()
-        break
-      default:
-        return 0
-    }
-    
-    if (aVal < bVal) return sortOrder === 'asc' ? -1 : 1
-    if (aVal > bVal) return sortOrder === 'asc' ? 1 : -1
-    return 0
-  })
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading files...</p>
-        </div>
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-red-600 mb-4">Error: {error}</p>
-          <Button onClick={loadFiles}>Retry</Button>
-        </div>
-      </div>
-    )
-  }
+  const categories = ['all', 'image', 'video', 'audio', 'document', 'other']
+  const fileTypes = ['all', ...Array.from(new Set(files.map(f => f.type)))]
 
   return (
-    <div className="min-h-screen" style={{background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)"}}>
-      <header className="glass-panel m-4 rounded-xl">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <h1 className="text-xl font-semibold text-white">Media File Manager</h1>
-            <div className="flex items-center gap-4">
-              <Button onClick={() => setShowUploadModal(true)}>
-                <Upload className="w-4 h-4 mr-2" />
-                Upload Files
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
+      <div className="container mx-auto px-4 py-8">
+        {/* Header */}
+        <div className="flex justify-between items-center mb-8">
+          <h1 className="text-3xl font-bold text-gray-800 dark:text-white">
+            Media File Manager
+          </h1>
+          <button
+            onClick={() => setIsDarkMode(!isDarkMode)}
+            className="p-2 rounded-lg bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+            aria-label="Toggle theme"
+          >
+            {isDarkMode ? <Sun className="w-5 h-5 text-yellow-400" /> : <Moon className="w-5 h-5 text-gray-700" />}
+          </button>
+        </div>
+
+        {/* Error Display */}
+        {error && (
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+            {error}
+          </div>
+        )}
+
+        {/* Controls */}
+        <div className="glass-panel p-6 mb-6">
+          <div className="flex flex-col lg:flex-row gap-4 items-center">
+            <div className="flex-1">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                <Input
+                  type="text"
+                  placeholder="Search files..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+            </div>
+            <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+              <SelectTrigger className="w-full lg:w-48">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {categories.map(cat => (
+                  <SelectItem key={cat} value={cat}>
+                    {cat.charAt(0).toUpperCase() + cat.slice(1)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <div className="flex space-x-2">
+              <Button
+                variant={viewMode === 'grid' ? 'default' : 'outline'}
+                size="icon"
+                onClick={() => setViewMode('grid')}
+              >
+                <Grid className="w-4 h-4" />
+              </Button>
+              <Button
+                variant={viewMode === 'list' ? 'default' : 'outline'}
+                size="icon"
+                onClick={() => setViewMode('list')}
+              >
+                <List className="w-4 h-4" />
               </Button>
             </div>
-          </div>
-        </div>
-      </header>
-
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="flex flex-col lg:flex-row gap-6">
-          <aside className="lg:w-64">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Filters</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <Label htmlFor="search">Search</Label>
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                    <Input
-                      id="search"
-                      placeholder="Search files..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-10"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <Label htmlFor="category">Category</Label>
-                  <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {categories.map(category => (
-                        <SelectItem key={category} value={category}>{category}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </CardContent>
-            </Card>
-          </aside>
-
-          <div className="flex-1">
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-4">
-                <p className="text-gray-600">
-                  {filteredFiles.length} of {files.length} files
-                </p>
-                <Select value={sortBy} onValueChange={(value: any) => handleSort(value)}>
-                  <SelectTrigger className="w-32">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="title">Title</SelectItem>
-                    <SelectItem value="date">Date</SelectItem>
-                    <SelectItem value="size">Size</SelectItem>
-                    <SelectItem value="category">Category</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant={viewMode === 'grid' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setViewMode('grid')}
-                >
-                  <Grid className="w-4 h-4" />
-                </Button>
-                <Button
-                  variant={viewMode === 'list' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setViewMode('list')}
-                >
-                  <List className="w-4 h-4" />
-                </Button>
-              </div>
-            </div>
-
-            {sortedFiles.length === 0 ? (
-              <div className="text-center py-12">
-                <FolderOpen className="w-16 h-16 mx-auto mb-4 text-gray-400" />
-                <p className="text-gray-600">No files found</p>
-                {files.length === 0 && !loading && (
-                  <Button className="mt-4" onClick={() => setShowUploadModal(true)}>
-                    <Upload className="w-4 h-4 mr-2" />
-                    Upload Your First File
-                  </Button>
-                )}
-              </div>
-            ) : (
-              <div className={viewMode === 'grid' 
-                ? 'grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4'
-                : 'space-y-1'
-              }>
-                {sortedFiles.map(file => (
-                  <FileCard
-                    key={file.id}
-                    file={file}
-                       viewMode={viewMode}
-                    onEdit={handleEdit}
-                    onDelete={handleDelete}
-                    onPreview={handlePreview}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      </main>
-
-      <FilePreviewModal
-        file={previewFile}
-        isOpen={!!previewFile}
-        onClose={() => setPreviewFile(null)}
-      />
-
-      <FileEditModal
-        file={editFile}
-        isOpen={!!editFile}
-        onClose={() => setEditFile(null)}
-        onSave={handleSave}
-      />
-
-      <Dialog open={showUploadModal} onOpenChange={setShowUploadModal}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Upload Files</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
-              <Upload className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-              <p className="text-gray-600 mb-4">Drag and drop files here, or click to select</p>
+            <div className="relative">
+              <Button>
+                <Upload className="w-4 h-4 mr-2" />
+                Upload
+              </Button>
               <input
                 type="file"
-                multiple
-                accept="*/*"
-                onChange={(e) => e.target.files && handleUpload(e.target.files)}
-                className="hidden"
-                id="file-upload"
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                onChange={handleUpload}
+                accept="image/*,video/*,audio/*,.pdf,.doc,.docx"
               />
-              <Button asChild>
-                <label htmlFor="file-upload" className="cursor-pointer">
-                  Select Files
-                </label>
-              </Button>
             </div>
-            {uploading && (
-              <div className="text-center">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
-                <p className="text-gray-600">Uploading files...</p>
-              </div>
-            )}
           </div>
-        </DialogContent>
-      </Dialog>
+        </div>
+
+        {/* Loading State */}
+        {isLoading && (
+          <div className="flex justify-center items-center h-64">
+            <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-500"></div>
+          </div>
+        )}
+
+        {/* Files Display */}
+        {!isLoading && filteredFiles.length > 0 && (
+          <div className={viewMode === 'grid' 
+            ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6'
+            : 'space-y-4'
+          }>
+            {filteredFiles.map(file => (
+              <FileCard
+                key={file.id}
+                file={file}
+                onEdit={handleEdit}
+                onDelete={handleDelete}
+                onPreview={handlePreview}
+                viewMode={viewMode}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* Empty State */}
+        {!isLoading && filteredFiles.length === 0 && (
+          <div className="text-center py-12">
+            <FolderOpen className="w-16 h-16 mx-auto text-gray-400 mb-4" />
+            <h3 className="text-lg font-semibold text-gray-600 dark:text-gray-400 mb-2">
+              {files.length === 0 ? 'No files uploaded yet' : 'No files match your search'}
+            </h3>
+            <p className="text-gray-500 dark:text-gray-500">
+              {files.length === 0 ? 'Upload your first file to get started' : 'Try adjusting your search criteria'}
+            </p>
+          </div>
+        )}
+
+        {/* Edit Modal */}
+        <FileEditModal
+          file={fileToEdit}
+          isOpen={isEditModalOpen}
+          onClose={() => setIsEditModalOpen(false)}
+          onSave={handleSave}
+        />
+
+        {/* Preview Modal */}
+        {selectedFile && (
+          <Dialog open={!!selectedFile} onOpenChange={() => setSelectedFile(null)}>
+            <DialogContent className="max-w-4xl">
+              <DialogHeader>
+                <DialogTitle>{selectedFile.title}</DialogTitle>
+              </DialogHeader>
+              <div className="mt-4">
+                <img 
+                  src={selectedFile.url} 
+                  alt={selectedFile.title}
+                  className="w-full h-auto max-h-96 object-contain rounded-lg"
+                />
+                <div className="mt-4">
+                  <p className="text-sm text-gray-600 dark:text-gray-300">{selectedFile.description}</p>
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    <Badge>{selectedFile.type}</Badge>
+                    <Badge variant="outline">{selectedFile.category}</Badge>
+                  </div>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+        )}
+      </div>
     </div>
   )
 }
 
-export default App
+export default MediaFileManager
