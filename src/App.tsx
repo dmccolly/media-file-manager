@@ -1488,7 +1488,7 @@ function App() {
               <table className="w-full">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/3">
                       <input
                         type="checkbox"
                         checked={selectedMediaFiles.length === filteredFiles.length && filteredFiles.length > 0}
@@ -1520,11 +1520,21 @@ function App() {
                     >
                       Date {getSortIcon('created_at')}
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">URL</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/3">Actions</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/3">URL</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
+                <style>{
+                  `
+                    .description-cell {
+                      max-width: 300px;
+                      word-wrap: break-word;
+                      overflow-wrap: break-word;
+                      hyphens: auto;
+                    }
+                  `
+                }</style>
                   {filteredFiles.map((file) => {
                     const isSelected = selectedMediaFiles.some((f: MediaFile) => f.id === file.id)
                     return (
@@ -1546,20 +1556,19 @@ function App() {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center">
-                            {getFileIcon(file.file_type)}
-                            <div className="ml-3">
-                              <div className="text-sm font-medium text-gray-900">{file.title}</div>
-                              <div className="text-sm text-gray-500">{file.description}</div>
-                              {file.author && (
-                                <div className="text-xs text-gray-400">By: {file.author}</div>
-                              )}
-                            </div>
-                          </div>
-                        </td>
+                               <div className="ml-3 min-w-0 flex-1">
+                                 <div className="text-sm font-medium text-gray-900 truncate" title={file.title}>{file.title}</div>
+                                 <div className="text-sm text-gray-500 max-w-md break-words whitespace-normal" title={file.description}>{file.description || "No description"}</div>
+                                 {file.author && (
+                                   <div className="text-xs text-gray-400 truncate">By: {file.author}</div>
+                                 )}
+                               </div>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{file.file_type}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatFileSize(file.file_size)}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatDate(file.created_at)}</td>
-                           <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{file.file_type}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatFileSize(file.file_size)}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatDate(file.created_at)}</td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center space-x-2">
                             <div className="text-xs font-mono text-gray-600 truncate max-w-xs">
@@ -1576,6 +1585,23 @@ function App() {
                             >
                               Copy
                             </Button>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                          <div className="flex gap-2">
+                            <Button size="sm" variant="outline" onClick={() => handlePreview(file)}>
+                              <Eye className="w-3 h-3" />
+                            </Button>
+                            <Button size="sm" variant="outline" onClick={() => handleEditFile(file)}>
+                              <Edit className="w-3 h-3" />
+                            </Button>
+                            <Button size="sm" variant="outline" asChild>
+                              <a href={file.media_url} download={file.title}>
+                                <Download className="w-3 h-3" />
+                              </a>
+                            </Button>
+                          </div>
+                        </td>
                           </div>
                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                              <div className="flex gap-2">
