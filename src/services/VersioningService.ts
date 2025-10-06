@@ -1,4 +1,4 @@
-import { XanoService, XanoFileRecord } from './XanoService';
+
 
 export interface FileVersion {
   id: string;
