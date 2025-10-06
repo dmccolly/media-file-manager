@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Upload, Grid, List, Search, Edit, Trash2, Eye, FolderOpen, Sun, Moon } from 'lucide-react'
+import { Upload, Grid, List, Search, Edit, Trash2, FolderOpen, Sun, Moon, Folder, Plus, MoreVertical } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -9,23 +9,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { XanoService, type XanoFileRecord } from '@/services/XanoService'
-
-// Using XanoFileRecord as MediaFile interface
-type MediaFile = {
-  id: string
-  title: string
-  description: string
-  url: string
-  thumbnail?: string
-  type: string
-  category: string
-  size?: number
-  filename: string
-  tags: string
-  uploadedBy?: string
-  uploadDate?: string
-  metadata?: any
-}
+import { FilePreview } from '@/components/FilePreview'
+import { FolderService } from '@/components/folder-management/FolderService'
+import { FolderCreateModal } from '@/components/folder-management/FolderCreateModal'
+import { UploadWithFolders } from '@/components/folder-management/UploadWithFolders'
+import type { MediaFile, FolderNode } from '@/types/MediaFile'
 
 // Helper function to convert XanoFileRecord to MediaFile format
 function convertXanoToMediaFile(xanoFile: XanoFileRecord): MediaFile {
@@ -43,6 +31,7 @@ function convertXanoToMediaFile(xanoFile: XanoFileRecord): MediaFile {
     tags: Array.isArray(xanoFile.tags) ? xanoFile.tags.join(', ') : String(xanoFile.tags || ''),
     uploadedBy: xanoFile.author || xanoFile.submitted_by || '',
     uploadDate: xanoFile.created_at,
+    folder_path: xanoFile.folder_path || '/',
     metadata: { originalRecord: xanoFile }
   }
 }
@@ -70,17 +59,20 @@ function FileCard({ file, onEdit, onDelete, onPreview, viewMode = 'grid' }: {
           <div className="flex items-center space-x-2 mt-1">
             <Badge variant="secondary">{file.type}</Badge>
             <Badge variant="outline">{file.category}</Badge>
+            {file.folder_path && file.folder_path !== '/' && (
+              <Badge variant="outline">{file.folder_path}</Badge>
+            )}
           </div>
         </div>
         <div className="flex items-center space-x-2">
           <Button variant="ghost" size="sm" onClick={() => onPreview(file)}>
-            <Eye className="w-4 h-4" />
+            Preview
           </Button>
           <Button variant="ghost" size="sm" onClick={() => onEdit(file)}>
-            <Edit className="w-4 h-4" />
+            Edit
           </Button>
           <Button variant="ghost" size="sm" onClick={() => onDelete(file.id)}>
-            <Trash2 className="w-4 h-4" />
+            Delete
           </Button>
         </div>
       </div>
@@ -102,16 +94,19 @@ function FileCard({ file, onEdit, onDelete, onPreview, viewMode = 'grid' }: {
         <div className="flex flex-wrap gap-2 mb-3">
           <Badge variant="secondary">{file.type}</Badge>
           <Badge variant="outline">{file.category}</Badge>
+          {file.folder_path && file.folder_path !== '/' && (
+            <Badge variant="outline">{file.folder_path}</Badge>
+          )}
         </div>
         <div className="flex justify-between items-center">
           <Button variant="ghost" size="sm" onClick={() => onPreview(file)}>
-            <Eye className="w-4 h-4" />
+            Preview
           </Button>
           <Button variant="ghost" size="sm" onClick={() => onEdit(file)}>
-            <Edit className="w-4 h-4" />
+            Edit
           </Button>
           <Button variant="ghost" size="sm" onClick={() => onDelete(file.id)}>
-            <Trash2 className="w-4 h-4" />
+            Delete
           </Button>
         </div>
       </CardContent>
@@ -200,6 +195,14 @@ function FileEditModal({ file, isOpen, onClose, onSave }: {
               placeholder="Enter tags separated by commas"
             />
           </div>
+          <div>
+            <Label>Folder</Label>
+            <Input
+              value={formData.folder_path || '/'}
+              onChange={(e) => setFormData({ ...formData, folder_path: e.target.value })}
+              placeholder="/folder/subfolder"
+            />
+          </div>
           {error && (
             <div className="text-red-500 text-sm">{error}</div>
           )}
@@ -222,6 +225,7 @@ function MediaFileManager() {
   const [filteredFiles, setFilteredFiles] = useState<MediaFile[]>([])
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('all')
+  const [selectedFolder, setSelectedFolder] = useState<string>('/')
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   const [selectedFile, setSelectedFile] = useState<MediaFile | null>(null)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
@@ -229,8 +233,12 @@ function MediaFileManager() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [isDarkMode, setIsDarkMode] = useState(false)
+  const [folders, setFolders] = useState<string[]>(['/', '/projects', '/clients', '/personal'])
+  const [isCreateFolderModalOpen, setIsCreateFolderModalOpen] = useState(false)
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false)
 
   const xanoService = new XanoService()
+  const folderService = new FolderService()
 
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme')
@@ -251,11 +259,11 @@ function MediaFileManager() {
 
   useEffect(() => {
     loadFiles()
-  }, [])
+  }, [selectedFolder])
 
   useEffect(() => {
     filterFiles()
-  }, [files, searchTerm, selectedCategory])
+  }, [files, searchTerm, selectedCategory, selectedFolder])
 
   const loadFiles = async () => {
     try {
@@ -263,7 +271,13 @@ function MediaFileManager() {
       setError(null)
       const xanoFiles = await xanoService.fetchAllFiles()
       const convertedFiles = xanoFiles.map(convertXanoToMediaFile)
-      setFiles(convertedFiles)
+      
+      // Filter by selected folder
+      const folderFilteredFiles = selectedFolder === '/' 
+        ? convertedFiles 
+        : convertedFiles.filter(file => file.folder_path === selectedFolder)
+      
+      setFiles(folderFilteredFiles)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load files')
       console.error('Error loading files:', err)
@@ -307,7 +321,8 @@ function MediaFileManager() {
         title: updatedFile.title,
         description: updatedFile.description,
         category: updatedFile.category,
-        tags: updatedFile.tags.split(',').map(tag => tag.trim())
+        tags: updatedFile.tags.split(',').map(tag => tag.trim()),
+        folder_path: updatedFile.folder_path || '/'
       }
 
       await xanoService.updateFile(originalRecord.id, updatedXanoFile)
@@ -338,25 +353,47 @@ function MediaFileManager() {
     setSelectedFile(file)
   }
 
-  const handleUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (!file) return
-
+  const handleUpload = async (files: File[], folderPath: string) => {
     try {
       setIsLoading(true)
-      const uploadedFile = await xanoService.saveFile({ file })
-      const convertedFile = convertXanoToMediaFile(uploadedFile)
-      setFiles([...files, convertedFile])
+      
+      for (const file of files) {
+        const uploadedFile = await xanoService.saveFile({ 
+          file, 
+          folder_path: folderPath 
+        })
+        const convertedFile = convertXanoToMediaFile(uploadedFile)
+        setFiles(prev => [...prev, convertedFile])
+      }
+      
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to upload file')
-      console.error('Error uploading file:', err)
+      setError(err instanceof Error ? err.message : 'Failed to upload files')
+      console.error('Error uploading files:', err)
     } finally {
       setIsLoading(false)
     }
   }
 
+  const handleCreateFolder = async (name: string, parentPath?: string) => {
+    try {
+      // For now, add to local state - integrate with API later
+      const newFolder = parentPath 
+        ? `${parentPath}/${name}` 
+        : `/${name}`
+      
+      if (!folders.includes(newFolder)) {
+        setFolders(prev => [...prev, newFolder])
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create folder')
+    }
+  }
+
+  const handleFolderSelect = (folderPath: string) => {
+    setSelectedFolder(folderPath)
+  }
+
   const categories = ['all', 'image', 'video', 'audio', 'document', 'other']
-  
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
@@ -381,6 +418,37 @@ function MediaFileManager() {
             {error}
           </div>
         )}
+
+        {/* Folder Navigation */}
+        <div className="glass-panel p-4 mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold">Folders</h2>
+            <div className="flex gap-2">
+              <Button size="sm" onClick={() => setIsCreateFolderModalOpen(true)}>
+                <Plus className="w-4 h-4 mr-1" />
+                New Folder
+              </Button>
+              <Button size="sm" onClick={() => setIsUploadModalOpen(true)}>
+                <Upload className="w-4 h-4 mr-1" />
+                Upload
+              </Button>
+            </div>
+          </div>
+          
+          <div className="flex flex-wrap gap-2">
+            {folders.map(folder => (
+              <Button
+                key={folder}
+                variant={selectedFolder === folder ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => handleFolderSelect(folder)}
+              >
+                <Folder className="w-4 h-4 mr-1" />
+                {folder}
+              </Button>
+            ))}
+          </div>
+        </div>
 
         {/* Controls */}
         <div className="glass-panel p-6 mb-6">
@@ -425,18 +493,6 @@ function MediaFileManager() {
                 <List className="w-4 h-4" />
               </Button>
             </div>
-            <div className="relative">
-              <Button>
-                <Upload className="w-4 h-4 mr-2" />
-                Upload
-              </Button>
-              <input
-                type="file"
-                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                onChange={handleUpload}
-                accept="image/*,video/*,audio/*,.pdf,.doc,.docx"
-              />
-            </div>
           </div>
         </div>
 
@@ -471,15 +527,15 @@ function MediaFileManager() {
           <div className="text-center py-12">
             <FolderOpen className="w-16 h-16 mx-auto text-gray-400 mb-4" />
             <h3 className="text-lg font-semibold text-gray-600 dark:text-gray-400 mb-2">
-              {files.length === 0 ? 'No files uploaded yet' : 'No files match your search'}
+              {files.length === 0 ? 'No files in this folder' : 'No files match your search'}
             </h3>
             <p className="text-gray-500 dark:text-gray-500">
-              {files.length === 0 ? 'Upload your first file to get started' : 'Try adjusting your search criteria'}
+              {files.length === 0 ? 'Upload files to get started' : 'Try adjusting your search criteria'}
             </p>
           </div>
         )}
 
-        {/* Edit Modal */}
+        {/* Modals */}
         <FileEditModal
           file={fileToEdit}
           isOpen={isEditModalOpen}
@@ -487,30 +543,25 @@ function MediaFileManager() {
           onSave={handleSave}
         />
 
-        {/* Preview Modal */}
-        {selectedFile && (
-          <Dialog open={!!selectedFile} onOpenChange={() => setSelectedFile(null)}>
-            <DialogContent className="max-w-4xl">
-              <DialogHeader>
-                <DialogTitle>{selectedFile.title}</DialogTitle>
-              </DialogHeader>
-              <div className="mt-4">
-                <img 
-                  src={selectedFile.url} 
-                  alt={selectedFile.title}
-                  className="w-full h-auto max-h-96 object-contain rounded-lg"
-                />
-                <div className="mt-4">
-                  <p className="text-sm text-gray-600 dark:text-gray-300">{selectedFile.description}</p>
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    <Badge>{selectedFile.type}</Badge>
-                    <Badge variant="outline">{selectedFile.category}</Badge>
-                  </div>
-                </div>
-              </div>
-            </DialogContent>
-          </Dialog>
-        )}
+        <FilePreview
+          file={selectedFile}
+          isOpen={!!selectedFile}
+          onClose={() => setSelectedFile(null)}
+        />
+
+        <FolderCreateModal
+          isOpen={isCreateFolderModalOpen}
+          onClose={() => setIsCreateFolderModalOpen(false)}
+          onCreate={handleCreateFolder}
+          currentFolders={folders}
+        />
+
+        <UploadWithFolders
+          isOpen={isUploadModalOpen}
+          onClose={() => setIsUploadModalOpen(false)}
+          onUpload={handleUpload}
+          folders={folders}
+        />
       </div>
     </div>
   )

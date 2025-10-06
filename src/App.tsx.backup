@@ -47,12 +47,61 @@ function convertXanoToMediaFile(xanoFile: XanoFileRecord): MediaFile {
   }
 }
 
-function FileCard({ file, onEdit, onDelete, onPreview }: {
+function FileCard({ file, onEdit, onDelete, onPreview, viewMode = 'grid' }: {
   file: MediaFile
   onEdit: (file: MediaFile) => void
   onDelete: (file: MediaFile) => void
   onPreview: (file: MediaFile) => void
+  viewMode?: 'grid' | 'list'
 }) {
+  if (viewMode === 'list') {
+    return (
+      <div className="group glass-panel rounded-lg p-2 hover:shadow-md transition-shadow flex items-center gap-3">
+        {/* Thumbnail */}
+        <div className="w-8 h-8 rounded overflow-hidden flex-shrink-0">
+          {file.type === 'image' ? (
+            <img 
+              src={file.thumbnail || file.url} 
+              alt={file.title}
+              className="w-full h-full object-cover"
+              onError={(e) => {
+                e.currentTarget.src = '/placeholder-image.png'
+              }}
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center bg-gray-100">
+              <FolderOpen className="w-4 h-4 text-gray-400" />
+            </div>
+          )}
+        </div>
+        
+        {/* File Info */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <h3 className="font-medium text-sm truncate">{file.title}</h3>
+            <Badge variant="secondary" className="text-xs flex-shrink-0">{file.category}</Badge>
+          </div>
+          {file.description && (
+            <p className="text-xs text-gray-500 truncate mt-0.5">{file.description}</p>
+          )}
+        </div>
+        
+        {/* Actions */}
+        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+          <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={() => onPreview(file)}>
+            <Eye className="w-3 h-3" />
+          </Button>
+          <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={() => onEdit(file)}>
+            <Edit className="w-3 h-3" />
+          </Button>
+          <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={() => onDelete(file)}>
+            <Trash2 className="w-3 h-3" />
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <Card className="group hover:shadow-lg transition-shadow">
       <CardContent className="p-4">
@@ -90,58 +139,7 @@ function FileCard({ file, onEdit, onDelete, onPreview }: {
   )
 }
 
-function CompactFileRow({ file, onEdit, onDelete, onPreview }: {
-  file: MediaFile
-  onEdit: (file: MediaFile) => void
-  onDelete: (file: MediaFile) => void
-  onPreview: (file: MediaFile) => void
-}) {
-  return (
-    <div className="group glass-panel rounded-lg p-2 hover:shadow-md transition-shadow flex items-center gap-3">
-      {/* Thumbnail */}
-      <div className="w-8 h-8 rounded overflow-hidden flex-shrink-0">
-        {file.type === 'image' ? (
-          <img 
-            src={file.thumbnail || file.url} 
-            alt={file.title}
-            className="w-full h-full object-cover"
-            onError={(e) => {
-              e.currentTarget.src = '/placeholder-image.png'
-            }}
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center bg-gray-100">
-            <FolderOpen className="w-4 h-4 text-gray-400" />
-          </div>
-        )}
-      </div>
-      
-      {/* File Info */}
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <h3 className="font-medium text-sm truncate">{file.title}</h3>
-          <Badge variant="secondary" className="text-xs flex-shrink-0">{file.category}</Badge>
-        </div>
-        {file.description && (
-          <p className="text-xs text-gray-500 truncate mt-0.5">{file.description}</p>
-        )}
-      </div>
-      
-      {/* Actions */}
-      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-        <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={() => onPreview(file)}>
-          <Eye className="w-3 h-3" />
-        </Button>
-        <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={() => onEdit(file)}>
-          <Edit className="w-3 h-3" />
-        </Button>
-        <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={() => onDelete(file)}>
-          <Trash2 className="w-3 h-3" />
-        </Button>
-      </div>
-    </div>
-  )
-}
+
 
 function FilePreviewModal({ file, isOpen, onClose }: {
   file: MediaFile | null
@@ -273,10 +271,10 @@ function FileEditModal({ file, isOpen, onClose, onSave }: {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="Images">Images</SelectItem>
+                <SelectItem value="Image">Image</SelectItem>
                 <SelectItem value="Video">Video</SelectItem>
                 <SelectItem value="Audio">Audio</SelectItem>
-                <SelectItem value="Documents">Documents</SelectItem>
+                <SelectItem value="Document">Document</SelectItem>
                 <SelectItem value="Other">Other</SelectItem>
               </SelectContent>
             </Select>
@@ -388,9 +386,9 @@ function App() {
           url: URL.createObjectURL(file),
           thumbnail: file.type.startsWith('image/') ? URL.createObjectURL(file) : '/placeholder-file.png',
           type: file.type.split('/')[0] || 'other',
-          category: file.type.startsWith('image/') ? 'Images' : 
+          category: file.type.startsWith('image/') ? 'Image' : 
                    file.type.startsWith('video/') ? 'Video' :
-                   file.type.startsWith('audio/') ? 'Audio' : 'Documents',
+                   file.type.startsWith('audio/') ? 'Audio' : 'Document',
           size: file.size,
           filename: file.name,
           tags: '',
@@ -571,12 +569,13 @@ function App() {
             ) : (
               <div className={viewMode === 'grid' 
                 ? 'grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4'
-                : 'space-y-2'
+                : 'space-y-1'
               }>
                 {sortedFiles.map(file => (
                   <FileCard
                     key={file.id}
                     file={file}
+                       viewMode={viewMode}
                     onEdit={handleEdit}
                     onDelete={handleDelete}
                     onPreview={handlePreview}
@@ -613,6 +612,7 @@ function App() {
               <input
                 type="file"
                 multiple
+                accept="*/*"
                 onChange={(e) => e.target.files && handleUpload(e.target.files)}
                 className="hidden"
                 id="file-upload"
