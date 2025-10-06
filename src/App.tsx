@@ -271,10 +271,10 @@ function FileEditModal({ file, isOpen, onClose, onSave }: {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="Images">Images</SelectItem>
+                <SelectItem value="Image">Image</SelectItem>
                 <SelectItem value="Video">Video</SelectItem>
                 <SelectItem value="Audio">Audio</SelectItem>
-                <SelectItem value="Documents">Documents</SelectItem>
+                <SelectItem value="Document">Document</SelectItem>
                 <SelectItem value="Other">Other</SelectItem>
               </SelectContent>
             </Select>
@@ -386,9 +386,9 @@ function App() {
           url: URL.createObjectURL(file),
           thumbnail: file.type.startsWith('image/') ? URL.createObjectURL(file) : '/placeholder-file.png',
           type: file.type.split('/')[0] || 'other',
-          category: file.type.startsWith('image/') ? 'Images' : 
+          category: file.type.startsWith('image/') ? 'Image' : 
                    file.type.startsWith('video/') ? 'Video' :
-                   file.type.startsWith('audio/') ? 'Audio' : 'Documents',
+                   file.type.startsWith('audio/') ? 'Audio' : 'Document',
           size: file.size,
           filename: file.name,
           tags: '',
