@@ -57,7 +57,7 @@ export class SmartFoldersService {
           return value.toLowerCase().includes(rule.value.toLowerCase());
         }
         if (Array.isArray(value) && typeof rule.value === 'string') {
-          return value.some(v => v.toLowerCase().includes(rule.value.toLowerCase()));
+          return value.some(v => v.includes(rule.value));
         }
         return false;
       

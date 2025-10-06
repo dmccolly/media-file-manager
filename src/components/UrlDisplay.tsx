@@ -13,7 +13,7 @@ interface UrlDisplayProps {
 
 export const UrlDisplay: React.FC<UrlDisplayProps> = ({
   url,
-  title,
+  
   showCopy = true,
   showOpen = true,
   className = ''
