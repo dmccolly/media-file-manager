@@ -1435,6 +1435,7 @@ function App() {
                       <tr
                         key={file.id}
                         className={`hover:bg-gray-50 cursor-pointer ${
+                        onContextMenu={(e) => handleContextMenu(e, file)}
                           isSelected ? 'bg-blue-50' : ''
                         }`}
                         onContextMenu={(e) => handleContextMenu(e, file)}
@@ -1462,7 +1463,7 @@ function App() {
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{file.file_type}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatFileSize(file.file_size)}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatDate(file.created_at)}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                           <td className="px-6 py-4 whitespace-nowrap">
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center space-x-2">
                             <div className="text-xs font-mono text-gray-600 truncate max-w-xs">
@@ -1480,21 +1481,21 @@ function App() {
                               Copy
                             </Button>
                           </div>
-                        </td>
-                          <div className="flex gap-2">
-                            <Button size="sm" variant="outline" onClick={() => handlePreview(file)}>
-                              <Eye className="w-3 h-3" />
-                            </Button>
-                            <Button size="sm" variant="outline" onClick={() => handleEditFile(file)}>
-                              <Edit className="w-3 h-3" />
-                            </Button>
-                            <Button size="sm" variant="outline" asChild>
-                              <a href={file.media_url} download={file.title}>
-                                <Download className="w-3 h-3" />
-                              </a>
-                            </Button>
-                          </div>
-                        </td>
+                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                             <div className="flex gap-2">
+                               <Button size="sm" variant="outline" onClick={() => handlePreview(file)}>
+                                 <Eye className="w-3 h-3" />
+                               </Button>
+                               <Button size="sm" variant="outline" onClick={() => handleEditFile(file)}>
+                                 <Edit className="w-3 h-3" />
+                               </Button>
+                               <Button size="sm" variant="outline" asChild>
+                                 <a href={file.media_url} download={file.title}>
+                                   <Download className="w-3 h-3" />
+                                 </a>
+                               </Button>
+                             </div>
+                           </td>
                       </tr>
                     )
                   })}
