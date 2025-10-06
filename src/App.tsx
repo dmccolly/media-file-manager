@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Upload, Grid, List, Search, Download, Edit, Trash2, Eye, FolderOpen, Sun, Moon } from 'lucide-react'
+import { Upload, Grid, List, Search, Edit, Trash2, Eye, FolderOpen, Sun, Moon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -261,7 +261,7 @@ function MediaFileManager() {
     try {
       setIsLoading(true)
       setError(null)
-      const xanoFiles = await xanoService.getAllFiles()
+      const xanoFiles = await xanoService.fetchAllFiles()
       const convertedFiles = xanoFiles.map(convertXanoToMediaFile)
       setFiles(convertedFiles)
     } catch (err) {
@@ -344,7 +344,7 @@ function MediaFileManager() {
 
     try {
       setIsLoading(true)
-      const uploadedFile = await xanoService.uploadFile(file)
+      const uploadedFile = await xanoService.saveFile({ file })
       const convertedFile = convertXanoToMediaFile(uploadedFile)
       setFiles([...files, convertedFile])
     } catch (err) {
@@ -356,7 +356,7 @@ function MediaFileManager() {
   }
 
   const categories = ['all', 'image', 'video', 'audio', 'document', 'other']
-  const fileTypes = ['all', ...Array.from(new Set(files.map(f => f.type)))]
+  
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
