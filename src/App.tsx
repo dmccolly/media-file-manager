@@ -8,97 +8,42 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
+import { XanoService, type XanoFileRecord } from '@/services/XanoService'
 
-interface MediaFile {
+// Using XanoFileRecord as MediaFile interface
+type MediaFile = {
   id: string
   title: string
-  description?: string
+  description: string
   url: string
   thumbnail?: string
   type: string
   category: string
   size?: number
   filename: string
-  tags?: string
+  tags: string
   uploadedBy?: string
   uploadDate?: string
   metadata?: any
 }
 
-class MediaService {
-  private baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001/api/media'
-
-  async fetchFiles(): Promise<MediaFile[]> {
-    try {
-      const response = await fetch(this.baseUrl)
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
-      const data = await response.json()
-      return this.processRecords(Array.isArray(data) ? data : [])
-    } catch (error) {
-      console.error('Error fetching files:', error)
-      throw error
-    }
-  }
-
-  private processRecords(records: any[]): MediaFile[] {
-    return records
-      .map(record => {
-        const url = record.media_url || record.attachment || record.url || ''
-        if (!url || url.trim() === '') return null
-
-        const title = record.title || record.name || record.filename || 'Untitled'
-        const type = this.detectFileType(url)
-        const category = this.mapTypeToCategory(type)
-
-        return {
-          id: record.id?.toString() || Math.random().toString(),
-          title,
-          description: record.description || '',
-          url,
-          thumbnail: this.generateThumbnail(url, type),
-          type,
-          category,
-          size: record.size || 0,
-          filename: record.filename || title,
-          tags: record.tags || '',
-          uploadedBy: record.uploaded_by || record.user || '',
-          uploadDate: record.created_at || record.upload_date || '',
-          metadata: { originalRecord: record }
-        }
-      })
-      .filter(Boolean) as MediaFile[]
-  }
-
-  private detectFileType(url: string): string {
-    const extension = url.split('.').pop()?.toLowerCase() || ''
-    const typeMap: Record<string, string> = {
-      jpg: 'image', jpeg: 'image', png: 'image', gif: 'image', webp: 'image',
-      mp4: 'video', mov: 'video', avi: 'video', mkv: 'video', webm: 'video',
-      mp3: 'audio', wav: 'audio', flac: 'audio', aac: 'audio', ogg: 'audio',
-      pdf: 'pdf', doc: 'document', docx: 'document', txt: 'text',
-      xls: 'spreadsheet', xlsx: 'spreadsheet', csv: 'spreadsheet',
-      ppt: 'presentation', pptx: 'presentation',
-      zip: 'archive', rar: 'archive', '7z': 'archive'
-    }
-    return typeMap[extension] || 'other'
-  }
-
-  private mapTypeToCategory(type: string): string {
-    const categoryMap: Record<string, string> = {
-      image: 'Images', video: 'Video', audio: 'Audio',
-      pdf: 'Documents', document: 'Documents', text: 'Documents',
-      spreadsheet: 'Documents', presentation: 'Documents',
-      archive: 'Other', other: 'Other'
-    }
-    return categoryMap[type] || 'Other'
-  }
-
-  private generateThumbnail(url: string, type: string): string {
-    if (type === 'image') return url
-    if (type === 'video') return url.replace(/\.[^.]+$/, '.jpg')
-    return `/placeholder-${type}.png`
+// Helper function to convert XanoFileRecord to MediaFile format
+function convertXanoToMediaFile(xanoFile: XanoFileRecord): MediaFile {
+  const type = xanoFile.file_type?.split('/')[0] || 'other'
+  return {
+    id: xanoFile.id,
+    title: xanoFile.title,
+    description: xanoFile.description || '',
+    url: xanoFile.media_url,
+    thumbnail: xanoFile.thumbnail,
+    type,
+    category: xanoFile.category,
+    size: xanoFile.file_size,
+    filename: xanoFile.title,
+    tags: Array.isArray(xanoFile.tags) ? xanoFile.tags.join(', ') : String(xanoFile.tags || ''),
+    uploadedBy: xanoFile.author || xanoFile.submitted_by || '',
+    uploadDate: xanoFile.created_at,
+    metadata: { originalRecord: xanoFile }
   }
 }
 
@@ -307,7 +252,7 @@ function App() {
   const [sortBy, setSortBy] = useState<'title' | 'date' | 'size' | 'category'>('title')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
 
-  const mediaService = new MediaService()
+  const xanoService = new XanoService()
 
   useEffect(() => {
     loadFiles()
@@ -317,9 +262,10 @@ function App() {
     try {
       setLoading(true)
       setError(null)
-      const fetchedFiles = await mediaService.fetchFiles()
-      setFiles(fetchedFiles)
-      console.log(`✅ Loaded ${fetchedFiles.length} files successfully`)
+      const xanoFiles = await xanoService.fetchAllFiles()
+      const mediaFiles = xanoFiles.map(convertXanoToMediaFile)
+      setFiles(mediaFiles)
+      console.log(`✅ Loaded ${mediaFiles.length} files successfully`)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load files')
       console.error('❌ Error loading files:', err)
@@ -342,9 +288,16 @@ function App() {
     setEditFile(file)
   }
 
-  const handleDelete = (file: MediaFile) => {
+  const handleDelete = async (file: MediaFile) => {
     if (confirm(`Are you sure you want to delete "${file.title}"?`)) {
-      setFiles(prev => prev.filter(f => f.id !== file.id))
+      try {
+        await xanoService.deleteFile(file.id)
+        setFiles(prev => prev.filter(f => f.id !== file.id))
+        console.log('✅ File deleted successfully')
+      } catch (error) {
+        console.error('❌ Error deleting file:', error)
+        setError('Failed to delete file')
+      }
     }
   }
 
@@ -352,8 +305,23 @@ function App() {
     setPreviewFile(file)
   }
 
-  const handleSave = (file: MediaFile, updates: Partial<MediaFile>) => {
-    setFiles(prev => prev.map(f => f.id === file.id ? { ...f, ...updates } : f))
+  const handleSave = async (file: MediaFile, updates: Partial<MediaFile>) => {
+    try {
+      // Convert updates to Xano format
+      const xanoUpdates = {
+        title: updates.title,
+        description: updates.description,
+        category: updates.category,
+        tags: updates.tags ? updates.tags.split(',').map(t => t.trim()) : []
+      }
+      
+      await xanoService.updateFile(file.id, xanoUpdates)
+      setFiles(prev => prev.map(f => f.id === file.id ? { ...f, ...updates } : f))
+      console.log('✅ File updated successfully')
+    } catch (error) {
+      console.error('❌ Error updating file:', error)
+      setError('Failed to update file')
+    }
   }
 
   const handleUpload = async (uploadFiles: FileList) => {
