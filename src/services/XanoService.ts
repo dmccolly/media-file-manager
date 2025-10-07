@@ -25,8 +25,8 @@ export class XanoService {
   private baseUrl: string;
 
   constructor() {
-    // Use the correct baseUrl for deployed environment. Netlify functions
-    // proxy all API calls under the `/api` prefix.
+    // Use Netlify functions as API proxy to Xano
+    // Your Netlify functions handle the Xano integration at /api endpoints
     this.baseUrl = '/api';
   }
 

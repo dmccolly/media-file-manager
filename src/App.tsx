@@ -8,8 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
-import { type XanoFileRecord } from '@/services/XanoService'
-import { MockDataService } from '@/services/MockDataService'
+import { XanoService, type XanoFileRecord } from '@/services/XanoService'
 import { AdvancedSearch } from '@/components/AdvancedSearch'
 import { BulkOperationsPanel } from '@/components/BulkOperationsPanel'
 import { FolderTree } from '@/components/FolderTree'
@@ -356,8 +355,8 @@ function MediaFileManager() {
     tags: ''
   })
 
-  // Use MockDataService for demo purposes since no backend is available
-  const xanoService = new MockDataService() as any
+  // Use real XanoService - you have full Xano backend with Netlify functions
+  const xanoService = new XanoService()
 
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme')
