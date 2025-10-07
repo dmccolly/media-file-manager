@@ -219,15 +219,15 @@ export class CloudinaryService {
     
     try {
       if (fileType?.includes('pdf') || originalUrl.toLowerCase().includes('.pdf')) {
-        return originalUrl.replace('/upload/', '/upload/w_150,h_150,c_fill,pg_1/').replace(/\.pdf$/i, '.jpg');
+        return originalUrl.replace('/upload/', '/upload/w_150,h_150,c_auto_pad,b_auto,f_auto,q_auto,fl_lossy,g_auto:face,pg_1/').replace(/\.pdf$/i, '.jpg');
       }
       
       if (resourceType === 'image') {
-        return originalUrl.replace('/upload/', '/upload/w_150,h_150,c_fill/');
+        return originalUrl.replace('/upload/', '/upload/w_150,h_150,c_auto_pad,b_auto,f_auto,q_auto,fl_lossy,g_auto:face/');
       }
       
       if (resourceType === 'video') {
-        return originalUrl.replace('/upload/', '/upload/w_150,h_150,c_fill,so_0/').replace(/\.[^.]+$/, '.jpg');
+        return originalUrl.replace('/upload/', '/upload/w_150,h_150,c_auto_pad,b_auto,f_auto,q_auto,fl_lossy,g_auto:face,so_0/').replace(/\.[^.]+$/, '.jpg');
       }
       
       if (resourceType === 'raw' && (fileType?.startsWith('audio/') || this.isAudioFile(originalUrl))) {
