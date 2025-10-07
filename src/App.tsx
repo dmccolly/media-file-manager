@@ -1,581 +1,238 @@
-import { useState, useEffect } from 'react'
-import { Upload, Grid, List, Search, Download, Edit, Trash2, Eye, FolderOpen } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Textarea } from '@/components/ui/textarea'
-import { Label } from '@/components/ui/label'
-import { XanoService, type XanoFileRecord } from '@/services/XanoService'
+import { useState } from 'react'
+import { Upload, Grid, List, FolderOpen, Sun, Moon, Folder, Plus, Trash2 } from 'lucide-react'
 
-// Using XanoFileRecord as MediaFile interface
-type MediaFile = {
-  id: string
-  title: string
-  description: string
-  url: string
-  thumbnail?: string
-  type: string
-  category: string
-  size?: number
-  filename: string
-  tags: string
-  uploadedBy?: string
-  uploadDate?: string
-  metadata?: any
-}
+// Simple working version with folder management UI
+export default function App() {
+  const [isDarkMode, setIsDarkMode] = useState(false)
+  const [currentFolder, setCurrentFolder] = useState('/')
+  const [showUpload, setShowUpload] = useState(false)
+  const [showNewFolder, setShowNewFolder] = useState(false)
+  const [newFolderName, setNewFolderName] = useState('')
+  
+  const [folders, setFolders] = useState([
+    { name: '/', path: '/' },
+    { name: 'projects', path: '/projects' },
+    { name: 'clients', path: '/clients' },
+    { name: 'personal', path: '/personal' }
+  ])
 
-// Helper function to convert XanoFileRecord to MediaFile format
-function convertXanoToMediaFile(xanoFile: XanoFileRecord): MediaFile {
-  const type = xanoFile.file_type?.split('/')[0] || 'other'
-  return {
-    id: xanoFile.id,
-    title: xanoFile.title,
-    description: xanoFile.description || '',
-    url: xanoFile.media_url,
-    thumbnail: xanoFile.thumbnail,
-    type,
-    category: xanoFile.category,
-    size: xanoFile.file_size,
-    filename: xanoFile.title,
-    tags: Array.isArray(xanoFile.tags) ? xanoFile.tags.join(', ') : String(xanoFile.tags || ''),
-    uploadedBy: xanoFile.author || xanoFile.submitted_by || '',
-    uploadDate: xanoFile.created_at,
-    metadata: { originalRecord: xanoFile }
-  }
-}
-
-function FileCard({ file, onEdit, onDelete, onPreview, viewMode = 'grid' }: {
-  file: MediaFile
-  onEdit: (file: MediaFile) => void
-  onDelete: (file: MediaFile) => void
-  onPreview: (file: MediaFile) => void
-  viewMode?: 'grid' | 'list'
-}) {
-  if (viewMode === 'list') {
-    return (
-      <div className="group glass-panel rounded-lg p-2 hover:shadow-md transition-shadow flex items-center gap-3">
-        {/* Thumbnail */}
-        <div className="w-8 h-8 rounded overflow-hidden flex-shrink-0">
-          {file.type === 'image' ? (
-            <img 
-              src={file.thumbnail || file.url} 
-              alt={file.title}
-              className="w-full h-full object-cover"
-              onError={(e) => {
-                e.currentTarget.src = '/placeholder-image.png'
-              }}
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center bg-gray-100">
-              <FolderOpen className="w-4 h-4 text-gray-400" />
-            </div>
-          )}
-        </div>
-        
-        {/* File Info */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <h3 className="font-medium text-sm truncate">{file.title}</h3>
-            <Badge variant="secondary" className="text-xs flex-shrink-0">{file.category}</Badge>
-          </div>
-          {file.description && (
-            <p className="text-xs text-gray-500 truncate mt-0.5">{file.description}</p>
-          )}
-        </div>
-        
-        {/* Actions */}
-        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-          <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={() => onPreview(file)}>
-            <Eye className="w-3 h-3" />
-          </Button>
-          <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={() => onEdit(file)}>
-            <Edit className="w-3 h-3" />
-          </Button>
-          <Button size="sm" variant="ghost" className="h-6 w-6 p-0" onClick={() => onDelete(file)}>
-            <Trash2 className="w-3 h-3" />
-          </Button>
-        </div>
-      </div>
-    )
-  }
-
-  return (
-    <Card className="group hover:shadow-lg transition-shadow">
-      <CardContent className="p-4">
-        <div className="aspect-square mb-3 glass-panel rounded-lg overflow-hidden">
-          {file.type === 'image' ? (
-            <img 
-              src={file.thumbnail || file.url} 
-              alt={file.title}
-              className="w-full h-full object-cover"
-              onError={(e) => {
-                e.currentTarget.src = '/placeholder-image.png'
-              }}
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center glass-panel">
-              <FolderOpen className="w-12 h-12 text-gray-400" />
-            </div>
-          )}
-        </div>
-        <h3 className="font-medium text-sm mb-1 truncate">{file.title}</h3>
-        <Badge variant="secondary" className="text-xs mb-2">{file.category}</Badge>
-        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-          <Button size="sm" variant="ghost" onClick={() => onPreview(file)}>
-            <Eye className="w-4 h-4" />
-          </Button>
-          <Button size="sm" variant="ghost" onClick={() => onEdit(file)}>
-            <Edit className="w-4 h-4" />
-          </Button>
-          <Button size="sm" variant="ghost" onClick={() => onDelete(file)}>
-            <Trash2 className="w-4 h-4" />
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
-  )
-}
-
-
-
-function FilePreviewModal({ file, isOpen, onClose }: {
-  file: MediaFile | null
-  isOpen: boolean
-  onClose: () => void
-}) {
-  if (!file) return null
-
-  return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-auto">
-        <DialogHeader>
-          <DialogTitle>{file.title}</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4">
-          {file.type === 'image' && (
-            <img src={file.url} alt={file.title} className="w-full rounded-lg" />
-          )}
-          {file.type === 'video' && (
-            <video controls className="w-full rounded-lg">
-              <source src={file.url} />
-            </video>
-          )}
-          {file.type === 'audio' && (
-            <audio controls className="w-full">
-              <source src={file.url} />
-            </audio>
-          )}
-          {file.type === 'pdf' && (
-            <iframe src={file.url} className="w-full h-96 rounded-lg" />
-          )}
-          {!['image', 'video', 'audio', 'pdf'].includes(file.type) && (
-            <div className="text-center p-8 bg-gray-50 rounded-lg">
-              <FolderOpen className="w-16 h-16 mx-auto mb-4 text-gray-400" />
-              <p className="text-gray-600">Preview not available for this file type</p>
-              <Button className="mt-4" onClick={() => window.open(file.url, '_blank')}>
-                <Download className="w-4 h-4 mr-2" />
-                Download File
-              </Button>
-            </div>
-          )}
-          <div className="grid grid-cols-2 gap-4 text-sm">
-            <div><strong>Category:</strong> {file.category}</div>
-            <div><strong>Type:</strong> {file.type}</div>
-            <div><strong>Size:</strong> {file.size ? `${(file.size / 1024 / 1024).toFixed(2)} MB` : 'Unknown'}</div>
-            <div><strong>Uploaded:</strong> {file.uploadDate || 'Unknown'}</div>
-          </div>
-          {file.description && (
-            <div>
-              <strong>Description:</strong>
-              <p className="mt-1 text-gray-600">{file.description}</p>
-            </div>
-          )}
-        </div>
-      </DialogContent>
-    </Dialog>
-  )
-}
-
-function FileEditModal({ file, isOpen, onClose, onSave }: {
-  file: MediaFile | null
-  isOpen: boolean
-  onClose: () => void
-  onSave: (file: MediaFile, updates: Partial<MediaFile>) => void
-}) {
-  const [formData, setFormData] = useState({
-    title: '',
-    description: '',
-    tags: '',
-    category: ''
-  })
-
-  useEffect(() => {
-    if (file) {
-      setFormData({
-        title: file.title || '',
-        description: file.description || '',
-        tags: file.tags || '',
-        category: file.category || ''
-      })
-    }
-  }, [file])
-
-  const handleSave = () => {
-    if (file) {
-      onSave(file, formData)
-      onClose()
+  const handleCreateFolder = () => {
+    if (newFolderName.trim()) {
+      const newFolder = {
+        name: newFolderName.trim(),
+        path: `/${newFolderName.trim()}`
+      }
+      setFolders([...folders, newFolder])
+      setNewFolderName('')
+      setShowNewFolder(false)
     }
   }
 
-  if (!file) return null
-
-  return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Edit File</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4">
-          <div>
-            <Label htmlFor="title">Title</Label>
-            <Input
-              id="title"
-              value={formData.title}
-              onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
-            />
-          </div>
-          <div>
-            <Label htmlFor="description">Description</Label>
-            <Textarea
-              id="description"
-              value={formData.description}
-              onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-            />
-          </div>
-          <div>
-            <Label htmlFor="tags">Tags</Label>
-            <Input
-              id="tags"
-              value={formData.tags}
-              onChange={(e) => setFormData(prev => ({ ...prev, tags: e.target.value }))}
-              placeholder="Comma-separated tags"
-            />
-          </div>
-          <div>
-            <Label htmlFor="category">Category</Label>
-            <Select value={formData.category} onValueChange={(value) => setFormData(prev => ({ ...prev, category: value }))}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Image">Image</SelectItem>
-                <SelectItem value="Video">Video</SelectItem>
-                <SelectItem value="Audio">Audio</SelectItem>
-                <SelectItem value="Document">Document</SelectItem>
-                <SelectItem value="Other">Other</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex gap-2 justify-end">
-            <Button variant="outline" onClick={onClose}>Cancel</Button>
-            <Button onClick={handleSave}>Save Changes</Button>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
-  )
-}
-
-function App() {
-  const [files, setFiles] = useState<MediaFile[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [searchTerm, setSearchTerm] = useState('')
-  const [selectedCategory, setSelectedCategory] = useState('All')
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
-  const [previewFile, setPreviewFile] = useState<MediaFile | null>(null)
-  const [editFile, setEditFile] = useState<MediaFile | null>(null)
-  const [showUploadModal, setShowUploadModal] = useState(false)
-  const [uploading, setUploading] = useState(false)
-  const [sortBy, setSortBy] = useState<'title' | 'date' | 'size' | 'category'>('title')
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
-
-  const xanoService = new XanoService()
-
-  useEffect(() => {
-    loadFiles()
-  }, [])
-
-  const loadFiles = async () => {
-    try {
-      setLoading(true)
-      setError(null)
-      const xanoFiles = await xanoService.fetchAllFiles()
-      const mediaFiles = xanoFiles.map(convertXanoToMediaFile)
-      setFiles(mediaFiles)
-      console.log(`✅ Loaded ${mediaFiles.length} files successfully`)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load files')
-      console.error('❌ Error loading files:', err)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const filteredFiles = files.filter(file => {
-    const matchesSearch = file.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         file.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         file.tags?.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesCategory = selectedCategory === 'All' || file.category === selectedCategory
-    return matchesSearch && matchesCategory
-  })
-
-  const categories = ['All', ...Array.from(new Set(files.map(f => f.category)))]
-
-  const handleEdit = (file: MediaFile) => {
-    setEditFile(file)
-  }
-
-  const handleDelete = async (file: MediaFile) => {
-    if (confirm(`Are you sure you want to delete "${file.title}"?`)) {
-      try {
-        await xanoService.deleteFile(file.id)
-        setFiles(prev => prev.filter(f => f.id !== file.id))
-        console.log('✅ File deleted successfully')
-      } catch (error) {
-        console.error('❌ Error deleting file:', error)
-        setError('Failed to delete file')
+  const handleDeleteFolder = (folderPath: string) => {
+    if (folderPath !== '/') {
+      setFolders(folders.filter(folder => folder.path !== folderPath))
+      if (currentFolder === folderPath) {
+        setCurrentFolder('/')
       }
     }
   }
 
-  const handlePreview = (file: MediaFile) => {
-    setPreviewFile(file)
-  }
-
-  const handleSave = async (file: MediaFile, updates: Partial<MediaFile>) => {
-    try {
-      // Convert updates to Xano format
-      const xanoUpdates = {
-        title: updates.title,
-        description: updates.description,
-        category: updates.category,
-        tags: updates.tags ? updates.tags.split(',').map(t => t.trim()) : []
-      }
-      
-      await xanoService.updateFile(file.id, xanoUpdates)
-      setFiles(prev => prev.map(f => f.id === file.id ? { ...f, ...updates } : f))
-      console.log('✅ File updated successfully')
-    } catch (error) {
-      console.error('❌ Error updating file:', error)
-      setError('Failed to update file')
-    }
-  }
-
-  const handleUpload = async (uploadFiles: FileList) => {\n    setUploading(true)\n    try {\n      // Import the integrated upload service\n      const { IntegratedUploadService } = await import(&quot;./services/IntegratedUploadService&quot;)\n      const uploadService = new IntegratedUploadService()\n\n      // Prepare files for integrated upload\n      const uploadPromises = Array.from(uploadFiles).map(file => ({\n        file,\n        title: file.name.split(&quot;.&quot;)[0],\n        description: `Uploaded file: ${file.name}`,\n        category: file.type.startsWith(&quot;image/&quot;) ? &quot;Images&quot; :\n                 file.type.startsWith(&quot;video/&quot;) ? &quot;Video&quot; :\n                 file.type.startsWith(&quot;audio/&quot;) ? &quot;Audio&quot; : &quot;Documents&quot;,\n        tags: &quot;&quot;,\n        folder_path: &quot;/&quot;\n      }))\n\n      console.log(&quot;🚀 Starting integrated upload to Cloudinary, Xano, and Webflow...&quot;)\n      const results = await uploadService.uploadMultipleFiles(\n        uploadPromises,\n        (fileIndex, progress, fileName) => {\n          console.log(`📤 Upload progress for ${fileName}: ${progress}%`)\n        }\n      )\n\n      console.log(&quot;✅ Upload complete:&quot;, results)\n      \n      // Refresh file list after upload\n      await loadFiles()\n      \n      setShowUploadModal(false)\n      setError(null)\n      console.log(&quot;🎉 Files successfully uploaded to Cloudinary, Xano, and Webflow!&quot;)\n      \n    } catch (error) {\n      console.error(&quot;Upload failed:&quot;, error)\n      setError(`Upload failed: ${error instanceof Error ? error.message : &quot;Please try again.&quot;}`)\n    } finally {\n      setUploading(false)\n    }\n  }
-      default:
-        return 0
-    }
-    
-    if (aVal < bVal) return sortOrder === 'asc' ? -1 : 1
-    if (aVal > bVal) return sortOrder === 'asc' ? 1 : -1
-    return 0
-  })
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading files...</p>
-        </div>
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-red-600 mb-4">Error: {error}</p>
-          <Button onClick={loadFiles}>Retry</Button>
-        </div>
-      </div>
-    )
-  }
-
   return (
-    <div className="min-h-screen" style={{background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)"}}>
-      <header className="glass-panel m-4 rounded-xl">
+    <div className={`min-h-screen ${isDarkMode ? 'dark bg-gray-900 text-white' : 'bg-gray-50'}`}>
+      {/* Header */}
+      <div className="bg-white dark:bg-gray-800 shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <h1 className="text-xl font-semibold text-white">Media File Manager</h1>
-            <div className="flex items-center gap-4">
-              <Button onClick={() => setShowUploadModal(true)}>
-                <Upload className="w-4 h-4 mr-2" />
-                Upload Files
-              </Button>
+          <div className="flex justify-between items-center py-4">
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+              📁 Media File Manager
+            </h1>
+            <div className="flex items-center space-x-4">
+              <button
+                onClick={() => setShowUpload(true)}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2"
+              >
+                <Upload size={16} />
+                <span>Upload</span>
+              </button>
+              <button
+                onClick={() => setIsDarkMode(!isDarkMode)}
+                className="p-2 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600"
+              >
+                {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
+              </button>
             </div>
           </div>
         </div>
-      </header>
+      </div>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="flex flex-col lg:flex-row gap-6">
-          <aside className="lg:w-64">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Filters</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <Label htmlFor="search">Search</Label>
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                    <Input
-                      id="search"
-                      placeholder="Search files..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-10"
-                    />
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          {/* Sidebar - Folders */}
+          <div className="lg:col-span-1">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold">Folders</h2>
+                <button 
+                  onClick={() => setShowNewFolder(true)}
+                  className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm flex items-center space-x-1"
+                >
+                  <Plus size={14} />
+                  <span>New Folder</span>
+                </button>
+              </div>
+              
+              <div className="space-y-2">
+                {folders.map((folder) => (
+                  <div
+                    key={folder.path}
+                    className={`flex items-center space-x-2 p-2 rounded cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 ${
+                      currentFolder === folder.path ? 'bg-blue-100 dark:bg-blue-900' : ''
+                    }`}
+                    onClick={() => setCurrentFolder(folder.path)}
+                  >
+                    <Folder size={16} className="text-blue-600" />
+                    <span className="text-sm">{folder.name}</span>
+                    {folder.path !== '/' && (
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleDeleteFolder(folder.path)
+                        }}
+                        className="ml-auto text-red-500 hover:text-red-700"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    )}
                   </div>
-                </div>
-                <div>
-                  <Label htmlFor="category">Category</Label>
-                  <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {categories.map(category => (
-                        <SelectItem key={category} value={category}>{category}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </CardContent>
-            </Card>
-          </aside>
-
-          <div className="flex-1">
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-4">
-                <p className="text-gray-600">
-                  {filteredFiles.length} of {files.length} files
-                </p>
-                <Select value={sortBy} onValueChange={(value: any) => handleSort(value)}>
-                  <SelectTrigger className="w-32">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="title">Title</SelectItem>
-                    <SelectItem value="date">Date</SelectItem>
-                    <SelectItem value="size">Size</SelectItem>
-                    <SelectItem value="category">Category</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant={viewMode === 'grid' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setViewMode('grid')}
-                >
-                  <Grid className="w-4 h-4" />
-                </Button>
-                <Button
-                  variant={viewMode === 'list' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setViewMode('list')}
-                >
-                  <List className="w-4 h-4" />
-                </Button>
-              </div>
-            </div>
-
-            {sortedFiles.length === 0 ? (
-              <div className="text-center py-12">
-                <FolderOpen className="w-16 h-16 mx-auto mb-4 text-gray-400" />
-                <p className="text-gray-600">No files found</p>
-                {files.length === 0 && !loading && (
-                  <Button className="mt-4" onClick={() => setShowUploadModal(true)}>
-                    <Upload className="w-4 h-4 mr-2" />
-                    Upload Your First File
-                  </Button>
-                )}
-              </div>
-            ) : (
-              <div className={viewMode === 'grid' 
-                ? 'grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4'
-                : 'space-y-1'
-              }>
-                {sortedFiles.map(file => (
-                  <FileCard
-                    key={file.id}
-                    file={file}
-                       viewMode={viewMode}
-                    onEdit={handleEdit}
-                    onDelete={handleDelete}
-                    onPreview={handlePreview}
-                  />
                 ))}
               </div>
-            )}
+            </div>
+          </div>
+
+          {/* Main Content */}
+          <div className="lg:col-span-3">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
+              {/* Toolbar */}
+              <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-4">
+                    <input
+                      type="text"
+                      placeholder="Search files..."
+                      className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    />
+                    <select className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                      <option>All</option>
+                      <option>Images</option>
+                      <option>Videos</option>
+                      <option>Documents</option>
+                    </select>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <button className="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700">
+                      <Grid size={20} />
+                    </button>
+                    <button className="p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700">
+                      <List size={20} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* File Area */}
+              <div className="p-6">
+                <div className="text-center py-12">
+                  <FolderOpen size={48} className="mx-auto text-gray-400 mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+                    No files in {currentFolder}
+                  </h3>
+                  <p className="text-gray-500 dark:text-gray-400">
+                    Upload files to get started
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
-      </main>
+      </div>
 
-      <FilePreviewModal
-        file={previewFile}
-        isOpen={!!previewFile}
-        onClose={() => setPreviewFile(null)}
-      />
-
-      <FileEditModal
-        file={editFile}
-        isOpen={!!editFile}
-        onClose={() => setEditFile(null)}
-        onSave={handleSave}
-      />
-
-      <Dialog open={showUploadModal} onOpenChange={setShowUploadModal}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Upload Files</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
-              <Upload className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-              <p className="text-gray-600 mb-4">Drag and drop files here, or click to select</p>
+      {/* Upload Modal */}
+      {showUpload && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-96">
+            <h3 className="text-lg font-semibold mb-4">Upload Files</h3>
+            
+            <div className="mb-4">
+              <label className="block text-sm font-medium mb-2">Select Files</label>
               <input
                 type="file"
                 multiple
-                accept="*/*"
-                onChange={(e) => e.target.files && handleUpload(e.target.files)}
-                className="hidden"
-                id="file-upload"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg"
               />
-              <Button asChild>
-                <label htmlFor="file-upload" className="cursor-pointer">
-                  Select Files
-                </label>
-              </Button>
             </div>
-            {uploading && (
-              <div className="text-center">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
-                <p className="text-gray-600">Uploading files...</p>
-              </div>
-            )}
+
+            <div className="mb-4">
+              <label className="block text-sm font-medium mb-2">Target Folder</label>
+              <select className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700">
+                {folders.map((folder) => (
+                  <option key={folder.path} value={folder.path}>
+                    {folder.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => setShowUpload(false)}
+                className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"
+              >
+                Cancel
+              </button>
+              <button className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg">
+                Upload Files
+              </button>
+            </div>
           </div>
-        </DialogContent>
-      </Dialog>
+        </div>
+      )}
+
+      {/* New Folder Modal */}
+      {showNewFolder && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-96">
+            <h3 className="text-lg font-semibold mb-4">Create New Folder</h3>
+            
+            <div className="mb-4">
+              <label className="block text-sm font-medium mb-2">Folder Name</label>
+              <input
+                type="text"
+                value={newFolderName}
+                onChange={(e) => setNewFolderName(e.target.value)}
+                placeholder="Enter folder name"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
+                onKeyPress={(e) => e.key === 'Enter' && handleCreateFolder()}
+                autoFocus
+              />
+            </div>
+
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => setShowNewFolder(false)}
+                className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={handleCreateFolder}
+                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg"
+              >
+                Create Folder
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
-
-export default App
