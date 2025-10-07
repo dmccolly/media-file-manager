@@ -2,6 +2,12 @@
 
 A modern media file management application built with React, TypeScript, and Vite. The application provides a web interface for uploading, organizing, and managing media files with support for images, videos, audio, PDFs, and documents.
 
+## 🚀 Live Application
+
+**Production URL:** [https://sites.super.myninja.ai/56b586d1-be81-4879-80c8-617125fe9da1/bf1e01b7/index.html](https://sites.super.myninja.ai/56b586d1-be81-4879-80c8-617125fe9da1/bf1e01b7/index.html)
+
+✅ **Status:** Fully deployed and operational with all advanced features
+
 ## Project Migration History
 
 This project was migrated from a Flask-based Python application to a modern React + TypeScript + Vite frontend with a Node.js server backend. The migration includes:
@@ -20,12 +26,23 @@ This project was migrated from a Flask-based Python application to a modern Reac
 
 ## Features
 
+### 🎯 Core Features
 - **File Upload**: Support for images, videos, audio, PDFs, and documents
 - **Media Preview**: Built-in previews for all supported file types
 - **File Management**: Edit, delete, and organize files with metadata
 - **Batch Operations**: Select and manage multiple files at once
 - **Search & Filter**: Find files by name, description, author, or tags
 - **Responsive Design**: Works on desktop and mobile devices
+
+### 🚀 Advanced Features (Live in Production)
+- **Advanced Search**: Multi-criteria filtering with file type, date, size, author, and tags
+- **Bulk Operations Panel**: Batch file management (move, update, delete multiple files)
+- **Folder Tree Navigation**: Hierarchical folder structure with expand/collapse
+- **File Selection System**: Individual and bulk file selection with checkboxes
+- **Enhanced UI Controls**: Professional interface with dark/light theme toggle
+- **Breadcrumb Navigation**: Easy folder navigation with clickable path buttons
+- **Grid/List View Toggle**: Multiple display options for file viewing
+- **Empty State Handling**: Helpful messaging and guidance for new users
 
 ## Technology Stack
 
