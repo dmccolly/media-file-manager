@@ -12,7 +12,7 @@ export default async (req: Request, context: Context) => {
   }
   
   try {
-    const apiToken = process.env.WEBFLOW_API_KEY || Netlify.env.get('WEBFLOW_API_KEY');
+    const apiToken = process.env.VITE_WEBFLOW_API_TOKEN || Netlify.env.get('VITE_WEBFLOW_API_TOKEN') || process.env.WEBFLOW_API_KEY || Netlify.env.get('WEBFLOW_API_KEY');
     const siteId = process.env.WEBFLOW_SITE_ID || Netlify.env.get('WEBFLOW_SITE_ID');
     const collectionId = process.env.WEBFLOW_COLLECTION_ID || Netlify.env.get('WEBFLOW_COLLECTION_ID');
     
