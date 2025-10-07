@@ -8,7 +8,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
-import { XanoService, type XanoFileRecord } from '@/services/XanoService'
+import { type XanoFileRecord } from '@/services/XanoService'
+import { MockDataService } from '@/services/MockDataService'
 import { AdvancedSearch } from '@/components/AdvancedSearch'
 import { BulkOperationsPanel } from '@/components/BulkOperationsPanel'
 import { FolderTree } from '@/components/FolderTree'
@@ -355,7 +356,8 @@ function MediaFileManager() {
     tags: ''
   })
 
-  const xanoService = new XanoService()
+  // Use MockDataService for demo purposes since no backend is available
+  const xanoService = new MockDataService() as any
 
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme')
@@ -392,7 +394,7 @@ function MediaFileManager() {
       // Filter by selected folder
       const folderFilteredFiles = selectedFolder === '/' 
         ? convertedFiles 
-        : convertedFiles.filter(file => file.folder_path === selectedFolder)
+        : convertedFiles.filter((file: MediaFile) => file.folder_path === selectedFolder)
       
       setFiles(folderFilteredFiles)
     } catch (err) {

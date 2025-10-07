@@ -31,6 +31,6 @@
 - [x] Test all advanced functionality
 
 ## Deployment
-- [ ] Build and test locally
-- [ ] Deploy to production
-- [ ] Commit to GitHub
+- [x] Build and test locally
+- [x] Deploy to production
+- [x] Commit to GitHub
