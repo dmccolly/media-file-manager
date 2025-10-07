@@ -12,7 +12,7 @@ export default defineConfig({
   define: {
     'process.env': {}
   },
-  base: '/',
+  base: './',
   server: {
     proxy: {
       '/api': {
