@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Upload, Grid, List, Search, FolderOpen, Sun, Moon, Folder, Plus } from 'lucide-react'
+import { Upload, Grid, List, Search, FolderOpen, Sun, Moon, Folder, Plus, Filter, CheckSquare, Square } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -9,6 +9,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { XanoService, type XanoFileRecord } from '@/services/XanoService'
+import { AdvancedSearch } from '@/components/AdvancedSearch'
+import { BulkOperationsPanel } from '@/components/BulkOperationsPanel'
+import { FolderTree } from '@/components/FolderTree'
+
+
 
 // MediaFile interface for internal use
 interface MediaFile {
@@ -51,16 +56,30 @@ function convertXanoToMediaFile(xanoFile: XanoFileRecord): MediaFile {
   }
 }
 
-function FileCard({ file, onEdit, onDelete, onPreview, viewMode = 'grid' }: {
+function FileCard({ file, onEdit, onDelete, onPreview, viewMode = 'grid', isSelected, onSelect }: {
   file: MediaFile
   onEdit: (file: MediaFile) => void
   onDelete: (id: string) => void
   onPreview: (file: MediaFile) => void
   viewMode?: 'grid' | 'list'
+  isSelected?: boolean
+  onSelect?: (id: string) => void
 }) {
   if (viewMode === 'list') {
     return (
       <div className="glass-panel flex items-center space-x-4 p-4 interactive-element">
+        {onSelect && (
+          <button
+            onClick={() => onSelect(file.id)}
+            className="flex-shrink-0"
+          >
+            {isSelected ? (
+              <CheckSquare className="w-5 h-5 text-blue-600" />
+            ) : (
+              <Square className="w-5 h-5 text-gray-400" />
+            )}
+          </button>
+        )}
         <div className="flex-shrink-0">
           <img 
             src={file.thumbnail || '/placeholder-image.jpg'} 
@@ -96,7 +115,19 @@ function FileCard({ file, onEdit, onDelete, onPreview, viewMode = 'grid' }: {
 
   return (
     <Card className="glass-panel interactive-element">
-      <CardHeader>
+      <CardHeader className="relative">
+        {onSelect && (
+          <button
+            onClick={() => onSelect(file.id)}
+            className="absolute top-2 left-2 z-10 bg-white rounded-full p-1 shadow-md"
+          >
+            {isSelected ? (
+              <CheckSquare className="w-4 h-4 text-blue-600" />
+            ) : (
+              <Square className="w-4 h-4 text-gray-400" />
+            )}
+          </button>
+        )}
         <img 
           src={file.thumbnail || '/placeholder-image.jpg'} 
           alt={file.title}
@@ -308,7 +339,23 @@ function MediaFileManager() {
   const [folders, setFolders] = useState<string[]>(['/', '/projects', '/clients', '/personal'])
   const [isCreateFolderModalOpen, setIsCreateFolderModalOpen] = useState(false)
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false)
+  const [selectedFiles, setSelectedFiles] = useState<string[]>([])
+  const [showBulkOperations, setShowBulkOperations] = useState(false)
+  const [showAdvancedSearch, setShowAdvancedSearch] = useState(false)
+  const [showFolderTree, setShowFolderTree] = useState(false)
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set(['/']))
+  const [advancedSearchFilters, setAdvancedSearchFilters] = useState({
+    fileType: 'all',
+    category: 'all',
+    dateFrom: '',
+    dateTo: '',
+    sizeMin: '',
+    sizeMax: '',
+    author: '',
+    tags: ''
+  })
 
+  // Use real XanoService - you have full Xano backend with Netlify functions
   const xanoService = new XanoService()
 
   useEffect(() => {
@@ -334,7 +381,7 @@ function MediaFileManager() {
 
   useEffect(() => {
     filterFiles()
-  }, [files, searchTerm, selectedCategory, selectedFolder])
+  }, [files, searchTerm, selectedCategory, selectedFolder, advancedSearchFilters])
 
   const loadFiles = async () => {
     try {
@@ -346,7 +393,7 @@ function MediaFileManager() {
       // Filter by selected folder
       const folderFilteredFiles = selectedFolder === '/' 
         ? convertedFiles 
-        : convertedFiles.filter(file => file.folder_path === selectedFolder)
+        : convertedFiles.filter((file: MediaFile) => file.folder_path === selectedFolder)
       
       setFiles(folderFilteredFiles)
     } catch (err) {
@@ -370,6 +417,45 @@ function MediaFileManager() {
 
     if (selectedCategory !== 'all') {
       filtered = filtered.filter(file => file.category === selectedCategory)
+    }
+
+    // Advanced search filters
+    if (advancedSearchFilters.fileType !== 'all') {
+      filtered = filtered.filter(file => file.type === advancedSearchFilters.fileType)
+    }
+
+    if (advancedSearchFilters.category !== 'all') {
+      filtered = filtered.filter(file => file.category === advancedSearchFilters.category)
+    }
+
+    if (advancedSearchFilters.dateFrom) {
+      filtered = filtered.filter(file => new Date(file.uploadDate) >= new Date(advancedSearchFilters.dateFrom))
+    }
+
+    if (advancedSearchFilters.dateTo) {
+      filtered = filtered.filter(file => new Date(file.uploadDate) <= new Date(advancedSearchFilters.dateTo))
+    }
+
+    if (advancedSearchFilters.sizeMin) {
+      const minSize = parseFloat(advancedSearchFilters.sizeMin) * 1024 * 1024 // Convert MB to bytes
+      filtered = filtered.filter(file => file.size >= minSize)
+    }
+
+    if (advancedSearchFilters.sizeMax) {
+      const maxSize = parseFloat(advancedSearchFilters.sizeMax) * 1024 * 1024 // Convert MB to bytes
+      filtered = filtered.filter(file => file.size <= maxSize)
+    }
+
+    if (advancedSearchFilters.author) {
+      filtered = filtered.filter(file => 
+        file.uploadedBy.toLowerCase().includes(advancedSearchFilters.author.toLowerCase())
+      )
+    }
+
+    if (advancedSearchFilters.tags) {
+      filtered = filtered.filter(file => 
+        file.tags.toLowerCase().includes(advancedSearchFilters.tags.toLowerCase())
+      )
     }
 
     setFilteredFiles(filtered)
@@ -431,6 +517,39 @@ function MediaFileManager() {
     setSelectedFolder(folderPath)
   }
 
+  const handleFileSelect = (fileId: string) => {
+    setSelectedFiles(prev => 
+      prev.includes(fileId) 
+        ? prev.filter(id => id !== fileId)
+        : [...prev, fileId]
+    )
+  }
+
+  const handleSelectAll = () => {
+    if (selectedFiles.length === filteredFiles.length) {
+      setSelectedFiles([])
+    } else {
+      setSelectedFiles(filteredFiles.map(f => f.id))
+    }
+  }
+
+  const handleAdvancedSearchFiltersChange = (filters: any) => {
+    setAdvancedSearchFilters(filters)
+  }
+
+  const handleClearAdvancedFilters = () => {
+    setAdvancedSearchFilters({
+      fileType: 'all',
+      category: 'all',
+      dateFrom: '',
+      dateTo: '',
+      sizeMin: '',
+      sizeMax: '',
+      author: '',
+      tags: ''
+    })
+  }
+
   const categories = ['all', 'image', 'video', 'audio', 'document', 'other']
 
   return (
@@ -488,51 +607,170 @@ function MediaFileManager() {
           </div>
         </div>
 
-        {/* Controls */}
+        {/* Advanced Search Controls */}
         <div className="glass-panel p-6 mb-6">
-          <div className="flex flex-col lg:flex-row gap-4 items-center">
-            <div className="flex-1">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                <Input
-                  type="text"
-                  placeholder="Search files..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold">Search &amp; Filter</h2>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowAdvancedSearch(!showAdvancedSearch)}
+                >
+                  <Filter className="w-4 h-4 mr-1" />
+                  {showAdvancedSearch ? 'Simple Search' : 'Advanced Search'}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowFolderTree(!showFolderTree)}
+                >
+                  <Folder className="w-4 h-4 mr-1" />
+                  {showFolderTree ? 'Hide Tree' : 'Folder Tree'}
+                </Button>
               </div>
             </div>
-            <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-              <SelectTrigger className="w-full lg:w-48">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {categories.map(cat => (
-                  <SelectItem key={cat} value={cat}>
-                    {cat.charAt(0).toUpperCase() + cat.slice(1)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <div className="flex space-x-2">
-              <Button
-                variant={viewMode === 'grid' ? 'default' : 'outline'}
-                size="icon"
-                onClick={() => setViewMode('grid')}
-              >
-                <Grid className="w-4 h-4" />
-              </Button>
-              <Button
-                variant={viewMode === 'list' ? 'default' : 'outline'}
-                size="icon"
-                onClick={() => setViewMode('list')}
-              >
-                <List className="w-4 h-4" />
-              </Button>
+
+            {showAdvancedSearch ? (
+              <AdvancedSearch
+                searchTerm={searchTerm}
+                onSearchChange={setSearchTerm}
+                filters={advancedSearchFilters}
+                onFiltersChange={handleAdvancedSearchFiltersChange}
+                onClearFilters={handleClearAdvancedFilters}
+                categories={categories.filter(c => c !== 'all')}
+              />
+            ) : (
+              <div className="flex flex-col lg:flex-row gap-4 items-center">
+                <div className="flex-1">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                    <Input
+                      type="text"
+                      placeholder="Search files..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+                </div>
+                <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                  <SelectTrigger className="w-full lg:w-48">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.map(cat => (
+                      <SelectItem key={cat} value={cat}>
+                        {cat.charAt(0).toUpperCase() + cat.slice(1)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            <div className="flex justify-between items-center">
+              <div className="flex items-center gap-4">
+                {filteredFiles.length > 0 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleSelectAll}
+                  >
+                    {selectedFiles.length === filteredFiles.length ? 'Deselect All' : 'Select All'}
+                  </Button>
+                )}
+                {selectedFiles.length > 0 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowBulkOperations(!showBulkOperations)}
+                  >
+                    Bulk Actions ({selectedFiles.length})
+                  </Button>
+                )}
+              </div>
+              <div className="flex space-x-2">
+                <Button
+                  variant={viewMode === 'grid' ? 'default' : 'outline'}
+                  size="icon"
+                  onClick={() => setViewMode('grid')}
+                >
+                  <Grid className="w-4 h-4" />
+                </Button>
+                <Button
+                  variant={viewMode === 'list' ? 'default' : 'outline'}
+                  size="icon"
+                  onClick={() => setViewMode('list')}
+                >
+                  <List className="w-4 h-4" />
+                </Button>
+              </div>
             </div>
           </div>
         </div>
+
+        {/* Bulk Operations Panel */}
+        {showBulkOperations && selectedFiles.length > 0 && (
+          <div className="glass-panel p-6 mb-6">
+            <BulkOperationsPanel
+              selectedFiles={files.filter(f => selectedFiles.includes(f.id)).map(f => f.metadata?.originalRecord).filter(Boolean) as XanoFileRecord[]}
+              onComplete={() => {
+                setShowBulkOperations(false)
+                setSelectedFiles([])
+                loadFiles()
+              }}
+            />
+          </div>
+        )}
+
+        {/* Folder Tree */}
+        {showFolderTree && (
+          <div className="glass-panel p-6 mb-6">
+            <h3 className="text-lg font-semibold mb-4">Folder Structure</h3>
+            <div className="max-h-96 overflow-y-auto">
+              <FolderTree
+                tree={[
+                  {
+                    path: '/',
+                    name: 'Root',
+                    children: [
+                      { path: '/projects', name: 'Projects', children: [], fileCount: files.filter(f => f.folder_path === '/projects').length },
+                      { path: '/clients', name: 'Clients', children: [], fileCount: files.filter(f => f.folder_path === '/clients').length },
+                      { path: '/personal', name: 'Personal', children: [], fileCount: files.filter(f => f.folder_path === '/personal').length }
+                    ],
+                    fileCount: files.filter(f => f.folder_path === '/').length
+                  }
+                ]}
+                currentPath={selectedFolder}
+                expandedFolders={expandedFolders}
+                onFolderClick={handleFolderSelect}
+                onToggleExpand={(path) => {
+                  const newExpanded = new Set(expandedFolders)
+                  if (newExpanded.has(path)) {
+                    newExpanded.delete(path)
+                  } else {
+                    newExpanded.add(path)
+                  }
+                  setExpandedFolders(newExpanded)
+                }}
+                onDrop={(path) => {
+                  // Handle drag and drop file moving
+                  console.log('Drop files to', path)
+                }}
+                onDeleteFolder={(path) => {
+                  if (confirm(`Delete folder ${path}? Files will be moved to root.`)) {
+                    setFolders(prev => prev.filter(f => f !== path))
+                    if (selectedFolder === path) {
+                      setSelectedFolder('/')
+                    }
+                  }
+                }}
+              />
+            </div>
+          </div>
+        )}
 
         {/* Loading State */}
         {isLoading && (
@@ -555,6 +793,8 @@ function MediaFileManager() {
                 onDelete={handleDelete}
                 onPreview={handlePreview}
                 viewMode={viewMode}
+                isSelected={selectedFiles.includes(file.id)}
+                onSelect={handleFileSelect}
               />
             ))}
           </div>
