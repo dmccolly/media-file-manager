@@ -6,29 +6,34 @@ export class PreviewService {
     
     // Handle image files
     if (file.file_type.startsWith('image/')) {
+      console.log('✅ Matched image file type, rendering <img>');
       return <img src={file.media_url} alt={file.title} className="max-w-full max-h-96 object-contain" />;
     }
     
     // Handle video files
     if (file.file_type.startsWith('video/')) {
+      console.log('✅ Matched video file type, rendering <video>');
       return <video src={file.media_url} controls className="max-w-full max-h-96" />;
     }
     
     // Handle audio files
     if (file.file_type.startsWith('audio/')) {
+      console.log('✅ Matched audio file type, rendering <audio>');
       return <audio src={file.media_url} controls className="w-full" />;
     }
     
     // Handle PDF files
+    console.log('Checking PDF: file.file_type.includes("pdf"):', file.file_type.includes('pdf'));
     if (file.file_type.includes('pdf')) {
-      // Use Google Docs Viewer for PDF previews
+      console.log('✅ Matched PDF file type, rendering Google Docs Viewer iframe');
+      console.log('Google Docs Viewer URL:', `https://docs.google.com/gview?url=${encodeURIComponent(file.media_url)}&embedded=true`);
       return (
         <iframe 
           src={`https://docs.google.com/gview?url=${encodeURIComponent(file.media_url)}&embedded=true`} 
           className="w-full h-96" 
           title={file.title}
           onError={(e) => {
-            // Fallback to direct PDF embed if Google Docs Viewer fails
+            console.log('❌ Google Docs Viewer iframe onError triggered');
             const iframe = e.target as HTMLIFrameElement;
             iframe.src = file.media_url;
           }}
@@ -37,8 +42,10 @@ export class PreviewService {
     }
     
     // Handle Office documents (Word, Excel, PowerPoint)
-    if (this.isOfficeDocument(file.file_type, file.media_url)) {
-      // Use Google Docs Viewer for Office document previews
+    const isOffice = this.isOfficeDocument(file.file_type, file.media_url);
+    console.log('Checking Office document: isOfficeDocument():', isOffice);
+    if (isOffice) {
+      console.log('✅ Matched Office document type, rendering Google Docs Viewer iframe');
       return (
         <iframe 
           src={`https://docs.google.com/gview?url=${encodeURIComponent(file.media_url)}&embedded=true`} 
@@ -49,7 +56,10 @@ export class PreviewService {
     }
     
     // Handle text files
-    if (file.file_type.startsWith('text/') || this.isTextDocument(file.media_url)) {
+    const isText = file.file_type.startsWith('text/') || this.isTextDocument(file.media_url);
+    console.log('Checking text file:', isText);
+    if (isText) {
+      console.log('✅ Matched text file type');
       return (
         <div className="p-4 bg-gray-100 rounded max-h-96 overflow-y-auto">
           <p className="text-sm text-gray-700">Text preview not implemented in this demo</p>
@@ -58,6 +68,7 @@ export class PreviewService {
     }
     
     // Fallback for unsupported file types
+    console.log('❌ No file type matched, showing fallback');
     return (
       <div className="p-8 text-center text-gray-500 bg-gray-100 rounded">
         <p>Preview not available for this file type</p>
