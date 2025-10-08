@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Upload, Grid, List, FolderOpen, Sun, Moon, Folder, Plus, Trash2, Search, Filter, File, Film, Music, FileText, Eye, Loader2 } from 'lucide-react'
 
+// File interface for YOUR file manager
 interface FileItem {
   id: string;
   title: string;
@@ -9,6 +10,7 @@ interface FileItem {
   file_size: number;
   upload_date: string;
   type: string;
+  folder_path?: string;
 }
 
 interface Folder {
@@ -34,6 +36,7 @@ export default function App() {
     { name: 'personal', path: '/personal' }
   ])
 
+  // LOAD FILES FROM XANO DIRECTLY
   useEffect(() => {
     loadFiles()
   }, [currentFolder])
@@ -41,30 +44,60 @@ export default function App() {
   const loadFiles = async () => {
     setIsLoading(true)
     try {
-      console.log('Loading files from /api/media...')
-      const response = await fetch('/api/media')
+      console.log('Loading files from Xano...')
       
+      // Get Xano API key from environment
+      const xanoApiKey = import.meta.env.VITE_XANO_API_KEY || import.meta.env.XANO_API_KEY
+      if (!xanoApiKey) {
+        console.error('XANO_API_KEY not found in environment variables')
+        setFiles([])
+        return
+      }
+
+      const response = await fetch('https://xajo-bs7d-cagt.n7e.xano.io/api:pYeQctVX/user_submission', {
+        headers: {
+          'Authorization': `Bearer ${xanoApiKey}`,
+          'Content-Type': 'application/json'
+        }
+      })
+
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`)
       }
       
       const data = await response.json()
-      console.log('Raw API response:', data)
+      console.log('Raw Xano data:', data)
       
-      const filesArray = Array.isArray(data) ? data : (data.records || [])
-      console.log('Processed files:', filesArray)
-      
-      filesArray.forEach((file: any, index: number) => {
-        console.log(`File ${index}:`, {
-          id: file.id,
-          title: file.title,
-          media_url: file.media_url,
-          hasCloudinary: file.media_url?.includes('cloudinary.com'),
-          thumbnail: file.thumbnail
-        })
+      // TRANSFORM XANO DATA TO YOUR FORMAT
+      const transformedFiles = data.map((item: any) => {
+        // Extract file type from media URL or file_type field
+        let fileType = 'application/octet-stream'
+        if (item.media_url) {
+          if (item.media_url.includes('image/')) fileType = 'image/' + item.media_url.split('.').pop()
+          else if (item.media_url.includes('video/')) fileType = 'video/' + item.media_url.split('.').pop()
+          else if (item.file_type) fileType = item.file_type
+        }
+
+        return {
+          id: item.id.toString(),
+          title: item.title || 'Untitled',
+          media_url: item.media_url || item.attachment || '',
+          thumbnail: item.thumbnail || (item.media_url ? item.media_url.replace('/upload/', '/upload/w_150,h_150,c_fill/') : ''),
+          file_size: item.file_size || 0,
+          upload_date: item.created_at ? new Date(item.created_at).toISOString() : new Date().toISOString(),
+          type: fileType,
+          folder_path: item.folder_path || '/'
+        }
       })
       
-      setFiles(filesArray)
+      console.log('Transformed files:', transformedFiles)
+      
+      // Filter by current folder
+      const filteredFiles = transformedFiles.filter((file: FileItem) => 
+        (file.folder_path || '/') === currentFolder
+      )
+      
+      setFiles(filteredFiles)
     } catch (error: any) {
       console.error('Failed to load files:', error)
       setFiles([])
@@ -73,6 +106,7 @@ export default function App() {
     }
   }
 
+  // WORKING FILE UPLOAD TO CLOUDINARY + XANO
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const fileList = event.target.files
     if (!fileList || fileList.length === 0) return
@@ -83,6 +117,7 @@ export default function App() {
     setIsLoading(true)
 
     try {
+      // Step 1: Upload to Cloudinary
       console.log('Step 1: Uploading to Cloudinary...')
       const formData = new FormData()
       formData.append('file', file)
@@ -102,30 +137,46 @@ export default function App() {
       const cloudinaryData = await cloudinaryRes.json()
       console.log('Cloudinary upload successful:', cloudinaryData.secure_url)
 
-      console.log('Step 2: Saving to backend...')
-      const backendData = {
-        title: file.name,
-        url: cloudinaryData.secure_url,
-        media_url: cloudinaryData.secure_url,
-        thumbnail: cloudinaryData.secure_url.replace('/upload/', '/upload/w_150,h_150,c_fill/'),
-        size: cloudinaryData.bytes,
-        type: file.type,
-        upload_date: new Date().toISOString(),
-        author: 'Unknown'
+      // Step 2: Save to Xano in the CORRECT format
+      console.log('Step 2: Saving to Xano...')
+      
+      const xanoApiKey = import.meta.env.VITE_XANO_API_KEY || import.meta.env.XANO_API_KEY
+      if (!xanoApiKey) {
+        throw new Error('XANO_API_KEY not found in environment variables')
       }
 
-      console.log('Backend data:', backendData)
-      const backendRes = await fetch('/api/upload', {
+      const xanoData = {
+        title: file.name,
+        description: '',
+        category: file.type.split('/')[0] || 'other',
+        type: file.type,
+        station: '',
+        notes: '',
+        tags: '',
+        media_url: cloudinaryData.secure_url,
+        thumbnail: cloudinaryData.secure_url.replace('/upload/', '/upload/w_150,h_150,c_fill/'),
+        file_size: cloudinaryData.bytes,
+        upload_date: new Date().toISOString(),
+        duration: '',
+        author: 'Unknown',
+        folder_path: currentFolder
+      }
+
+      console.log('Xano data:', xanoData)
+      const backendRes = await fetch('https://xajo-bs7d-cagt.n7e.xano.io/api:pYeQctVX/user_submission', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(backendData)
+        headers: { 
+          'Authorization': `Bearer ${xanoApiKey}`,
+          'Content-Type': 'application/json' 
+        },
+        body: JSON.stringify(xanoData)
       })
 
       const responseText = await backendRes.text()
-      console.log('Backend response:', responseText)
+      console.log('Xano response:', responseText)
 
       if (!backendRes.ok) {
-        throw new Error(`Backend save failed: ${backendRes.status} - ${responseText}`)
+        throw new Error(`Xano save failed: ${backendRes.status} - ${responseText}`)
       }
 
       console.log('Upload complete! Reloading files...')
@@ -144,9 +195,17 @@ export default function App() {
     if (!confirm('Are you sure you want to delete this file?')) return
 
     try {
-      const response = await fetch(`/api/delete/${fileId}`, {
+      const xanoApiKey = import.meta.env.VITE_XANO_API_KEY || import.meta.env.XANO_API_KEY
+      if (!xanoApiKey) {
+        throw new Error('XANO_API_KEY not found')
+      }
+
+      const response = await fetch(`https://xajo-bs7d-cagt.n7e.xano.io/api:pYeQctVX/user_submission/${fileId}`, {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' }
+        headers: {
+          'Authorization': `Bearer ${xanoApiKey}`,
+          'Content-Type': 'application/json'
+        }
       })
 
       if (!response.ok) {
@@ -190,7 +249,8 @@ export default function App() {
   const filteredFiles = files.filter(file => {
     const matchesSearch = file.title.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesFilter = filterType === 'all' || file.type.startsWith(filterType + '/')
-    return matchesSearch && matchesFilter
+    const matchesFolder = (file.folder_path || '/') === currentFolder
+    return matchesSearch && matchesFilter && matchesFolder
   })
 
   return (
