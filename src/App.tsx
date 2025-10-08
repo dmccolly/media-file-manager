@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Upload, Grid, List, FolderOpen, Sun, Moon, Folder, Plus, Trash2, Search, Filter, File, Film, Music, FileText, Eye, Loader2 } from 'lucide-react'
 
-// File interface matching your backend
 interface FileItem {
   id: string;
   title: string;
@@ -35,7 +34,6 @@ export default function App() {
     { name: 'personal', path: '/personal' }
   ])
 
-  // LOAD FILES FROM YOUR BACKEND
   useEffect(() => {
     loadFiles()
   }, [currentFolder])
@@ -56,8 +54,7 @@ export default function App() {
       const filesArray = Array.isArray(data) ? data : (data.records || [])
       console.log('Processed files:', filesArray)
       
-      // Check each file for Cloudinary URLs
-      filesArray.forEach((file: any, index) => {
+      filesArray.forEach((file: any, index: number) => {
         console.log(`File ${index}:`, {
           id: file.id,
           title: file.title,
@@ -68,7 +65,7 @@ export default function App() {
       })
       
       setFiles(filesArray)
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to load files:', error)
       setFiles([])
     } finally {
@@ -76,7 +73,6 @@ export default function App() {
     }
   }
 
-  // WORKING FILE UPLOAD
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const fileList = event.target.files
     if (!fileList || fileList.length === 0) return
@@ -87,7 +83,6 @@ export default function App() {
     setIsLoading(true)
 
     try {
-      // Step 1: Upload to Cloudinary
       console.log('Step 1: Uploading to Cloudinary...')
       const formData = new FormData()
       formData.append('file', file)
@@ -107,7 +102,6 @@ export default function App() {
       const cloudinaryData = await cloudinaryRes.json()
       console.log('Cloudinary upload successful:', cloudinaryData.secure_url)
 
-      // Step 2: Save to your backend
       console.log('Step 2: Saving to backend...')
       const backendData = {
         title: file.name,
@@ -138,7 +132,7 @@ export default function App() {
       await loadFiles()
       setShowUpload(false)
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Upload failed:', error)
       alert('Upload failed: ' + error.message)
     } finally {
@@ -160,7 +154,7 @@ export default function App() {
       }
 
       await loadFiles()
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to delete file:', error)
       alert('Failed to delete file: ' + error.message)
     }
@@ -201,7 +195,6 @@ export default function App() {
 
   return (
     <div className={`min-h-screen ${isDarkMode ? 'dark bg-gray-900 text-white' : 'bg-gray-50'}`}>
-      {/* Header */}
       <div className="bg-white dark:bg-gray-800 shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
@@ -212,7 +205,6 @@ export default function App() {
               {selectedFiles.length > 0 && (
                 <button
                   onClick={() => {
-                    // Batch delete would go here
                     selectedFiles.forEach(id => handleDeleteFile(id))
                     setSelectedFiles([])
                   }}
@@ -242,7 +234,6 @@ export default function App() {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* Sidebar - Folders */}
           <div className="lg:col-span-1">
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
               <div className="flex items-center justify-between mb-4">
@@ -273,10 +264,8 @@ export default function App() {
             </div>
           </div>
 
-          {/* Main Content - FILES */}
           <div className="lg:col-span-3">
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
-              {/* Toolbar */}
               <div className="p-4 border-b border-gray-200 dark:border-gray-700">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
                   <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-4">
@@ -322,7 +311,6 @@ export default function App() {
                 </div>
               </div>
 
-              {/* File Display Area */}
               <div className="p-6">
                 {isLoading ? (
                   <div className="text-center py-12">
