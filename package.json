@@ -32,57 +32,198 @@
     "@radix-ui/react-scroll-area": "^1.2.10",
     "@radix-ui/react-select": "^2.2.6",
     "@radix-ui/react-separator": "^1.1.7",
-    "@radix-ui/react-slider": "^1.3.6",
-    "@radix-ui/react-slot": "^1.2.3",
-    "@radix-ui/react-switch": "^1.2.6",
-    "@radix-ui/react-tabs": "^1.1.13",
-    "@radix-ui/react-toast": "^1.2.15",
-    "@radix-ui/react-toggle": "^1.1.10",
-    "@radix-ui/react-toggle-group": "^1.1.11",
-    "@radix-ui/react-tooltip": "^1.2.8",
-    "@react-oauth/google": "^0.12.2",
-    "axios": "^1.12.2",
-    "class-variance-authority": "^0.7.1",
-    "cloudinary": "^2.7.0",
-    "clsx": "^2.1.1",
-    "cmdk": "^1.1.1",
-    "compression": "^1.8.1",
-    "cors": "^2.8.5",
-    "date-fns": "^4.1.0",
-    "embla-carousel-react": "^8.6.0",
-    "express": "^5.1.0",
-    "gapi-script": "^1.2.0",
-    "input-otp": "^1.4.2",
-    "lucide-react": "^0.364.0",
-    "next-themes": "^0.4.6",
-    "node-fetch": "^3.3.2",
-    "react": "^18.3.1",
-    "react-day-picker": "^9.11.0",
-    "react-dom": "^18.3.1",
-    "react-hook-form": "^7.63.0",
-    "react-resizable-panels": "^3.0.6",
-    "recharts": "^2.12.4",
-    "sonner": "^2.0.7",
-    "tailwind-merge": "^3.3.1",
-    "tailwindcss-animate": "^1.0.7",
-    "vaul": "^1.1.2",
-    "zod": "^4.1.11"
-  },
-  "devDependencies": {
-    "@eslint/js": "^9.15.0",
-    "@types/node": "^24.6.1",
-    "@types/react": "^18.3.12",
-    "@types/react-dom": "^18.3.1",
-    "@vitejs/plugin-react": "^4.3.4",
-    "autoprefixer": "^10.4.20",
-    "eslint": "^9.15.0",
-    "eslint-plugin-react-hooks": "^5.0.0",
-    "eslint-plugin-react-refresh": "^0.4.14",
-    "globals": "^15.12.0",
-    "postcss": "^8.4.49",
-    "tailwindcss": "^3.4.16",
-    "typescript": "~5.6.2",
-    "typescript-eslint": "^8.15.0",
-    "vite": "^6.0.1"
-  }
+    "@radix-ui/react-slider": "^1.3 hover:bg-gray-50 dark:hover:bg-gray-700'} ${
+                          selectedFiles.includes(file.id) ? 'ring-2 ring-blue-500 bg-blue-50 dark:bg-blue-900' : ''
+                        }`}
+                      >
+                        {viewMode === 'grid' ? (
+                          <>
+                            <div className="relative">
+                              <input
+                                type="checkbox"
+                                checked={selectedFiles.includes(file.id)}
+                                onChange={() => toggleFileSelection(file.id)}
+                                className="absolute top-2 right-2 z-10"
+                              />
+                              {file.thumbnail && file.thumbnail.includes('cloudinary.com') ? (
+                                <img 
+                                  src={file.thumbnail} 
+                                  alt={file.title}
+                                  className="w-full h-32 object-cover rounded mb-3"
+                                  onError={(e) => {
+                                    e.currentTarget.src = '/icons/file-placeholder.svg'
+                                  }}
+                                />
+                              ) : (
+                                <div className="w-full h-32 bg-gray-100 dark:bg-gray-700 rounded mb-3 flex items-center justify-center">
+                                  {getFileIcon(file.type)}
+                                </div>
+                              )}
+                            </div>
+                            <h4 className="font-medium text-sm truncate">{file.title}</h4>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                              {formatFileSize(file.size)} • {formatDate(file.upload_date)}
+                            </p>
+                            <div className="mt-2 flex space-x-2">
+                              <button
+                                onClick={() => window.open(file.media_url, '_blank')}
+                                className="text-xs text-blue-600 hover:text-blue-800"
+                              >
+                                View
+                              </button>
+                              <button
+                                onClick={() => handleDeleteFile(file.id)}
+                                className="text-xs text-red-600 hover:text-red-800"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <input
+                              type="checkbox"
+                              checked={selectedFiles.includes(file.id)}
+                              onChange={() => toggleFileSelection(file.id)}
+                            />
+                            {file.thumbnail && file.thumbnail.includes('cloudinary.com') ? (
+                              <img 
+                                src={file.thumbnail} 
+                                alt={file.title}
+                                className="w-12 h-12 object-cover rounded"
+                                onError={(e) => {
+                                  e.currentTarget.src = '/icons/file-placeholder.svg'
+                                }}
+                              />
+                            ) : (
+                              getFileIcon(file.type)
+                            )}
+                            <div className="flex-1">
+                              <h4 className="font-medium">{file.title}</h4>
+                              <p className="text-sm text-gray-500 dark:text-gray-400">
+                                {formatFileSize(file.size)} • {formatDate(file.upload_date)}
+                              </p>
+                            </div>
+                            <div className="flex space-x-2">
+                              <button
+                                onClick={() => window.open(file.media_url, '_blank')}
+                                className="text-blue-600 hover:text-blue-800"
+                              >
+                                View
+                              </button>
+                              <button
+                                onClick={() => handleDeleteFile(file.id)}
+                                className="text-red-600 hover:text-red-800"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Upload Modal */}
+      {showUpload && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-96 max-h-96 overflow-y-auto">
+            <h3 className="text-lg font-semibold mb-4">Upload Files</h3>
+
+            <div className="mb-4">
+              <label className="block text-sm font-medium mb-2">Select Files</label>
+              <input
+                type="file"
+                multiple
+                onChange={handleFileUpload}
+                disabled={isUploading}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg disabled:opacity-50"
+              />
+            </div>
+
+            {uploadProgress.length > 0 && (
+              <div className="mb-4 space-y-2">
+                {uploadProgress.map((item, index) => (
+                  <div key={index} className="text-sm">
+                    <div className="flex justify-between mb-1">
+                      <span className={`truncate ${item.status === 'error' ? 'text-red-600' : ''}`}>
+                        {item.file}
+                      </span>
+                      <span className={`${item.status === 'error' ? 'text-red-600' : 'text-green-600'}`}>
+                        {item.status === 'completed' ? '✓' : item.status === 'error' ? '✗' : '...'}
+                      </span>
+                    </div>
+                    {item.status === 'uploading' && (
+                      <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div 
+                          className="bg-blue-600 h-2 rounded-full transition-all duration-300" 
+                          style={{ width: `${item.progress}%` }}
+                        ></div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => {
+                  setShowUpload(false)
+                  setUploadProgress([])
+                }}
+                disabled={isUploading}
+                className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 disabled:opacity-50"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* New Folder Modal */}
+      {showNewFolder && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-96">
+            <h3 className="text-lg font-semibold mb-4">Create New Folder</h3>
+
+            <div className="mb-4">
+              <label className="block text-sm font-medium mb-2">Folder Name</label>
+              <input
+                type="text"
+                value={newFolderName}
+                onChange={(e) => setNewFolderName(e.target.value)}
+                placeholder="Enter folder name"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
+                onKeyPress={(e) => e.key === 'Enter' && handleCreateFolder()}
+                autoFocus
+              />
+            </div>
+
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => setShowNewFolder(false)}
+                className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreateFolder}
+                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg"
+              >
+                Create Folder
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
 }
