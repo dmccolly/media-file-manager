@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Upload, Grid, List, FolderOpen, Sun, Moon, Folder, Plus, Trash2, Search, Filter, File, Film, Music, FileText, Eye, Loader2 } from 'lucide-react'
+import { XanoService, XanoFileRecord } from './services/XanoService'
 
 interface FileItem {
   id: string;
@@ -18,6 +19,19 @@ interface Folder {
 }
 
 export default function App() {
+  const xanoService = new XanoService()
+  
+  const transformToFileItem = (record: XanoFileRecord): FileItem => ({
+    id: record.id,
+    title: record.title,
+    media_url: record.media_url,
+    thumbnail: record.thumbnail,
+    file_size: record.file_size,
+    upload_date: record.created_at,
+    type: record.file_type,
+    folder_path: record.folder_path
+  })
+  
   const [isDarkMode, setIsDarkMode] = useState(false)
   const [currentFolder, setCurrentFolder] = useState('/')
   const [showUpload, setShowUpload] = useState(false)
@@ -35,93 +49,27 @@ export default function App() {
     { name: 'personal', path: '/personal' }
   ])
 
-  console.log('=== APP STARTING ===')
-  console.log('Environment variables found:', {
-    XANO_API_KEY: import.meta.env.VITE_XANO_API_KEY ? 'PRESENT' : 'MISSING',
-    CLOUDINARY_CLOUD_NAME: import.meta.env.VITE_CLOUDINARY_CLOUD_NAME ? 'PRESENT' : 'MISSING'
-  })
-
   useEffect(() => {
     loadFiles()
-  }, [currentFolder])
+  }, [])
 
   const loadFiles = async () => {
-    console.log('=== STARTING LOAD FILES ===')
+    console.log('=== LOADING FILES VIA XANOSERVICE ===')
     setIsLoading(true)
     
     try {
-      const xanoApiKey = import.meta.env.VITE_XANO_API_KEY
-      console.log('Xano API Key:', xanoApiKey ? 'PRESENT' : 'MISSING')
+      const records = await xanoService.fetchAllFiles()
+      console.log('Fetched records from XanoService:', records.length)
       
-      if (!xanoApiKey) {
-        console.error('NO XANO API KEY - THIS IS WHY NOTHING WORKS')
-        setFiles([])
-        setIsLoading(false)
-        return
-      }
-
-      console.log('Making API call to Xano...')
-      const response = await fetch('https://xajo-bs7d-cagt.n7e.xano.io/api:pYeQctVX/user_submission', {
-        headers: {
-          'Authorization': `Bearer ${xanoApiKey}`,
-          'Content-Type': 'application/json'
-        }
-      })
-
-      console.log('Response status:', response.status)
-      console.log('Response headers:', Object.fromEntries(response.headers.entries()))
-
-      if (!response.ok) {
-        const errorText = await response.text()
-        console.error('API CALL FAILED:', response.status, errorText)
-        throw new Error(`HTTP error! status: ${response.status} - ${errorText}`)
-      }
+      const fileItems = records.map(transformToFileItem)
+      console.log('Transformed to FileItems:', fileItems.length)
       
-      const data = await response.json()
-      console.log('Raw Xano data received:', data)
-      console.log('Number of files:', data.length)
-
-      if (data.length === 0) {
-        console.log('Xano returned empty array - no files found')
-      }
-
-      const transformedFiles = data.map((item: any, index: number) => {
-        console.log(`Processing file ${index}:`, item)
-        
-        let fileType = 'application/octet-stream'
-        if (item.media_url) {
-          if (item.media_url.includes('image/')) fileType = 'image/' + item.media_url.split('.').pop()
-          else if (item.media_url.includes('video/')) fileType = 'video/' + item.media_url.split('.').pop()
-          else if (item.file_type) fileType = item.file_type
-        }
-
-        return {
-          id: item.id.toString(),
-          title: item.title || 'Untitled',
-          media_url: item.media_url || item.attachment || '',
-          thumbnail: item.thumbnail || (item.media_url ? item.media_url.replace('/upload/', '/upload/w_150,h_150,c_fill/') : ''),
-          file_size: item.file_size || 0,
-          upload_date: item.created_at ? new Date(item.created_at).toISOString() : new Date().toISOString(),
-          type: fileType,
-          folder_path: item.folder_path || '/'
-        }
-      })
-      
-      console.log('Transformed files:', transformedFiles)
-      
-      const filteredFiles = transformedFiles.filter((file: any) => 
-        (file.folder_path || '/') === currentFolder
-      )
-      
-      console.log('Files after folder filter:', filteredFiles)
-      setFiles(filteredFiles)
-      
+      setFiles(fileItems)
     } catch (error: any) {
-      console.error('COMPLETE FAIL in loadFiles:', error)
+      console.error('Error loading files:', error)
       setFiles([])
     } finally {
       setIsLoading(false)
-      console.log('=== FINISHED LOAD FILES ===')
     }
   }
 
@@ -141,15 +89,6 @@ export default function App() {
     setIsLoading(true)
 
     try {
-      const xanoApiKey = import.meta.env.VITE_XANO_API_KEY
-      console.log('Xano API Key present:', !!xanoApiKey)
-      
-      if (!xanoApiKey) {
-        console.error('MISSING XANO API KEY - UPLOAD WILL FAIL')
-        alert('Missing XANO_API_KEY - cannot upload')
-        return
-      }
-
       console.log('Starting Cloudinary upload...')
       const formData = new FormData()
       formData.append('file', file)
@@ -172,79 +111,52 @@ export default function App() {
       const cloudinaryData = await cloudinaryRes.json()
       console.log('Cloudinary upload successful:', cloudinaryData)
       
-      console.log('Starting Xano save...')
+      console.log('Starting Xano save via XanoService...')
       const xanoData = {
         title: file.name,
         description: '',
         category: file.type.split('/')[0] || 'other',
-        type: file.type,
+        file_type: file.type,
         station: '',
         notes: '',
         tags: '',
         media_url: cloudinaryData.secure_url,
         thumbnail: cloudinaryData.secure_url.replace('/upload/', '/upload/w_150,h_150,c_fill/'),
         file_size: cloudinaryData.bytes,
-        upload_date: new Date().toISOString(),
-        duration: '',
-        author: 'Unknown',
+        created_at: new Date().toISOString(),
         folder_path: currentFolder
       }
 
-      console.log('Xano data:', xanoData)
-      const backendRes = await fetch('https://xajo-bs7d-cagt.n7e.xano.io/api:pYeQctVX/user_submission', {
-        method: 'POST',
-        headers: { 
-          'Authorization': `Bearer ${xanoApiKey}`,
-          'Content-Type': 'application/json' 
-        },
-        body: JSON.stringify(xanoData)
-      })
-
-      const responseText = await backendRes.text()
-      console.log('Xano response:', responseText)
-
-      if (!backendRes.ok) {
-        throw new Error(`Xano save failed: ${backendRes.status} - ${responseText}`)
-      }
+      console.log('Saving to Xano:', xanoData)
+      await xanoService.saveFile(xanoData)
 
       console.log('Upload complete! Reloading files...')
       await loadFiles()
       setShowUpload(false)
 
     } catch (error: any) {
-      console.error('UPLOAD COMPLETELY FAILED:', error)
-      alert('Upload failed: ' + error.message)
+      console.error('Upload failed:', error)
+      alert(`Upload failed: ${error.message}`)
     } finally {
       setIsLoading(false)
-      console.log('=== FINISHED FILE UPLOAD ===')
     }
   }
 
   const handleDeleteFile = async (fileId: string) => {
-    if (!confirm('Are you sure you want to delete this file?')) return
+    console.log('=== DELETING FILE VIA XANOSERVICE ===')
+    console.log('File ID:', fileId)
+    
+    if (!confirm('Are you sure you want to delete this file?')) {
+      return
+    }
 
     try {
-      const xanoApiKey = import.meta.env.VITE_XANO_API_KEY
-      if (!xanoApiKey) {
-        throw new Error('XANO_API_KEY not found')
-      }
-
-      const response = await fetch(`https://xajo-bs7d-cagt.n7e.xano.io/api:pYeQctVX/user_submission/${fileId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${xanoApiKey}`,
-          'Content-Type': 'application/json'
-        }
-      })
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
-
+      await xanoService.deleteFile(fileId)
+      console.log('Delete successful, reloading files...')
       await loadFiles()
     } catch (error: any) {
-      console.error('Failed to delete file:', error)
-      alert('Failed to delete file: ' + error.message)
+      console.error('Delete failed:', error)
+      alert(`Delete failed: ${error.message}`)
     }
   }
 
