@@ -1,5 +1,9 @@
 export class PreviewService {
   static renderPreview(file: any) {
+    console.log('PreviewService.renderPreview called with:', file);
+    console.log('file.file_type:', file.file_type);
+    console.log('file.media_url:', file.media_url);
+    
     // Handle image files
     if (file.file_type.startsWith('image/')) {
       return <img src={file.media_url} alt={file.title} className="max-w-full max-h-96 object-contain" />;
