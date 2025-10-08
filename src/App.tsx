@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Upload, Grid, List, FolderOpen, Sun, Moon, Folder, Plus, Trash2, Search, Filter, File, Film, Music, FileText, Eye } from 'lucide-react'
+import { Upload, Grid, List, FolderOpen, Sun, Moon, Folder, Plus, Trash2, Search, Filter, File, Film, Music, FileText, Eye, Loader2 } from 'lucide-react'
 import { cloudinaryService, CloudinaryUploadResult, FileUploadData } from './services/cloudinaryService'
 
 interface FileItem {
@@ -97,8 +97,7 @@ export default function App() {
         thumbnail: file.thumbnail || cloudinaryService.generateThumbnailUrl(
           file.media_url,
           file.type,
-          file.type.split('/')[1] || '',
-          0
+          file.type.split('/')[1] || ''
         )
       }))
       
@@ -542,13 +541,13 @@ export default function App() {
                                 onClick={() => window.open(file.media_url, '_blank')}
                                 className="text-blue-600 hover:text-blue-800"
                               >
-                                <Eye size={16} />
+                                View
                               </button>
                               <button
                                 onClick={() => handleDeleteFile(file.id)}
                                 className="text-red-600 hover:text-red-800"
                               >
-                                <Trash2 size={16} />
+                                Delete
                               </button>
                             </div>
                           </>
