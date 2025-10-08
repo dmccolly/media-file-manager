@@ -2,13 +2,12 @@ import type { Context, Config } from "@netlify/functions";
 
 export default async (req: Request, context: Context) => {
   try {
-    const apiKey = process.env.VITE_XANO_API_KEY || Netlify.env.XANO_API_KEY || process.env.XANO_API_KEY;
+    const apiKey = Netlify.env.get("XANO_API_KEY") || process.env.XANO_API_KEY;
     
     if (!apiKey) {
       console.error('XANO_API_KEY environment variable not found');
       return new Response(JSON.stringify({ 
-        error: 'XANO_API_KEY environment variable not configured',
-        debug: 'Environment variables available: ' + Object.keys(Netlify.env || {}).join(', ')
+        error: 'XANO_API_KEY environment variable not configured'
       }), {
         status: 500,
         headers: {
