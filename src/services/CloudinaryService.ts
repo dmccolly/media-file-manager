@@ -38,13 +38,17 @@ class CloudinaryService {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('upload_preset', this.uploadPreset);
-    formData.append('folder', folder);
-    formData.append('resource_type', this.getResourceType(file.type));
+    
+    const sanitizedFolder = folder === '/' || folder === '' ? 'media-manager' : folder.replace(/^\/+/, '');
+    formData.append('folder', sanitizedFolder);
+    
     formData.append('context', `filename=${file.name}`);
+    
+    const resourceType = this.getResourceType(file.type);
 
     try {
       const response = await fetch(
-        `https://api.cloudinary.com/v1_1/${this.cloudName}/upload`,
+        `https://api.cloudinary.com/v1_1/${this.cloudName}/${resourceType}/upload`,
         {
           method: 'POST',
           body: formData,
