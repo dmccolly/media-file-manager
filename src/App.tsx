@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react'
 import { Upload, Grid, List, FolderOpen, Sun, Moon, Folder, Plus, Trash2, Search, Filter, File, Film, Music, FileText, Eye, Loader2 } from 'lucide-react'
 import { XanoService, XanoFileRecord } from './services/XanoService'
+import { cloudinaryService } from './services/CloudinaryService'
+import { PreviewService } from './services/PreviewService'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 
 interface FileItem {
   id: string;
@@ -41,6 +44,7 @@ export default function App() {
   const [filterType, setFilterType] = useState('all')
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   const [selectedFiles, setSelectedFiles] = useState<string[]>([])
+  const [previewFile, setPreviewFile] = useState<FileItem | null>(null)
 
   const [folders, setFolders] = useState<Folder[]>([
     { name: '/', path: '/' },
@@ -89,27 +93,14 @@ export default function App() {
     setIsLoading(true)
 
     try {
-      console.log('Starting Cloudinary upload...')
-      const formData = new FormData()
-      formData.append('file', file)
-      formData.append('upload_preset', 'HIBF_MASTER')
-      formData.append('folder', currentFolder)
-
-      const cloudinaryRes = await fetch('https://api.cloudinary.com/v1_1/dzrw8nopf/upload', {
-        method: 'POST',
-        body: formData
-      })
-
-      console.log('Cloudinary response status:', cloudinaryRes.status)
+      console.log('Starting Cloudinary upload via CloudinaryService...')
+      const uploadResult = await cloudinaryService.uploadFile(file, currentFolder)
       
-      if (!cloudinaryRes.ok) {
-        const errorText = await cloudinaryRes.text()
-        console.error('Cloudinary upload failed:', cloudinaryRes.status, errorText)
-        throw new Error(`Cloudinary upload failed: ${cloudinaryRes.status}`)
+      if (!uploadResult.success) {
+        throw new Error(uploadResult.error || 'Cloudinary upload failed')
       }
 
-      const cloudinaryData = await cloudinaryRes.json()
-      console.log('Cloudinary upload successful:', cloudinaryData)
+      console.log('Cloudinary upload successful:', uploadResult)
       
       console.log('Starting Xano save via XanoService...')
       const xanoData = {
@@ -120,9 +111,9 @@ export default function App() {
         station: '',
         notes: '',
         tags: '',
-        media_url: cloudinaryData.secure_url,
-        thumbnail: cloudinaryData.secure_url.replace('/upload/', '/upload/w_150,h_150,c_fill/'),
-        file_size: cloudinaryData.bytes,
+        media_url: uploadResult.url,
+        thumbnail: uploadResult.thumbnail,
+        file_size: uploadResult.bytes,
         created_at: new Date().toISOString(),
         folder_path: currentFolder
       }
@@ -407,8 +398,9 @@ export default function App() {
                             </div>
                             <div className="flex space-x-2">
                               <button
-                                onClick={() => window.open(file.media_url, '_blank')}
+                                onClick={() => setPreviewFile(file)}
                                 className="text-blue-600 hover:text-blue-800"
+                                title="Preview file"
                               >
                                 <Eye size={16} />
                               </button>
@@ -456,6 +448,30 @@ export default function App() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* File Preview Modal */}
+      {previewFile && (
+        <Dialog open={!!previewFile} onOpenChange={() => setPreviewFile(null)}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-auto">
+            <DialogHeader>
+              <DialogTitle>{previewFile.title}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              {PreviewService.renderPreview({
+                file_type: previewFile.type,
+                media_url: previewFile.media_url,
+                title: previewFile.title
+              })}
+              <div className="grid grid-cols-2 gap-4 text-sm text-gray-600 dark:text-gray-400">
+                <div><strong>Size:</strong> {formatFileSize(previewFile.file_size)}</div>
+                <div><strong>Uploaded:</strong> {formatDate(previewFile.upload_date)}</div>
+                <div><strong>Type:</strong> {previewFile.type}</div>
+                <div><strong>Folder:</strong> {previewFile.folder_path}</div>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   )
