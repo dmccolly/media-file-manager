@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Upload, Grid, List, FolderOpen, Sun, Moon, Folder, Plus, Trash2, Search, Filter, File, Film, Music, FileText, Eye, Loader2 } from 'lucide-react'
 
-// File interface for YOUR file manager
 interface FileItem {
   id: string;
   title: string;
@@ -36,24 +35,32 @@ export default function App() {
     { name: 'personal', path: '/personal' }
   ])
 
-  // LOAD FILES FROM XANO DIRECTLY
+  console.log('=== APP STARTING ===')
+  console.log('Environment variables found:', {
+    XANO_API_KEY: import.meta.env.VITE_XANO_API_KEY ? 'PRESENT' : 'MISSING',
+    CLOUDINARY_CLOUD_NAME: import.meta.env.VITE_CLOUDINARY_CLOUD_NAME ? 'PRESENT' : 'MISSING'
+  })
+
   useEffect(() => {
     loadFiles()
   }, [currentFolder])
 
   const loadFiles = async () => {
+    console.log('=== STARTING LOAD FILES ===')
     setIsLoading(true)
+    
     try {
-      console.log('Loading files from Xano...')
+      const xanoApiKey = import.meta.env.VITE_XANO_API_KEY
+      console.log('Xano API Key:', xanoApiKey ? 'PRESENT' : 'MISSING')
       
-      // Get Xano API key from environment
-      const xanoApiKey = import.meta.env.VITE_XANO_API_KEY || import.meta.env.XANO_API_KEY
       if (!xanoApiKey) {
-        console.error('XANO_API_KEY not found in environment variables')
+        console.error('NO XANO API KEY - THIS IS WHY NOTHING WORKS')
         setFiles([])
+        setIsLoading(false)
         return
       }
 
+      console.log('Making API call to Xano...')
       const response = await fetch('https://xajo-bs7d-cagt.n7e.xano.io/api:pYeQctVX/user_submission', {
         headers: {
           'Authorization': `Bearer ${xanoApiKey}`,
@@ -61,16 +68,26 @@ export default function App() {
         }
       })
 
+      console.log('Response status:', response.status)
+      console.log('Response headers:', Object.fromEntries(response.headers.entries()))
+
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
+        const errorText = await response.text()
+        console.error('API CALL FAILED:', response.status, errorText)
+        throw new Error(`HTTP error! status: ${response.status} - ${errorText}`)
       }
       
       const data = await response.json()
-      console.log('Raw Xano data:', data)
-      
-      // TRANSFORM XANO DATA TO YOUR FORMAT
-      const transformedFiles = data.map((item: any) => {
-        // Extract file type from media URL or file_type field
+      console.log('Raw Xano data received:', data)
+      console.log('Number of files:', data.length)
+
+      if (data.length === 0) {
+        console.log('Xano returned empty array - no files found')
+      }
+
+      const transformedFiles = data.map((item: any, index: number) => {
+        console.log(`Processing file ${index}:`, item)
+        
         let fileType = 'application/octet-stream'
         if (item.media_url) {
           if (item.media_url.includes('image/')) fileType = 'image/' + item.media_url.split('.').pop()
@@ -92,59 +109,70 @@ export default function App() {
       
       console.log('Transformed files:', transformedFiles)
       
-      // Filter by current folder
-      const filteredFiles = transformedFiles.filter((file: FileItem) => 
+      const filteredFiles = transformedFiles.filter((file: any) => 
         (file.folder_path || '/') === currentFolder
       )
       
+      console.log('Files after folder filter:', filteredFiles)
       setFiles(filteredFiles)
+      
     } catch (error: any) {
-      console.error('Failed to load files:', error)
+      console.error('COMPLETE FAIL in loadFiles:', error)
       setFiles([])
     } finally {
       setIsLoading(false)
+      console.log('=== FINISHED LOAD FILES ===')
     }
   }
 
-  // WORKING FILE UPLOAD TO CLOUDINARY + XANO
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    console.log('=== STARTING FILE UPLOAD ===')
     const fileList = event.target.files
-    if (!fileList || fileList.length === 0) return
+    console.log('Files selected:', fileList?.length)
+    
+    if (!fileList || fileList.length === 0) {
+      console.log('No files selected')
+      return
+    }
 
     const file = fileList[0]
-    console.log('Starting upload for:', file.name)
+    console.log('Uploading file:', file.name, 'Type:', file.type, 'Size:', file.size)
 
     setIsLoading(true)
 
     try {
-      // Step 1: Upload to Cloudinary
-      console.log('Step 1: Uploading to Cloudinary...')
+      const xanoApiKey = import.meta.env.VITE_XANO_API_KEY
+      console.log('Xano API Key present:', !!xanoApiKey)
+      
+      if (!xanoApiKey) {
+        console.error('MISSING XANO API KEY - UPLOAD WILL FAIL')
+        alert('Missing XANO_API_KEY - cannot upload')
+        return
+      }
+
+      console.log('Starting Cloudinary upload...')
       const formData = new FormData()
       formData.append('file', file)
       formData.append('upload_preset', 'HIBF_MASTER')
       formData.append('folder', currentFolder)
 
-      const cloudinaryRes = await fetch(
-        'https://api.cloudinary.com/v1_1/dzrw8nopf/upload',
-        { method: 'POST', body: formData }
-      )
+      const cloudinaryRes = await fetch('https://api.cloudinary.com/v1_1/dzrw8nopf/upload', {
+        method: 'POST',
+        body: formData
+      })
 
+      console.log('Cloudinary response status:', cloudinaryRes.status)
+      
       if (!cloudinaryRes.ok) {
         const errorText = await cloudinaryRes.text()
-        throw new Error(`Cloudinary upload failed: ${cloudinaryRes.status} - ${errorText}`)
+        console.error('Cloudinary upload failed:', cloudinaryRes.status, errorText)
+        throw new Error(`Cloudinary upload failed: ${cloudinaryRes.status}`)
       }
 
       const cloudinaryData = await cloudinaryRes.json()
-      console.log('Cloudinary upload successful:', cloudinaryData.secure_url)
-
-      // Step 2: Save to Xano in the CORRECT format
-      console.log('Step 2: Saving to Xano...')
+      console.log('Cloudinary upload successful:', cloudinaryData)
       
-      const xanoApiKey = import.meta.env.VITE_XANO_API_KEY || import.meta.env.XANO_API_KEY
-      if (!xanoApiKey) {
-        throw new Error('XANO_API_KEY not found in environment variables')
-      }
-
+      console.log('Starting Xano save...')
       const xanoData = {
         title: file.name,
         description: '',
@@ -184,10 +212,11 @@ export default function App() {
       setShowUpload(false)
 
     } catch (error: any) {
-      console.error('Upload failed:', error)
+      console.error('UPLOAD COMPLETELY FAILED:', error)
       alert('Upload failed: ' + error.message)
     } finally {
       setIsLoading(false)
+      console.log('=== FINISHED FILE UPLOAD ===')
     }
   }
 
@@ -195,7 +224,7 @@ export default function App() {
     if (!confirm('Are you sure you want to delete this file?')) return
 
     try {
-      const xanoApiKey = import.meta.env.VITE_XANO_API_KEY || import.meta.env.XANO_API_KEY
+      const xanoApiKey = import.meta.env.VITE_XANO_API_KEY
       if (!xanoApiKey) {
         throw new Error('XANO_API_KEY not found')
       }
