@@ -358,8 +358,9 @@ export default function App() {
                             </p>
                             <div className="mt-2 flex space-x-2">
                               <button
-                                onClick={() => window.open(file.media_url, '_blank')}
+                                onClick={() => setPreviewFile(file)}
                                 className="text-xs text-blue-600 hover:text-blue-800"
+                                title="Preview file"
                               >
                                 View
                               </button>
