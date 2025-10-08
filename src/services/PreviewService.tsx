@@ -25,19 +25,26 @@ export class PreviewService {
     // Handle PDF files
     console.log('Checking PDF: file.file_type.includes("pdf"):', file.file_type.includes('pdf'));
     if (file.file_type.includes('pdf')) {
-      console.log('✅ Matched PDF file type, rendering Google Docs Viewer iframe');
-      console.log('Google Docs Viewer URL:', `https://docs.google.com/gview?url=${encodeURIComponent(file.media_url)}&embedded=true`);
+      console.log('✅ Matched PDF file type, rendering native PDF embed');
       return (
-        <iframe 
-          src={`https://docs.google.com/gview?url=${encodeURIComponent(file.media_url)}&embedded=true`} 
-          className="w-full h-96" 
+        <object 
+          data={file.media_url}
+          type="application/pdf"
+          className="w-full h-96"
           title={file.title}
-          onError={(e) => {
-            console.log('❌ Google Docs Viewer iframe onError triggered');
-            const iframe = e.target as HTMLIFrameElement;
-            iframe.src = file.media_url;
-          }}
-        />
+        >
+          <p className="p-4 text-center">
+            Unable to display PDF. 
+            <a 
+              href={file.media_url} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-blue-600 hover:underline ml-1"
+            >
+              Download PDF
+            </a>
+          </p>
+        </object>
       );
     }
     
@@ -45,10 +52,10 @@ export class PreviewService {
     const isOffice = this.isOfficeDocument(file.file_type, file.media_url);
     console.log('Checking Office document: isOfficeDocument():', isOffice);
     if (isOffice) {
-      console.log('✅ Matched Office document type, rendering Google Docs Viewer iframe');
+      console.log('✅ Matched Office document type, rendering Microsoft Office Online viewer');
       return (
         <iframe 
-          src={`https://docs.google.com/gview?url=${encodeURIComponent(file.media_url)}&embedded=true`} 
+          src={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(file.media_url)}`}
           className="w-full h-96" 
           title={file.title}
         />
