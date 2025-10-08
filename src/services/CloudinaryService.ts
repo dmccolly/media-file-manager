@@ -28,12 +28,10 @@ export interface FileUploadData {
 class CloudinaryService {
   private cloudName: string;
   private uploadPreset: string;
-  private apiKey: string;
 
   constructor() {
     this.cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'dzrw8nopf';
     this.uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || 'HIBF_MASTER';
-    this.apiKey = import.meta.env.VITE_CLOUDINARY_API_KEY || '';
   }
 
   async uploadFile(file: File, folder: string = 'media-manager'): Promise<CloudinaryUploadResult> {
@@ -42,8 +40,6 @@ class CloudinaryService {
     formData.append('upload_preset', this.uploadPreset);
     formData.append('folder', folder);
     formData.append('resource_type', this.getResourceType(file.type));
-
-    // Add context metadata
     formData.append('context', `filename=${file.name}`);
 
     try {
@@ -70,7 +66,7 @@ class CloudinaryService {
         format: result.format,
         bytes: result.bytes,
         duration: result.duration,
-        thumbnail: this.generateThumbnailUrl(result.secure_url, result.resource_type, result.format, result.duration)
+        thumbnail: this.generateThumbnailUrl(result.secure_url, result.resource_type, result.format)
       };
     } catch (error) {
       console.error('Cloudinary upload error:', error);
@@ -87,22 +83,6 @@ class CloudinaryService {
     }
   }
 
-  async uploadMultipleFiles(files: File[], folder: string = 'media-manager'): Promise<CloudinaryUploadResult[]> {
-    const results: CloudinaryUploadResult[] = [];
-    
-    for (const file of files) {
-      const result = await this.uploadFile(file, folder);
-      results.push(result);
-      
-      // Add small delay between uploads to avoid rate limiting
-      if (files.length > 1) {
-        await new Promise(resolve => setTimeout(resolve, 100));
-      }
-    }
-    
-    return results;
-  }
-
   private getResourceType(mimeType: string): string {
     if (mimeType.startsWith('image/')) return 'image';
     if (mimeType.startsWith('video/')) return 'video';
@@ -110,7 +90,7 @@ class CloudinaryService {
     return 'raw';
   }
 
-  generateThumbnailUrl(originalUrl: string, resourceType: string, format: string, duration?: number): string {
+  generateThumbnailUrl(originalUrl: string, resourceType: string, format: string): string {
     if (!originalUrl) return '/icons/file-placeholder.svg';
 
     try {
@@ -119,7 +99,6 @@ class CloudinaryService {
       }
 
       if (resourceType === 'video') {
-        // For videos, generate thumbnail from first frame
         return originalUrl.replace('/upload/', '/upload/w_150,h_150,c_fill,q_auto,f_auto,so_0/').replace(/\.[^.]+$/, '.jpg');
       }
 
@@ -141,25 +120,6 @@ class CloudinaryService {
     } catch (error) {
       console.error("Error generating thumbnail:", error);
       return '/icons/file-placeholder.svg';
-    }
-  }
-
-  generatePreviewUrl(originalUrl: string, resourceType: string): string {
-    if (!originalUrl) return '';
-
-    try {
-      if (resourceType === 'image') {
-        return originalUrl.replace('/upload/', '/upload/w_800,h_600,c_fit,q_auto,f_auto/');
-      }
-
-      if (resourceType === 'video') {
-        return originalUrl.replace('/upload/', '/upload/w_800,h_600,c_fit,q_auto,f_auto/');
-      }
-
-      return originalUrl;
-    } catch (error) {
-      console.error("Error generating preview:", error);
-      return originalUrl;
     }
   }
 
@@ -189,24 +149,6 @@ class CloudinaryService {
       'file': '/icons/file-placeholder.svg'
     };
     return iconMap[type as keyof typeof iconMap] || iconMap['file'];
-  }
-
-  // Validate Cloudinary URL
-  isValidCloudinaryUrl(url: string): boolean {
-    return url.includes('cloudinary.com') && url.includes('/upload/');
-  }
-
-  // Extract public ID from Cloudinary URL
-  extractPublicId(url: string): string {
-    if (!this.isValidCloudinaryUrl(url)) return '';
-    
-    try {
-      const match = url.match(/\/upload\/(?:v\d+\/)?(.+?)(?:\.[^.]+)?$/);
-      return match ? match[1] : '';
-    } catch (error) {
-      console.error("Error extracting public ID:", error);
-      return '';
-    }
   }
 }
 
