@@ -14,6 +14,7 @@ interface CloudinaryUploadResult {
   error?: string;
 }
 
+// FIXED: Added media_url to the interface
 interface FileUploadData {
   title: string;
   description?: string;
@@ -23,13 +24,14 @@ interface FileUploadData {
   notes?: string;
   tags?: string;
   url: string;
+  media_url: string; // ADDED THIS MISSING PROPERTY
   thumbnail: string;
   size: number;
   duration?: string;
   author?: string;
 }
 
-// Embedded Cloudinary Service
+// Embedded Cloudinary Service (same as before)
 class CloudinaryService {
   private cloudName: string;
   private uploadPreset: string;
@@ -315,13 +317,14 @@ export default function App() {
           const result = await cloudinaryService.uploadFile(file, currentFolder)
           
           if (result.success) {
-            // Save to backend
+            // FIXED: Now both url and media_url are included
             await saveFileToBackend({
               title: file.name,
               description: '',
               category: file.type.split('/')[0],
               type: file.type,
-              media_url: result.url,
+              url: result.url,
+              media_url: result.url, // ADDED THIS
               thumbnail: result.thumbnail,
               size: result.bytes,
               duration: result.duration ? result.duration.toString() : '',
