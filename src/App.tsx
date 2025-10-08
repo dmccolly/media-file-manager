@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react'
-import { Upload, Grid, List, FolderOpen, Sun, Moon, Folder, Plus, Trash2, Search, Filter, File, Film, Music, FileText, X, Check, Loader2 } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Upload, Grid, List, FolderOpen, Sun, Moon, Folder, Plus, Trash2, Search, Filter, File, Film, Music, FileText, Eye } from 'lucide-react'
 import { cloudinaryService, CloudinaryUploadResult, FileUploadData } from './services/cloudinaryService'
 
 interface FileItem {
@@ -461,196 +461,6 @@ export default function App() {
                     </p>
                   </div>
                 ) : (
-                  <>
-                    {viewMode === 'grid' ? (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                        {filteredFiles.map((file) => (
-                          <div key={file.id} className="relative group">
-                            <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 hover:shadow-md transition-shadow">
-                              <div className="flex items-start justify-between mb-2">
-                                <input
-                                  type="checkbox"
-                                  checked={selectedFiles.includes(file.id)}
-                                  onChange={() => toggleFileSelection(file.id)}
-                                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                                />
-                                <button
-                                  onClick={() => handleDeleteFile(file.id)}
-                                  className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-700 transition-opacity"
-                                >
-                                  <Trash2 size={16} />
-                                </button>
-                              </div>
-                              
-                              {file.thumbnail ? (
-                                <img 
-                                  src={file.thumbnail} 
-                                  alt={file.title}
-                                  className="w-full h-32 object-cover rounded mb-2"
-                                  onError={(e) => {
-                                    const target = e.target as HTMLImageElement
-                                    target.src = '/icons/file-placeholder.svg'
-                                  }}
-                                />
-                              ) : (
-                                <div className="w-full h-32 flex items-center justify-center bg-gray-200 dark:bg-gray-600 rounded mb-2">
-                                  {getFileIcon(file.type)}
-                                </div>
-                              )}
-                              
-                              <h4 className="font-medium text-sm truncate" title={file.title}>
-                                {file.title}
-                              </h4>
-                              <p className="text-xs text-gray-500 dark:text-gray-400">
-                                {formatFileSize(file.file_size)} • {formatDate(file.upload_date)}
-                              </p>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="space-y-2">
-                        {filteredFiles.map((file) => (
-                          <div key={file.id} className="flex items-center space-x-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 group">
-                            <input
-                              type="checkbox"
-                              checked={selected-4">
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-              📁 Media File Manager
-            </h1>
-            <div className="flex items-center space-x-4">
-              {selectedFiles.length > 0 && (
-                <button
-                  onClick={handleBatchDelete}
-                  className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2"
-                >
-                  <Trash2 size={16} />
-                  <span>Delete ({selectedFiles.length})</span>
-                </button>
-              )}
-              <button
-                onClick={() => setShowUpload(true)}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2"
-              >
-                <Upload size={16} />
-                <span>Upload</span>
-              </button>
-              <button
-                onClick={() => setIsDarkMode(!isDarkMode)}
-                className="p-2 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600"
-              >
-                {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* Sidebar - Folders */}
-          <div className="lg:col-span-1">
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold">Folders</h2>
-                <button
-                  onClick={() => setShowNewFolder(true)}
-                  className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm flex items-center space-x-1"
-                >
-                  <Plus size={14} />
-                  <span>New Folder</span>
-                </button>
-              </div>
-
-              <div className="space-y-2">
-                {folders.map((folder) => (
-                  <div
-                    key={folder.path}
-                    className={`flex items-center space-x-2 p-2 rounded cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 ${
-                      currentFolder === folder.path ? 'bg-blue-100 dark:bg-blue-900' : ''
-                    }`}
-                    onClick={() => setCurrentFolder(folder.path)}
-                  >
-                    <Folder size={16} className="text-blue-600" />
-                    <span className="text-sm">{folder.name}</span>
-                    {folder.path !== '/' && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          handleDeleteFolder(folder.path)
-                        }}
-                        className="ml-auto text-red-500 hover:text-red-700"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Main Content */}
-          <div className="lg:col-span-3">
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
-              {/* Toolbar */}
-              <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-4">
-                    <input
-                      type="text"
-                      placeholder="Search files..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    />
-                    <select 
-                      value={filterType}
-                      onChange={(e) => setFilterType(e.target.value)}
-                      className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    >
-                      <option value="all">All</option>
-                      <option value="image">Images</option>
-                      <option value="video">Videos</option>
-                      <option value="audio">Audio</option>
-                      <option value="application">Documents</option>
-                    </select>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <button 
-                      onClick={() => setViewMode('grid')}
-                      className={`p-2 rounded ${viewMode === 'grid' ? 'bg-blue-100 dark:bg-blue-900 text-blue-600' : 'hover:bg-gray-100 dark:hover:bg-gray-700'}`}
-                    >
-                      <Grid size={20} />
-                    </button>
-                    <button 
-                      onClick={() => setViewMode('list')}
-                      className={`p-2 rounded ${viewMode === 'list' ? 'bg-blue-100 dark:bg-blue-900 text-blue-600' : 'hover:bg-gray-100 dark:hover:bg-gray-700'}`}
-                    >
-                      <List size={20} />
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* File Area */}
-              <div className="p-6">
-                {isLoading ? (
-                  <div className="text-center py-12">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                    <p className="text-gray-500 dark:text-gray-400">Loading files...</p>
-                  </div>
-                ) : filteredFiles.length === 0 ? (
-                  <div className="text-center py-12">
-                    <FolderOpen size={48} className="mx-auto text-gray-400 mb-4" />
-                    <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-                      {searchTerm || filterType !== 'all' ? 'No files match your criteria' : `No files in ${currentFolder}`}
-                    </h3>
-                    <p className="text-gray-500 dark:text-gray-400">
-                      {searchTerm || filterType !== 'all' ? 'Try adjusting your search or filter' : 'Upload files to get started'}
-                    </p>
-                  </div>
-                ) : (
                   <div className={viewMode === 'grid' ? 'grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4' : 'space-y-2'}>
                     {filteredFiles.map((file) => (
                       <div
@@ -685,7 +495,7 @@ export default function App() {
                             </div>
                             <h4 className="font-medium text-sm truncate">{file.title}</h4>
                             <p className="text-xs text-gray-500 dark:text-gray-400">
-                              {formatFileSize(file.size)} • {formatDate(file.upload_date)}
+                              {formatFileSize(file.file_size)} • {formatDate(file.upload_date)}
                             </p>
                             <div className="mt-2 flex space-x-2">
                               <button
@@ -724,7 +534,7 @@ export default function App() {
                             <div className="flex-1">
                               <h4 className="font-medium">{file.title}</h4>
                               <p className="text-sm text-gray-500 dark:text-gray-400">
-                                {formatFileSize(file.size)} • {formatDate(file.upload_date)}
+                                {formatFileSize(file.file_size)} • {formatDate(file.upload_date)}
                               </p>
                             </div>
                             <div className="flex space-x-2">
