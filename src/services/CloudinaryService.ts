@@ -1,159 +1,233 @@
 export interface CloudinaryUploadResult {
-  success: boolean;
   url: string;
+  thumbnail: string;
   publicId: string;
   resourceType: string;
   format: string;
-  bytes: number;
+  size: number;
+  width?: number;
+  height?: number;
   duration?: number;
-  thumbnail: string;
-  error?: string;
+  originalResult: any;
 }
 
 export interface FileUploadData {
+  name: string;
   title: string;
-  description?: string;
-  category?: string;
+  category: string;
   type: string;
-  station?: string;
-  notes?: string;
-  tags?: string;
+  station: string;
+  description: string;
+  notes: string;
+  tags: string;
   url: string;
   thumbnail: string;
   size: number;
   duration?: string;
-  author?: string;
+  originalFile: File;
+  cloudinaryData: CloudinaryUploadResult;
+  error?: string;
+  failed?: boolean;
 }
 
-class CloudinaryService {
+export interface BatchUploadResult {
+  successful: FileUploadData[];
+  failed: FileUploadData[];
+  total: number;
+}
+
+export class CloudinaryService {
   private cloudName: string;
   private uploadPreset: string;
+  private baseUrl: string;
 
   constructor() {
-    this.cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'dzrw8nopf';
-    this.uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || 'HIBF_MASTER';
+    this.cloudName = 'dzrw8nopf';
+    this.uploadPreset = 'HIBF_MASTER';
+    this.baseUrl = `https://api.cloudinary.com/v1_1/${this.cloudName}/upload`;
   }
 
-  async uploadFile(file: File, folder: string = 'media-manager'): Promise<CloudinaryUploadResult> {
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('upload_preset', this.uploadPreset);
+  async uploadFile(file: File, onProgress?: (progress: number, fileName: string) => void): Promise<CloudinaryUploadResult> {
+    console.log('🔄 CloudinaryService: Starting upload for:', file.name);
     
-    const sanitizedFolder = folder === '/' || folder === '' ? 'media-manager' : folder.replace(/^\/+/, '');
-    formData.append('folder', sanitizedFolder);
-    
-    formData.append('context', `filename=${file.name}`);
-    
-    const resourceType = this.getResourceType(file.type);
-
     try {
-      const response = await fetch(
-        `https://api.cloudinary.com/v1_1/${this.cloudName}/${resourceType}/upload`,
-        {
-          method: 'POST',
-          body: formData,
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('upload_preset', this.uploadPreset);
+      formData.append('folder', 'HIBF_assets');
+
+      return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+
+        if (onProgress) {
+          xhr.upload.onprogress = (event) => {
+            if (event.lengthComputable) {
+              const progress = Math.round((event.loaded / event.total) * 100);
+              console.log(`📈 CloudinaryService: Upload progress for ${file.name}: ${progress}%`);
+              onProgress(progress, file.name);
+            }
+          };
         }
-      );
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: { message: 'Unknown error' } }));
-        throw new Error(`Upload failed: ${errorData.error?.message || response.statusText}`);
-      }
+        xhr.onload = () => {
+          if (xhr.status === 200) {
+            try {
+              const result = JSON.parse(xhr.responseText);
+              console.log('✅ CloudinaryService: Upload successful:', result);
+              
+              const processedResult = {
+                url: result.secure_url,
+                thumbnail: this.generateThumbnailUrl(result.secure_url, result.resource_type),
+                publicId: result.public_id,
+                resourceType: result.resource_type,
+                format: result.format,
+                size: result.bytes,
+                width: result.width,
+                height: result.height,
+                duration: result.duration,
+                originalResult: result
+              };
+              
+              resolve(processedResult);
+            } catch (parseError) {
+              console.error('❌ CloudinaryService: Error parsing response:', parseError);
+              reject(parseError);
+            }
+          } else {
+            console.error('❌ CloudinaryService: Upload failed with status:', xhr.status);
+            reject(new Error(`Upload failed with status: ${xhr.status}`));
+          }
+        };
 
-      const result = await response.json();
-      
-      return {
-        success: true,
-        url: result.secure_url,
-        publicId: result.public_id,
-        resourceType: result.resource_type,
-        format: result.format,
-        bytes: result.bytes,
-        duration: result.duration,
-        thumbnail: this.generateThumbnailUrl(result.secure_url, result.resource_type, result.format)
-      };
+        xhr.onerror = () => {
+          console.error('❌ CloudinaryService: Network error during upload');
+          reject(new Error('Network error during upload'));
+        };
+
+        xhr.open('POST', this.baseUrl);
+        xhr.send(formData);
+      });
+
     } catch (error) {
-      console.error('Cloudinary upload error:', error);
-      return {
-        success: false,
-        url: '',
-        publicId: '',
-        resourceType: '',
-        format: '',
-        bytes: 0,
-        thumbnail: '',
-        error: error instanceof Error ? error.message : 'Upload failed'
-      };
+      console.error('❌ CloudinaryService: Error uploading file:', error);
+      throw error;
     }
   }
 
-  private getResourceType(mimeType: string): string {
-    if (mimeType.startsWith('image/')) return 'image';
-    if (mimeType.startsWith('video/')) return 'video';
-    if (mimeType.startsWith('audio/')) return 'raw';
-    return 'raw';
+  async uploadMultipleFiles(
+    files: FileList | File[], 
+    sharedMetadata: any = {}, 
+    onProgress?: (fileIndex: number, progress: number, fileName: string) => void
+  ): Promise<BatchUploadResult> {
+    console.log('🔄 CloudinaryService: Starting batch upload for', files.length, 'files');
+    console.log('📋 CloudinaryService: Shared metadata:', sharedMetadata);
+    
+    const uploadPromises = Array.from(files).map(async (file, index) => {
+      try {
+        const fileProgress = (progress: number, fileName: string) => {
+          if (onProgress) {
+            onProgress(index, progress, fileName);
+          }
+        };
+
+        const cloudinaryResult = await this.uploadFile(file, fileProgress);
+        
+        const fileData: FileUploadData = {
+          name: file.name,
+          title: sharedMetadata.title || file.name.split('.')[0],
+          category: sharedMetadata.category || this.categorizeFile(file),
+          type: this.getFileType(file),
+          station: sharedMetadata.station || '',
+          description: sharedMetadata.description || '',
+          notes: sharedMetadata.notes || '',
+          tags: sharedMetadata.tags || '',
+          url: cloudinaryResult.url,
+          thumbnail: cloudinaryResult.thumbnail,
+          size: file.size,
+          duration: cloudinaryResult.duration?.toString() || '',
+          originalFile: file,
+          cloudinaryData: cloudinaryResult
+        };
+
+        console.log('✅ CloudinaryService: File processed:', fileData);
+        return fileData;
+
+      } catch (error: any) {
+        console.error('❌ CloudinaryService: Error uploading file:', file.name, error);
+        return {
+          name: file.name,
+          title: file.name,
+          category: 'Files',
+          type: 'file',
+          station: '',
+          description: '',
+          notes: '',
+          tags: '',
+          url: '',
+          thumbnail: '',
+          size: file.size,
+          duration: '',
+          originalFile: file,
+          cloudinaryData: {} as CloudinaryUploadResult,
+          error: error?.message || 'Upload failed',
+          failed: true
+        };
+      }
+    });
+
+    const results = await Promise.all(uploadPromises);
+    const successful = results.filter(r => !r.failed);
+    const failed = results.filter(r => r.failed);
+
+    console.log(`✅ CloudinaryService: Batch upload complete. Success: ${successful.length}, Failed: ${failed.length}`);
+    
+    return {
+      successful,
+      failed,
+      total: files.length
+    };
   }
 
-  generateThumbnailUrl(originalUrl: string, resourceType: string, format: string): string {
-    if (!originalUrl) return '/icons/file-placeholder.svg';
+  categorizeFile(file: File): string {
+    const type = file.type.toLowerCase();
+    
+    if (type.startsWith('image/')) return 'Images';
+    if (type.startsWith('video/')) return 'Video';
+    if (type.startsWith('audio/')) return 'Audio';
+    if (type.includes('pdf')) return 'Documents';
+    if (type.includes('text/') || type.includes('document')) return 'Documents';
+    
+    return 'Files';
+  }
 
+  getFileType(file: File): string {
+    const type = file.type.toLowerCase();
+    
+    if (type.startsWith('image/')) return 'image';
+    if (type.startsWith('video/')) return 'video';
+    if (type.startsWith('audio/')) return 'audio';
+    if (type.includes('pdf')) return 'document';
+    
+    return 'file';
+  }
+
+  generateThumbnailUrl(originalUrl: string, resourceType: string): string {
+    if (!originalUrl) return '';
+    
     try {
       if (resourceType === 'image') {
-        return originalUrl.replace('/upload/', '/upload/w_150,h_150,c_fill,q_auto,f_auto/');
+        return originalUrl.replace('/upload/', '/upload/w_150,h_150,c_fill/');
       }
-
+      
       if (resourceType === 'video') {
-        return originalUrl.replace('/upload/', '/upload/w_150,h_150,c_fill,q_auto,f_auto,so_0/').replace(/\.[^.]+$/, '.jpg');
+        return originalUrl.replace('/upload/', '/upload/w_150,h_150,c_fill,so_0/').replace(/\.[^.]+$/, '.jpg');
       }
-
-      if (format === 'pdf' || originalUrl.toLowerCase().includes('.pdf')) {
-        return originalUrl.replace('/upload/', '/upload/w_150,h_150,c_fill,q_auto,f_auto,pg_1/').replace(/\.pdf$/i, '.jpg');
-      }
-
-      if (this.isAudioFile(originalUrl)) {
-        return '/icons/audio-placeholder.svg';
-      }
-
-      if (this.isOfficeDocument(originalUrl)) {
-        const docType = this.getOfficeDocumentType(originalUrl);
-        return this.getPlaceholderIcon(docType);
-      }
-
-      return '/icons/file-placeholder.svg';
-
+      
+      return originalUrl;
+      
     } catch (error) {
-      console.error("Error generating thumbnail:", error);
-      return '/icons/file-placeholder.svg';
+      console.error('❌ CloudinaryService: Error generating thumbnail:', error);
+      return originalUrl;
     }
   }
-
-  private isAudioFile(url: string): boolean {
-    const audioExtensions = ['.mp3', '.wav', '.flac', '.aac', '.ogg', '.m4a', '.wma'];
-    return audioExtensions.some(ext => url.toLowerCase().includes(ext));
-  }
-
-  private isOfficeDocument(url: string): boolean {
-    const officeExtensions = ['.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx'];
-    return officeExtensions.some(ext => url.toLowerCase().includes(ext));
-  }
-
-  private getOfficeDocumentType(url: string): string {
-    if (url.toLowerCase().match(/\.(doc|docx)$/)) return 'document';
-    if (url.toLowerCase().match(/\.(xls|xlsx|csv)$/)) return 'spreadsheet';
-    if (url.toLowerCase().match(/\.(ppt|pptx)$/)) return 'presentation';
-    return 'document';
-  }
-
-  private getPlaceholderIcon(type: string): string {
-    const iconMap = {
-      'audio': '/icons/audio-placeholder.svg',
-      'document': '/icons/document-placeholder.svg',
-      'spreadsheet': '/icons/spreadsheet-placeholder.svg',
-      'presentation': '/icons/presentation-placeholder.svg',
-      'file': '/icons/file-placeholder.svg'
-    };
-    return iconMap[type as keyof typeof iconMap] || iconMap['file'];
-  }
 }
-
-export const cloudinaryService = new CloudinaryService();
