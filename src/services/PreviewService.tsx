@@ -22,43 +22,34 @@ export class PreviewService {
       return <audio src={file.media_url} controls className="w-full" />;
     }
     
-    // Handle PDF files
+    // Handle PDF files with Google Docs Viewer
     console.log('Checking PDF: file.file_type.includes("pdf"):', file.file_type.includes('pdf'));
     if (file.file_type.includes('pdf')) {
-      console.log('✅ Matched PDF file type, rendering native PDF embed');
+      console.log('✅ Matched PDF file type, rendering PDF viewer');
       return (
-        <object 
-          data={file.media_url}
-          type="application/pdf"
-          className="w-full h-96"
-          title={file.title}
-        >
-          <p className="p-4 text-center">
-            Unable to display PDF. 
-            <a 
-              href={file.media_url} 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="text-blue-600 hover:underline ml-1"
-            >
-              Download PDF
-            </a>
-          </p>
-        </object>
+        <div className="w-full" style={{ height: '600px' }}>
+          <iframe 
+            src={`https://docs.google.com/viewer?url=${encodeURIComponent(file.media_url)}&embedded=true`}
+            className="w-full h-full border-0"
+            title={file.title}
+          />
+        </div>
       );
     }
     
-    // Handle Office documents (Word, Excel, PowerPoint)
+    // Handle Office documents (Word, Excel, PowerPoint) with Microsoft Office Online Viewer
     const isOffice = this.isOfficeDocument(file.file_type, file.media_url);
     console.log('Checking Office document: isOfficeDocument():', isOffice);
     if (isOffice) {
       console.log('✅ Matched Office document type, rendering Microsoft Office Online viewer');
       return (
-        <iframe 
-          src={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(file.media_url)}`}
-          className="w-full h-96" 
-          title={file.title}
-        />
+        <div className="w-full" style={{ height: '600px' }}>
+          <iframe 
+            src={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(file.media_url)}`}
+            className="w-full h-full border-0"
+            title={file.title}
+          />
+        </div>
       );
     }
     
