@@ -305,16 +305,16 @@ export class XanoService {
       if (mediaUrl.includes('/image/upload/')) resourceType = 'image';
       if (mediaUrl.includes('/video/upload/')) resourceType = 'video';
       if (resourceType === 'image') {
-        return mediaUrl.replace('/upload/', '/upload/w_150,h_150,c_auto_pad,b_auto,f_auto,q_auto,fl_lossy,g_auto:face/');
+        return mediaUrl.replace('/upload/', '/upload/w_150,h_150,c_fill,f_auto,q_auto,g_auto:face/');
       }
       if (resourceType === 'video') {
         return mediaUrl
-          .replace('/upload/', '/upload/w_150,h_150,c_auto_pad,b_auto,f_auto,q_auto,fl_lossy,g_auto:face,so_0/')
+          .replace('/upload/', '/upload/w_150,h_150,c_fill,f_auto,q_auto,g_auto:face,so_0/')
           .replace(/\.[^.]+$/, '.jpg');
       }
       if (fileType?.includes('pdf') || mediaUrl.toLowerCase().includes('.pdf')) {
         return mediaUrl
-          .replace('/upload/', '/upload/w_150,h_150,c_auto_pad,b_auto,f_auto,q_auto,fl_lossy,g_auto:face,pg_1/')
+          .replace('/upload/', '/upload/w_150,h_150,c_fill,f_auto,q_auto,g_auto:face,pg_1/')
           .replace(/\.pdf$/i, '.jpg');
       }
       if (fileType?.startsWith('audio/') || this.isAudioFile(mediaUrl)) {
