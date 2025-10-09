@@ -15,6 +15,7 @@ import { XanoService } from './services/XanoService'
 // itself resides in src. Adjusting the path prevents build-time 'Cannot find
 // module' errors.
 import { PreviewService } from './services/PreviewService'
+import { WebflowService } from './services/WebflowService'
 
 interface MediaFile {
   id: string
@@ -122,6 +123,7 @@ function App() {
 
   const cloudinaryService = new CloudinaryService()
   const xanoService = new XanoService()
+  const webflowService = new WebflowService()
 
   useEffect(() => {
     loadFiles()
@@ -287,6 +289,29 @@ function App() {
         try {
           console.log('🔄 App: Saving file to Xano:', fileData.title)
           await xanoService.saveFile(fileData)
+            
+            // Sync to Webflow
+            console.log("Syncing to Webflow:", fileData.title)
+            try {
+              const webflowFileData = {
+                name: fileData.title,
+                title: fileData.title,
+                url: fileData.media_url,
+                thumbnail: fileData.thumbnail,
+                description: fileData.description || "",
+                category: fileData.category,
+                type: fileData.file_type?.split("/")[0] || "other",
+                size: fileData.file_size,
+                tags: fileData.tags?.join(",") || "",
+                author: fileData.author || "Unknown",
+                created_at: fileData.created_at
+              }
+              await webflowService.syncFileToWebflow(webflowFileData)
+              console.log("File synced to Webflow:", fileData.title)
+            } catch (webflowError) {
+              console.error("Webflow sync failed (non-critical):", webflowError)
+              // Do not throw - Webflow sync failure should not block the upload
+            }
           console.log('✅ App: File saved to database:', fileData.title)
         } catch (error) {
           console.error('❌ App: Error saving file to database:', error)
