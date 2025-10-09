@@ -23,7 +23,15 @@ export default async (req: Context) => {
   }
 
   try {
-    const { name, parent_path = '/' } = JSON.parse(req.body || '{}')
+    // Handle both v1 (string body) and v2 (ReadableStream body)
+    let bodyText = ''
+    if (typeof req.body === 'string') {
+      bodyText = req.body
+    } else if (req.body) {
+      bodyText = await req.text()
+    }
+    
+    const { name, parent_path = '/' } = JSON.parse(bodyText || '{}')
 
     if (!name || !name.trim()) {
       return new Response(
