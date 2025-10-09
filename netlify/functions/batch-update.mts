@@ -28,7 +28,7 @@ export default async (req: Request, context: Context) => {
     console.log('Batch updating records:', updates.length);
     
     const promises = updates.map(async ({ id, fields }: { id: string, fields: any }) => {
-      const response = await fetch(`https://x3o5-9jqb-qs8e.n7c.xano.io/api:6SHl5baF/media_files/${id}`, {
+      const response = await fetch(`https://xajo-bs7d-cagt.n7e.xano.io/api:pYeQctVX/media_files/${id}`, {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${apiKey}`,
