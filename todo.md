@@ -1,50 +1,45 @@
 # Media File Manager - Folder Management Implementation
 
-## ✅ Completed
-- [x] Fixed folder_path filtering to include '/' as Uncategorized
-- [x] Removed duplicate search fields
-- [x] Deployed fixes to production
+## ✅ Phase 1 Complete: Backend Infrastructure
+- [x] Created Netlify function: `folder-create.mts`
+- [x] Created Netlify function: `folder-list.mts`
+- [x] Created Netlify function: `folder-delete.mts`
+- [x] Created `FolderService.ts` for folder operations
+- [x] Added folder state management to App.tsx
+- [x] Integrated FolderService with loadFolders()
 
-## 🚧 In Progress: Complete Folder Management System
+## 🚧 Phase 2: UI Components (In Progress)
 
-### Architecture Overview
-The old system only stored folders in React state (not persistent). We need:
-1. **Xano Database**: Store folder metadata (name, path, created_at, parent_id)
-2. **Cloudinary Integration**: Create actual folders for file organization
-3. **Webflow Sync**: Update Webflow collections with folder structure
-4. **UI Components**: Folder tree, create/rename/delete modals
+### What's Working
+- Backend API endpoints ready for folder CRUD
+- FolderService can create, list, and delete folders
+- App.tsx loads folders on mount
+- State management in place
 
-### Implementation Steps
+### What's Needed
+1. **New Folder Button** - Add UI trigger for folder creation
+2. **Folder Creation Modal** - Dialog with input for folder name
+3. **Folder Dropdown** - Update folder selector to show created folders
+4. **Upload Integration** - Files uploaded to selected folder
 
-#### Phase 1: Backend Infrastructure
-- [ ] Create Xano `folders` table schema
-- [ ] Create Netlify function: `folder-create.mts`
-- [ ] Create Netlify function: `folder-list.mts`
-- [ ] Create Netlify function: `folder-update.mts`
-- [ ] Create Netlify function: `folder-delete.mts`
-- [ ] Update `upload.mts` to use folder paths
+### Critical Issue: Xano Database Schema
+⚠️ **The `folders` table doesn't exist in Xano yet!**
 
-#### Phase 2: Frontend Services
-- [ ] Create `FolderService.ts` for folder operations
-- [ ] Update `CloudinaryService.ts` to support folder uploads
-- [ ] Update `WebflowService.ts` to sync folder structure
+You need to create a Xano table called `folders` with these fields:
+- `id` (int, auto-increment, primary key)
+- `name` (text)
+- `path` (text, unique)
+- `parent_path` (text)
+- `created_at` (int, timestamp)
 
-#### Phase 3: UI Components
-- [ ] Add "New Folder" button in header
-- [ ] Create folder creation modal
-- [ ] Add folder tree view (collapsible)
-- [ ] Add folder context menu (rename, delete)
-- [ ] Update file upload to select target folder
-- [ ] Add drag-and-drop file moving between folders
-
-#### Phase 4: Integration & Testing
-- [ ] Test folder creation → Xano → Cloudinary → Webflow
-- [ ] Test file upload to specific folders
-- [ ] Test folder deletion (move files to parent)
-- [ ] Test folder renaming (update all file paths)
+### Next Steps
+1. **Create Xano `folders` table** (manual step in Xano dashboard)
+2. **Add New Folder button UI** (needs manual code insertion)
+3. **Test folder creation end-to-end**
+4. **Update file upload to use folders**
 
 ## Current Deployment
 - 🌐 Site: https://eclectic-caramel-34e317.netlify.app
-- ✅ Functions working
+- ✅ 14 Functions deployed (11 original + 3 new folder functions)
 - ✅ Environment variables configured
-- ⚠️ **User needs hard refresh** to see file filtering fix
+- ⚠️ **User needs hard refresh** to see fixes

@@ -598,12 +598,17 @@ function App() {
               <SelectContent>
                 {/* Use a non‑empty sentinel value for the Uncategorized option */}
                 <SelectItem value={UNCATEGORIZED_VALUE}>📁 Uncategorized</SelectItem>
-                {files && files.length > 0 && Array.from(new Set(files.map(f => f.folder_path).filter(Boolean))).map(path => (
-                  <SelectItem key={path} value={path!}>
-                    📁 {path?.split('/').pop() || path}
-                  </SelectItem>
-                ))}
-              </SelectContent>
+                  {folders && folders.length > 0 && folders.map(folder => (
+                    <SelectItem key={folder.id} value={folder.path}>
+                      📁 {folder.name}
+                    </SelectItem>
+                  ))}
+                  {(!folders || folders.length === 0) && files && files.length > 0 && Array.from(new Set(files.map(f => f.folder_path).filter(Boolean))).map(path => (
+                    <SelectItem key={path} value={path!}>
+                      📁 {path?.split("/").pop() || path}
+                    </SelectItem>
+                  ))}
+                 </SelectContent>
             </Select>
             <Select value={selectedCategory} onValueChange={setSelectedCategory}>
               <SelectTrigger className="w-40">
@@ -633,6 +638,50 @@ function App() {
             >
               <List className="w-4 h-4" />
             </Button>
+              <Dialog open={isCreateFolderOpen} onOpenChange={setIsCreateFolderOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline">
+                    <FolderOpen className="w-4 h-4 mr-2" />
+                    New Folder
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-md">
+                  <DialogHeader>
+                    <DialogTitle>Create New Folder</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4 p-4">
+                    <div>
+                      <Label htmlFor="folder-name">Folder Name</Label>
+                      <Input
+                        id="folder-name"
+                        placeholder="Enter folder name..."
+                        value={newFolderName}
+                        onChange={(e) => setNewFolderName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            handleCreateFolder()
+                          }
+                        }}
+                      />
+                      {folderError && (
+                        <p className="text-sm text-red-600 mt-2">{folderError}</p>
+                      )}
+                    </div>
+                    <div className="flex justify-end gap-2">
+                      <Button variant="outline" onClick={() => {
+                        setIsCreateFolderOpen(false)
+                        setNewFolderName("")
+                        setFolderError(null)
+                      }}>
+                        Cancel
+                      </Button>
+                      <Button onClick={handleCreateFolder} disabled={!newFolderName.trim()}>
+                        Create Folder
+                      </Button>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
             <Dialog open={isUploadOpen} onOpenChange={(open) => {
               setIsUploadOpen(open)
               if (!open) resetUploadModal()
