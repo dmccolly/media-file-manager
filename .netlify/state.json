@@ -1,0 +1,20 @@
+{
+	"geolocation": {
+		"data": {
+			"city": "Manassas",
+			"country": {
+				"code": "US",
+				"name": "United States"
+			},
+			"subdivision": {
+				"code": "VA",
+				"name": "Virginia"
+			},
+			"timezone": "America/New_York",
+			"latitude": 38.7493,
+			"longitude": -77.4719,
+			"postalCode": "20110"
+		},
+		"timestamp": 1759969993193
+	}
+}
