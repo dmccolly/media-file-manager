@@ -1,4 +1,4 @@
-name: Deploy to Netlify - eclectic-caramel-34e317
+name: Deploy to Netlify
 
 on:
   push:
@@ -25,11 +25,21 @@ jobs:
     - name: Build project
       run: npm run build
     
-    - name: Deploy to Netlify Site
+    - name: Deploy to Netlify
       uses: nwtgck/actions-netlify@v3.0
       with:
         publish-dir: './dist'
         production-branch: main
+        production-deploy: true
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        deploy-message: "Deploy from GitHub Actions"
+        enable-pull-request-comment: false
+        enable-commit-comment: false
+        overwrites-pull-request-comment: false
+        functions-dir: './netlify/functions'
+      env:
+        NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+        NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
         github-token: ${{ secrets.GITHUB_TOKEN }}
         deploy-message: "Deploy Folder Management Features to eclectic-caramel-34e317"
         enable-pull-request-comment: true
