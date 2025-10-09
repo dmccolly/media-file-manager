@@ -10,15 +10,14 @@ export default async (req: Context) => {
   }
 
   if (req.httpMethod === 'OPTIONS') {
-    return { statusCode: 200, headers, body: '' }
+    return new Response('', { status: 200, headers })
   }
 
   if (req.httpMethod !== 'DELETE') {
-    return {
-      statusCode: 405,
-      headers,
-      body: JSON.stringify({ error: 'Method not allowed' }),
-    }
+    return new Response(
+      JSON.stringify({ error: 'Method not allowed' }),
+      { status: 405, headers }
+    )
   }
 
   try {
@@ -27,11 +26,10 @@ export default async (req: Context) => {
     const folderId = pathParts[pathParts.length - 1]
 
     if (!folderId || folderId === 'folder-delete') {
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({ error: 'Folder ID is required' }),
-      }
+      return new Response(
+        JSON.stringify({ error: 'Folder ID is required' }),
+        { status: 400, headers }
+      )
     }
 
     const xanoApiKey = process.env.XANO_API_KEY
@@ -49,36 +47,33 @@ export default async (req: Context) => {
     if (!xanoResponse.ok) {
       const errorText = await xanoResponse.text()
       console.error('Xano folder deletion failed:', errorText)
-      return {
-        statusCode: xanoResponse.status,
-        headers,
-        body: JSON.stringify({ 
+      return new Response(
+        JSON.stringify({ 
           error: 'Failed to delete folder from database',
           details: errorText 
         }),
-      }
+        { status: xanoResponse.status, headers }
+      )
     }
 
     // Note: Files in this folder should be moved to parent folder
     // This should be handled by the frontend before calling delete
 
-    return {
-      statusCode: 200,
-      headers,
-      body: JSON.stringify({
+    return new Response(
+      JSON.stringify({
         success: true,
         message: 'Folder deleted successfully',
       }),
-    }
+      { status: 200, headers }
+    )
   } catch (error) {
     console.error('Error deleting folder:', error)
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({ 
+    return new Response(
+      JSON.stringify({ 
         error: 'Internal server error',
         message: error instanceof Error ? error.message : 'Unknown error'
       }),
-    }
+      { status: 500, headers }
+    )
   }
 }

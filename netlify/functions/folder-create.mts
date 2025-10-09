@@ -10,26 +10,24 @@ export default async (req: Context) => {
   }
 
   if (req.httpMethod === 'OPTIONS') {
-    return { statusCode: 200, headers, body: '' }
+    return new Response('', { status: 200, headers })
   }
 
   if (req.httpMethod !== 'POST') {
-    return {
-      statusCode: 405,
-      headers,
-      body: JSON.stringify({ error: 'Method not allowed' }),
-    }
+    return new Response(
+      JSON.stringify({ error: 'Method not allowed' }),
+      { status: 405, headers }
+    )
   }
 
   try {
     const { name, parent_path = '/' } = JSON.parse(req.body || '{}')
 
     if (!name || !name.trim()) {
-      return {
-        statusCode: 400,
-        headers,
-        body: JSON.stringify({ error: 'Folder name is required' }),
-      }
+      return new Response(
+        JSON.stringify({ error: 'Folder name is required' }),
+        { status: 400, headers }
+      )
     }
 
     // Sanitize folder name
@@ -61,22 +59,19 @@ export default async (req: Context) => {
     if (!xanoResponse.ok) {
       const errorText = await xanoResponse.text()
       console.error('Xano folder creation failed:', errorText)
-      return {
-        statusCode: xanoResponse.status,
-        headers,
-        body: JSON.stringify({ 
+      return new Response(
+        JSON.stringify({ 
           error: 'Failed to create folder in database',
           details: errorText 
         }),
-      }
+        { status: xanoResponse.status, headers }
+      )
     }
 
     const folder = await xanoResponse.json()
 
-    return {
-      statusCode: 201,
-      headers,
-      body: JSON.stringify({
+    return new Response(
+      JSON.stringify({
         success: true,
         folder: {
           id: folder.id,
@@ -86,16 +81,16 @@ export default async (req: Context) => {
           created_at: folder.created_at,
         },
       }),
-    }
+      { status: 201, headers }
+    )
   } catch (error) {
     console.error('Error creating folder:', error)
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({ 
+    return new Response(
+      JSON.stringify({ 
         error: 'Internal server error',
         message: error instanceof Error ? error.message : 'Unknown error'
       }),
-    }
+      { status: 500, headers }
+    )
   }
 }

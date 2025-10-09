@@ -10,15 +10,14 @@ export default async (req: Context) => {
   }
 
   if (req.httpMethod === 'OPTIONS') {
-    return { statusCode: 200, headers, body: '' }
+    return new Response('', { status: 200, headers })
   }
 
   if (req.httpMethod !== 'GET') {
-    return {
-      statusCode: 405,
-      headers,
-      body: JSON.stringify({ error: 'Method not allowed' }),
-    }
+    return new Response(
+      JSON.stringify({ error: 'Method not allowed' }),
+      { status: 405, headers }
+    )
   }
 
   try {
@@ -39,39 +38,29 @@ export default async (req: Context) => {
       
       // If folders table doesn't exist yet, return empty array
       if (xanoResponse.status === 404) {
-        return {
-          statusCode: 200,
-          headers,
-          body: JSON.stringify([]),
-        }
+        return new Response(JSON.stringify([]), { status: 200, headers })
       }
       
-      return {
-        statusCode: xanoResponse.status,
-        headers,
-        body: JSON.stringify({ 
+      return new Response(
+        JSON.stringify({ 
           error: 'Failed to fetch folders from database',
           details: errorText 
         }),
-      }
+        { status: xanoResponse.status, headers }
+      )
     }
 
     const folders = await xanoResponse.json()
 
-    return {
-      statusCode: 200,
-      headers,
-      body: JSON.stringify(folders),
-    }
+    return new Response(JSON.stringify(folders), { status: 200, headers })
   } catch (error) {
     console.error('Error fetching folders:', error)
-    return {
-      statusCode: 500,
-      headers,
-      body: JSON.stringify({ 
+    return new Response(
+      JSON.stringify({ 
         error: 'Internal server error',
         message: error instanceof Error ? error.message : 'Unknown error'
       }),
-    }
+      { status: 500, headers }
+    )
   }
 }
