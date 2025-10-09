@@ -10,7 +10,7 @@ export class FolderService {
   private baseUrl: string
 
   constructor() {
-    this.baseUrl = '/.netlify/functions'
+    this.baseUrl = '/api'
   }
 
   /**
