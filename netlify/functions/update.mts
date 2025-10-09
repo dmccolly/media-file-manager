@@ -29,7 +29,7 @@ export default async (req: Request, context: Context) => {
     const updates = await req.json();
     
     console.log('Updating record:', id, 'with:', updates);
-    const response = await fetch(`https://xajo-bs7d-cagt.n7e.xano.io/api:pYeQctVX/user_submission/${id}`, {
+    const response = await fetch(`https://x3o5-9jqb-qs8e.n7c.xano.io/api:6SHl5baF/media_files/${id}`, {
       method: 'PATCH',
       headers: {
         'Authorization': `Bearer ${apiKey}`,

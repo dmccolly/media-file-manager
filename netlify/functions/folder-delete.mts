@@ -35,7 +35,7 @@ export default async (req: Context) => {
     }
 
     const xanoApiKey = process.env.XANO_API_KEY
-    const xanoBaseUrl = process.env.XANO_BASE_URL || 'https://xajo-bs7d-cagt.n7e.xano.io/api:pYeQctVX'
+    const xanoBaseUrl = process.env.XANO_BASE_URL || 'https://x3o5-9jqb-qs8e.n7c.xano.io/api:6SHl5baF'
 
     // Delete folder from Xano
     const xanoResponse = await fetch(`${xanoBaseUrl}/folders/${folderId}`, {
