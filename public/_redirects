@@ -1,5 +1,5 @@
-# Don't redirect API calls
-/api/*  200
+# Proxy API calls to Netlify functions
+/api/* /.netlify/functions/:splat 200
 
 # SPA fallback for all other routes
 /*    /index.html   200
