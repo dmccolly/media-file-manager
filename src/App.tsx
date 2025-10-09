@@ -16,6 +16,7 @@ import { XanoService } from './services/XanoService'
 // module' errors.
 import { PreviewService } from './services/PreviewService'
 import { WebflowService } from './services/WebflowService'
+import { FolderService } from './services/FolderService'
 
 interface MediaFile {
   id: string
@@ -109,6 +110,11 @@ function App() {
   const [contextMenu, setContextMenu] = useState<{show: boolean, x: number, y: number, file: MediaFile | null}>({
     show: false, x: 0, y: 0, file: null
   })
+  // Folder management state
+  const [folders, setFolders] = useState<any[]>([])
+  const [isCreateFolderOpen, setIsCreateFolderOpen] = useState(false)
+  const [newFolderName, setNewFolderName] = useState('')
+  const [folderError, setFolderError] = useState<string | null>(null)
   const [sortField, setSortField] = useState<'title' | 'file_type' | 'file_size' | 'created_at'>('title')
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
   // initialize search type to 'all' instead of empty string to avoid invalid Select item values
@@ -124,9 +130,11 @@ function App() {
   const cloudinaryService = new CloudinaryService()
   const xanoService = new XanoService()
   const webflowService = new WebflowService()
+  const folderService = new FolderService()
 
   useEffect(() => {
     loadFiles()
+    loadFolders()
   }, [])
 
   useEffect(() => {
@@ -194,6 +202,38 @@ function App() {
       setFiles(mockFiles)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const loadFolders = async () => {
+    try {
+      console.log('🔄 App: Loading folders from Xano...')
+      const loadedFolders = await folderService.fetchAllFolders()
+      console.log('✅ App: Loaded folders:', loadedFolders)
+      setFolders(loadedFolders)
+    } catch (error) {
+      console.error('❌ App: Error loading folders:', error)
+    }
+  }
+
+  const handleCreateFolder = async () => {
+    if (!newFolderName.trim()) {
+      setFolderError('Folder name is required')
+      return
+    }
+
+    try {
+      setFolderError(null)
+      const folder = await folderService.createFolder(newFolderName, currentFolderPath)
+      if (folder) {
+        setFolders(prev => [...prev, folder])
+        setNewFolderName('')
+        setIsCreateFolderOpen(false)
+        console.log('✅ Folder created:', folder)
+      }
+    } catch (error) {
+      console.error('❌ Error creating folder:', error)
+      setFolderError(error instanceof Error ? error.message : 'Failed to create folder')
     }
   }
 

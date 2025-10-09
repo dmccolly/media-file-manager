@@ -1,28 +1,50 @@
-# Media File Manager - Deployment Fix
+# Media File Manager - Folder Management Implementation
 
-## ✅ DEPLOYMENT COMPLETE!
+## ✅ Completed
+- [x] Fixed folder_path filtering to include '/' as Uncategorized
+- [x] Removed duplicate search fields
+- [x] Deployed fixes to production
 
-### Successfully Deployed To Original Site
-- [x] Deployed to https://eclectic-caramel-34e317.netlify.app
-- [x] All 11 Netlify functions deployed and working
-- [x] Environment variables already configured on this site
-- [x] Health check passed: `{"ok":true,"env":true}`
+## 🚧 In Progress: Complete Folder Management System
 
-### Verification
-- [x] Functions accessible at `/api/*` endpoints
-- [x] Static site loads correctly
-- [ ] **FINAL TEST NEEDED**: Try uploading a file to verify full workflow
+### Architecture Overview
+The old system only stored folders in React state (not persistent). We need:
+1. **Xano Database**: Store folder metadata (name, path, created_at, parent_id)
+2. **Cloudinary Integration**: Create actual folders for file organization
+3. **Webflow Sync**: Update Webflow collections with folder structure
+4. **UI Components**: Folder tree, create/rename/delete modals
 
-### What Was Fixed
-1. Used correct Netlify auth token with site access
-2. Deployed to original site (eclectic-caramel-34e317) instead of new site
-3. Included both static files AND functions in deployment
-4. All environment variables already present on original site
+### Implementation Steps
 
-### Next Steps
-**Please test the upload functionality:**
-1. Go to https://eclectic-caramel-34e317.netlify.app
-2. Try uploading a file
-3. Verify the Cloudinary → Xano → Webflow pipeline works
+#### Phase 1: Backend Infrastructure
+- [ ] Create Xano `folders` table schema
+- [ ] Create Netlify function: `folder-create.mts`
+- [ ] Create Netlify function: `folder-list.mts`
+- [ ] Create Netlify function: `folder-update.mts`
+- [ ] Create Netlify function: `folder-delete.mts`
+- [ ] Update `upload.mts` to use folder paths
 
-If upload works, the project is complete! ✅
+#### Phase 2: Frontend Services
+- [ ] Create `FolderService.ts` for folder operations
+- [ ] Update `CloudinaryService.ts` to support folder uploads
+- [ ] Update `WebflowService.ts` to sync folder structure
+
+#### Phase 3: UI Components
+- [ ] Add "New Folder" button in header
+- [ ] Create folder creation modal
+- [ ] Add folder tree view (collapsible)
+- [ ] Add folder context menu (rename, delete)
+- [ ] Update file upload to select target folder
+- [ ] Add drag-and-drop file moving between folders
+
+#### Phase 4: Integration & Testing
+- [ ] Test folder creation → Xano → Cloudinary → Webflow
+- [ ] Test file upload to specific folders
+- [ ] Test folder deletion (move files to parent)
+- [ ] Test folder renaming (update all file paths)
+
+## Current Deployment
+- 🌐 Site: https://eclectic-caramel-34e317.netlify.app
+- ✅ Functions working
+- ✅ Environment variables configured
+- ⚠️ **User needs hard refresh** to see file filtering fix
