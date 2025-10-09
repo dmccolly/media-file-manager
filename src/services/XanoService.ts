@@ -27,7 +27,7 @@ export class XanoService {
   constructor() {
     // Use Netlify functions as API proxy to Xano
     // Your Netlify functions handle the Xano integration at /api endpoints
-    this.baseUrl = '/.netlify/functions';
+    this.baseUrl = '/api';
   }
 
   /**
