@@ -33,18 +33,10 @@ jobs:
         production-deploy: true
         github-token: ${{ secrets.GITHUB_TOKEN }}
         deploy-message: "Deploy from GitHub Actions"
-        enable-pull-request-comment: false
-        enable-commit-comment: false
-        overwrites-pull-request-comment: false
-        functions-dir: './netlify/functions'
-      env:
-        NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
-        NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
-        github-token: ${{ secrets.GITHUB_TOKEN }}
-        deploy-message: "Deploy Folder Management Features to eclectic-caramel-34e317"
         enable-pull-request-comment: true
         enable-commit-comment: true
         overwrites-pull-request-comment: true
+        functions-dir: './netlify/functions'
       env:
         NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
         NETLIFY_SITE_ID: 'eclectic-caramel-34e317'
