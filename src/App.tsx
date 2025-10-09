@@ -137,7 +137,7 @@ function App() {
       filtered = filtered.filter(file => file.folder_path === currentFolderPath)
     } else {
       // Show Uncategorized files (those without folder_path or with empty folder_path)
-      filtered = filtered.filter(file => !file.folder_path || file.folder_path === '')
+      filtered = filtered.filter(file => !file.folder_path || file.folder_path === '' || file.folder_path === '/')
     }
 
     if (selectedCategory !== 'all') {
