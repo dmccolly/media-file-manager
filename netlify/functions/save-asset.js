@@ -8,9 +8,8 @@ exports.handler = async (event) => {
 
     // Set CORS headers for preflight and actual requests
     const origin = event.headers.origin || '';
-    const allowedOrigins = (process.env.ALLOW_ORIGIN || '').split(',').map((s) => s.trim()).filter(Boolean);
     const corsHeaders = {
-      'access-control-allow-origin': allowedOrigins.includes(origin) ? origin : allowedOrigins[0] || '*',
+      'access-control-allow-origin': '*',
       'access-control-allow-headers': 'content-type, authorization',
       'access-control-allow-methods': 'POST, OPTIONS'
     };
@@ -24,28 +23,54 @@ exports.handler = async (event) => {
     }
 
     // ---- Save to Xano ----
-    const xanoBase = process.env.XANO_BASE_URL;
-    const xanoEndpoint = process.env.XANO_ASSETS_ENDPOINT || '/v1/assets';
-    if (!xanoBase) throw new Error('XANO_BASE_URL not set');
-    const xanoHeaders = { 'content-type': 'application/json' };
-    if (process.env.XANO_API_KEY) xanoHeaders['Authorization'] = `Bearer ${process.env.XANO_API_KEY}`;
+    const apiKey = process.env.XANO_API_KEY;
+    if (!apiKey) {
+      throw new Error('XANO_API_KEY not set');
+    }
 
-    const xanoRes = await fetch(`${xanoBase}${xanoEndpoint}`, {
+    // Determine file_type based on asset type and format
+    let file_type = 'application/octet-stream';
+    if (asset.type === 'image') {
+      file_type = `image/${asset.format || 'jpeg'}`;
+    } else if (asset.type === 'video') {
+      file_type = `video/${asset.format || 'mp4'}`;
+    } else if (asset.type === 'raw') {
+      // Handle PDF and DOCX files
+      if (asset.format === 'pdf') {
+        file_type = 'application/pdf';
+      } else if (asset.format === 'docx') {
+        file_type = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+      } else if (asset.format === 'doc') {
+        file_type = 'application/msword';
+      } else {
+        file_type = `application/${asset.format || 'octet-stream'}`;
+      }
+    }
+
+    const xanoData = {
+      title: asset.title || asset.name,
+      description: '',
+      category: asset.type === 'image' ? 'images' : asset.type === 'video' ? 'videos' : 'documents',
+      type: asset.type,
+      station: '',
+      notes: '',
+      tags: [],
+      media_url: asset.url,
+      thumbnail: asset.thumbnail || asset.url,
+      file_type: file_type,
+      file_size: asset.size || 0,
+      upload_date: new Date().toISOString(),
+      duration: asset.duration || '',
+      folder_path: ''
+    };
+
+    const xanoRes = await fetch(`https://x3o5-9jqb-qs8e.n7c.xano.io/api:6SHl5baF/media_files`, {
       method: 'POST',
-      headers: xanoHeaders,
-      body: JSON.stringify({
-        title: asset.title || asset.name,
-        url: asset.url,
-        public_id: asset.publicId,
-        resource_type: asset.type,
-        size: asset.size,
-        width: asset.width || null,
-        height: asset.height || null,
-        duration: asset.duration || null,
-        thumbnail: asset.thumbnail || null,
-        format: asset.format || null,
-        raw: asset.cloudinaryData || null
-      })
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(xanoData)
     });
     if (!xanoRes.ok) {
       const text = await xanoRes.text();
@@ -53,69 +78,34 @@ exports.handler = async (event) => {
     }
     const xanoJson = await xanoRes.json();
 
-    // ---- Save to Webflow (optional) ----
-    const wfToken = process.env.WEBFLOW_API_TOKEN;
-    const wfCollection = process.env.WEBFLOW_COLLECTION_ID;
-    if (!wfToken || !wfCollection) {
-      return {
-        statusCode: 200,
-        headers: corsHeaders,
-        body: JSON.stringify({ ok: true, xano: xanoJson, webflow: 'skipped' })
-      };
+    // ---- Webflow sync (non-blocking, optional) ----
+    // Don't wait for Webflow to complete - just trigger it in background
+    const wfToken = process.env.VITE_WEBFLOW_API_TOKEN;
+    const wfCollection = process.env.VITE_WEBFLOW_COLLECTION_ID;
+    if (wfToken && wfCollection) {
+      // Trigger Webflow sync but don't wait for it
+      fetch('/.netlify/functions/webflow-sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fileId: xanoJson.id })
+      }).catch(err => console.warn('Webflow sync failed:', err));
     }
-    // Build Webflow item payload; adapt field names to your collection schema
-    const itemPayload = {
-      name: asset.title || asset.name,
-      slug: (asset.title || asset.name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''),
-      _archived: false,
-      _draft: String(process.env.WEBFLOW_DRAFT || 'false') === 'true',
-      url: asset.url,
-      publicId: asset.publicId,
-      type: asset.type,
-      size: asset.size,
-      width: asset.width || null,
-      height: asset.height || null,
-      duration: asset.duration || null,
-      format: asset.format || null,
-      thumbnail: asset.thumbnail || null
-    };
-    const wfHeaders = {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${wfToken}`,
-      'accept-version': '1.0.0'
-    };
-    const wfRes = await fetch(`https://api.webflow.com/collections/${wfCollection}/items`, {
-      method: 'POST',
-      headers: wfHeaders,
-      body: JSON.stringify({ fields: itemPayload })
-    });
-    if (!wfRes.ok) {
-      const t = await wfRes.text();
-      throw new Error(`Webflow error ${wfRes.status}: ${t}`);
-    }
-    const wfJson = await wfRes.json();
-    // Optionally publish; requires WEBFLOW_SITE_ID
-    if (String(process.env.WEBFLOW_PUBLISH || 'false') === 'true') {
-      const siteId = process.env.WEBFLOW_SITE_ID;
-      if (siteId) {
-        try {
-          await fetch(`https://api.webflow.com/sites/${siteId}/publish`, {
-            method: 'POST',
-            headers: wfHeaders,
-            body: JSON.stringify({ publishToDevelopment: true, publishToPreview: true, publishToLive: true })
-          });
-        } catch (e) {
-          console.warn('Webflow publish failed:', e);
-        }
-      }
-    }
+
     return {
       statusCode: 200,
       headers: corsHeaders,
-      body: JSON.stringify({ ok: true, xano: xanoJson, webflow: wfJson })
+      body: JSON.stringify({ ok: true, xano: xanoJson, webflow: 'triggered' })
     };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    return { statusCode: 500, body: msg };
+    console.error('Save asset error:', msg);
+    return { 
+      statusCode: 500, 
+      headers: {
+        'Content-Type': 'application/json',
+        'access-control-allow-origin': '*'
+      },
+      body: JSON.stringify({ error: msg })
+    };
   }
 };
