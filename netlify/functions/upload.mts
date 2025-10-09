@@ -46,7 +46,7 @@ export default async (req: Request, context: Context) => {
       folder_path: fileData.folder_path || ''
     };
     
-    const response = await fetch(`https://xajo-bs7d-cagt.n7e.xano.io/api:pYeQctVX/media_files`, {
+    const response = await fetch(`https://xajo-bs7d-cagt.n7e.xano.io/api:pYeQctVX/user_submission`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,

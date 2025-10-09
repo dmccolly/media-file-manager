@@ -28,7 +28,7 @@ export default async (req: Request, context: Context) => {
     console.log('Batch deleting records:', ids.length);
     
     const promises = ids.map(async (id: string) => {
-      const response = await fetch(`https://xajo-bs7d-cagt.n7e.xano.io/api:pYeQctVX/media_files/${id}`, {
+      const response = await fetch(`https://xajo-bs7d-cagt.n7e.xano.io/api:pYeQctVX/user_submission/${id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${apiKey}`

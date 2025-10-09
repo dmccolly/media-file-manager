@@ -17,7 +17,7 @@ export default async (req: Request, context: Context) => {
     }
     
     console.log('Making request to Xano API...');
-    const response = await fetch(`https://xajo-bs7d-cagt.n7e.xano.io/api:pYeQctVX/media_files`, {
+    const response = await fetch(`https://xajo-bs7d-cagt.n7e.xano.io/api:pYeQctVX/user_submission`, {
       headers: {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json'

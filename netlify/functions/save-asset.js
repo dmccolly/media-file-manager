@@ -64,7 +64,7 @@ exports.handler = async (event) => {
       folder_path: ''
     };
 
-    const xanoRes = await fetch(`https://xajo-bs7d-cagt.n7e.xano.io/api:pYeQctVX/media_files`, {
+    const xanoRes = await fetch(`https://xajo-bs7d-cagt.n7e.xano.io/api:pYeQctVX/user_submission`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
