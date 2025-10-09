@@ -9,11 +9,13 @@ export default async (req: Context) => {
     'Content-Type': 'application/json',
   }
 
-  if (req.httpMethod === 'OPTIONS') {
+  const method = req.httpMethod || req.method
+  
+  if (method === 'OPTIONS') {
     return new Response('', { status: 200, headers })
   }
 
-  if (req.httpMethod !== 'GET') {
+  if (method !== 'GET') {
     return new Response(
       JSON.stringify({ error: 'Method not allowed' }),
       { status: 405, headers }
