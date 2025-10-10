@@ -15,8 +15,14 @@ Apply improvements to batch-update and batch-delete functions for better reliabi
 - [x] Create new branch
 - [x] Update batch-update.mts
 - [x] Update batch-delete.mts
-- [ ] Create PR
+- [x] Create PR #68
+- [ ] Merge PR
 - [ ] Deploy to production
 
+## Pull Request
+**PR #68:** https://github.com/dmccolly/media-file-manager/pull/68
+- Branch: `feature/improve-batch-functions`
+- Status: Ready for review and merge
+
 ## Current Status
-✅ Code complete - Creating PR...
+✅ Implementation complete - Ready for merge!
