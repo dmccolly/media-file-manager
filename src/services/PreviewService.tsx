@@ -22,20 +22,20 @@ export class PreviewService {
       return <audio src={file.media_url} controls className="w-full" />;
     }
     
-    // Handle PDF files with Google Docs Viewer
-    console.log('Checking PDF: file.file_type.includes("pdf"):', file.file_type.includes('pdf'));
-    if (file.file_type.includes('pdf')) {
-      console.log('✅ Matched PDF file type, rendering PDF viewer');
-      return (
-        <div className="w-full" style={{ height: '600px' }}>
-          <iframe 
-            src={`https://docs.google.com/viewer?url=${encodeURIComponent(file.media_url)}&embedded=true`}
-            className="w-full h-full border-0"
-            title={file.title}
-          />
-        </div>
-      );
-    }
+// Handle PDF files with native browser viewer
+       console.log('Checking PDF: file.file_type.includes("pdf"):', file.file_type.includes('pdf'));
+       if (file.file_type.includes('pdf')) {
+         console.log('✅ Matched PDF file type, rendering PDF viewer');
+         return (
+           <div className="w-full" style={{ height: '600px' }}>
+             <iframe 
+               src={`${file.media_url}#view=FitH`}
+               className="w-full h-full border-0"
+               title={file.title}
+             />
+           </div>
+         );
+       }
     
     // Handle Office documents (Word, Excel, PowerPoint) with Microsoft Office Online Viewer
     const isOffice = this.isOfficeDocument(file.file_type, file.media_url);
