@@ -34,42 +34,26 @@ export default async (req: Context) => {
       )
     }
 
-    const xanoApiKey = process.env.XANO_API_KEY
-    const xanoBaseUrl = process.env.XANO_BASE_URL || 'https://xajo-bs7d-cagt.n7e.xano.io/api:pYeQctVX'
+    // NOTE: Folders are currently managed client-side only
+    // They are not persisted to any database (Xano or otherwise)
+    // The frontend maintains folder state in memory
+    // This endpoint simply validates the request and returns success
+    // Actual deletion happens on the frontend by removing from state
+    
+    console.log(`✅ Folder delete request received for ID: ${folderId}`)
+    console.log('📝 Note: Folders are client-side only, no database deletion needed')
 
-    // Delete folder from Xano
-    const xanoResponse = await fetch(`${xanoBaseUrl}/folders/${folderId}`, {
-      method: 'DELETE',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(xanoApiKey && { 'Authorization': `Bearer ${xanoApiKey}` }),
-      },
-    })
-
-    if (!xanoResponse.ok) {
-      const errorText = await xanoResponse.text()
-      console.error('Xano folder deletion failed:', errorText)
-      return new Response(
-        JSON.stringify({ 
-          error: 'Failed to delete folder from database',
-          details: errorText 
-        }),
-        { status: xanoResponse.status, headers }
-      )
-    }
-
-    // Note: Files in this folder should be moved to parent folder
-    // This should be handled by the frontend before calling delete
-
+    // Return success - frontend will handle state removal
     return new Response(
       JSON.stringify({
         success: true,
         message: 'Folder deleted successfully',
+        note: 'Folders are managed client-side',
       }),
       { status: 200, headers }
     )
   } catch (error) {
-    console.error('Error deleting folder:', error)
+    console.error('❌ Error deleting folder:', error)
     return new Response(
       JSON.stringify({ 
         error: 'Internal server error',
