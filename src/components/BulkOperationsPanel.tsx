@@ -9,13 +9,21 @@ import { toast } from 'sonner';
 import { bulkOperations } from '../services/BulkOperationsService';
 import { XanoFileRecord } from '../services/XanoService';
 
+interface Folder {
+  id: number;
+  name: string;
+  path?: string;
+}
+
 interface BulkOperationsPanelProps {
   selectedFiles: XanoFileRecord[];
+  folders: Folder[];
   onComplete: () => void;
 }
 
 export const BulkOperationsPanel: React.FC<BulkOperationsPanelProps> = ({
   selectedFiles,
+  folders,
   onComplete
 }) => {
   const [operation, setOperation] = useState<'move' | 'update' | 'delete' | 'download'>('move');
@@ -40,7 +48,7 @@ export const BulkOperationsPanel: React.FC<BulkOperationsPanelProps> = ({
       switch (operation) {
         case 'move':
           if (!targetFolder.trim()) {
-            toast.error('Please enter a target folder');
+            toast.error('Please select a target folder');
             return;
           }
           result = await bulkOperations.moveFiles({
@@ -119,11 +127,19 @@ export const BulkOperationsPanel: React.FC<BulkOperationsPanelProps> = ({
       {operation === 'move' && (
         <div className="space-y-2">
           <label className="text-sm font-medium">Target Folder</label>
-          <Input
-            placeholder="Enter folder path (e.g., Documents/Work)"
-            value={targetFolder}
-            onChange={(e) => setTargetFolder(e.target.value)}
-          />
+          <Select value={targetFolder} onValueChange={setTargetFolder}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select a folder" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="root">Root (No Folder)</SelectItem>
+              {folders.map((folder) => (
+                <SelectItem key={folder.id} value={folder.id.toString()}>
+                  {folder.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       )}
 

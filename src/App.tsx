@@ -17,6 +17,7 @@ import { XanoService } from './services/XanoService'
 import { PreviewService } from './services/PreviewService'
 import { WebflowService } from './services/WebflowService'
 import { FolderService } from './services/FolderService'
+import { BulkOperationsPanel } from './components/BulkOperationsPanel'
 
 interface MediaFile {
   id: string
@@ -1161,50 +1162,18 @@ function App() {
           </DialogContent>
         </Dialog>
         {/* Batch Operations Panel */}
-        {showBatchPanel && selectedMediaFiles.length > 0 && (
-          <div className="fixed bottom-4 right-4 bg-white border border-gray-300 rounded-lg shadow-xl p-4 w-80 z-40">
-            <div className="flex items-center justify-between mb-3">
-              <h4 className="font-medium text-gray-800">
-                Batch Operations ({selectedMediaFiles.length} files)
-              </h4>
-              <Button size="sm" variant="ghost" onClick={handleClearSelection}>
-                ✕
-              </Button>
-            </div>
-            <div className="space-y-3">
-              <Button
-                size="sm"
-                variant="outline"
-                className="w-full"
-                onClick={() => {
-                  const category = prompt('Enter new category:')
-                  if (category) handleBatchUpdate({ category })
+{showBatchPanel && selectedMediaFiles.length > 0 && (
+            <div className="fixed bottom-4 right-4 bg-white border border-gray-300 rounded-lg shadow-xl p-4 w-96 z-40">
+              <BulkOperationsPanel
+                selectedFiles={selectedMediaFiles}
+                folders={folders}
+                onComplete={() => {
+                  handleClearSelection();
+                  loadFiles();
                 }}
-              >
-                Move to Category
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                className="w-full"
-                onClick={() => {
-                  const tags = prompt('Enter tags (comma-separated):')
-                  if (tags) handleBatchUpdate({ tags })
-                }}
-              >
-                Update Tags
-              </Button>
-              <Button
-                size="sm"
-                variant="destructive"
-                className="w-full"
-                onClick={handleBatchDelete}
-              >
-                Delete Files
-              </Button>
+              />
             </div>
-          </div>
-        )}
+          )}
         {/* Context Menu */}
         {contextMenu.show && contextMenu.file && (
           <div
