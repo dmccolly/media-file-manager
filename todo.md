@@ -40,20 +40,22 @@ Add database persistence for folders so they survive page refreshes and are stor
 - [ ] Add better error messages if needed
 
 ## Phase 4: Testing & Deployment
+- [ ] Merge PR #67
 - [ ] Test folder creation with database
 - [ ] Test folder deletion with database
 - [ ] Test folder persistence (refresh page)
-- [ ] Create PR and deploy
+- [ ] Verify deployment
 
-## Key Finding
-The backend code is ALREADY written to use Xano database! The issue is:
-1. Xano folders table probably doesn't exist
-2. folder-delete.mts was just changed to client-side only (needs to be reverted)
+## Completed ✅
+- [x] Xano table exists
+- [x] Xano endpoints exist
+- [x] Updated folder-delete.mts to use database
+- [x] Created PR #67
 
-## Next Steps
-1. **YOU need to create the Xano table** (I can't access Xano directly)
-2. Once table exists, update folder-delete.mts to use database
-3. Test everything
+## Pull Request
+**PR #67:** https://github.com/dmccolly/media-file-manager/pull/67
+- Branch: `feature/folder-persistence`
+- Status: Ready for review and merge
 
 ## Current Status
-Waiting for Xano table creation
+✅ Code complete - Ready for merge and testing
