@@ -30,31 +30,61 @@ export class BulkOperationsService {
   }
 
   async moveFiles(operation: BulkMoveOperation): Promise<BulkOperationResult> {
-    const results: any[] = [];
-    const errors: string[] = [];
-    let processed = 0;
-    let failed = 0;
-
-    for (const fileId of operation.fileIds) {
-      try {
-        const result = await this.xanoService.updateFile(fileId, {
-          folder_path: operation.targetFolder
-        });
-        results.push(result);
-        processed++;
-      } catch (error) {
-        errors.push(`Failed to move file ${fileId}: ${error}`);
-        failed++;
+    try {
+      // Convert string IDs to numbers and folder path to folder ID
+      const fileIds = operation.fileIds.map(id => parseInt(id, 10));
+      
+      // Parse folder ID from target folder path
+      // If targetFolder is empty or "root", use null for root folder
+      let folderId: number | null = null;
+      if (operation.targetFolder && operation.targetFolder !== 'root') {
+        // Extract folder ID from path (assuming format like "folder_123" or just "123")
+        const folderIdMatch = operation.targetFolder.match(/\d+/);
+        if (folderIdMatch) {
+          folderId = parseInt(folderIdMatch[0], 10);
+        }
       }
-    }
 
-    return {
-      success: failed === 0,
-      processed,
-      failed,
-      errors,
-      results
-    };
+      // Call the new batch move endpoint
+      const response = await fetch('/.netlify/functions/batch-move-to-folder', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          fileIds,
+          folderId,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Batch move failed');
+      }
+
+      const data = await response.json();
+
+      // Extract errors from failed results
+      const errors = data.results
+        .filter((r: any) => !r.success)
+        .map((r: any) => `File ${r.fileId}: ${r.error}`);
+
+      return {
+        success: data.failed === 0,
+        processed: data.succeeded,
+        failed: data.failed,
+        errors,
+        results: data.results,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        processed: 0,
+        failed: operation.fileIds.length,
+        errors: [error instanceof Error ? error.message : 'Batch move failed'],
+        results: [],
+      };
+    }
   }
 
   async updateFiles(operation: BulkUpdateOperation): Promise<BulkOperationResult> {
