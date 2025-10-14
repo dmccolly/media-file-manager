@@ -273,6 +273,7 @@ async function syncToWebflowCollection(file, apiToken, collectionId) {
   console.log(`🔄 Syncing to Webflow Collection: ${file.title}`);
 
   const slug = generateSlug(file.title || file.name || 'untitled');
+  const thumbnailUrl = file.thumbnail || file.media_url;
 
   const itemData = {
     isArchived: false,
@@ -281,13 +282,16 @@ async function syncToWebflowCollection(file, apiToken, collectionId) {
       name: file.title || file.name || 'Untitled',
       slug: slug,
       'media-url': file.media_url,
+      thumbnail: thumbnailUrl,
       description: file.description || '',
       category: file.category || 'Files',
+      station: file.station || '',
+      'submitted-by': file.submitted_by || file.author || 'Unknown',
       'file-type': file.file_type || 'file',
       'file-size': file.file_size || 0,
       tags: Array.isArray(file.tags) ? file.tags.join(', ') : (file.tags || ''),
-      author: file.author || file.submitted_by || 'Unknown',
-      'upload-date': file.upload_date || file.created_at || new Date().toISOString()
+      'upload-date': file.upload_date || file.created_at || new Date().toISOString(),
+      'cloudinary-public-id': extractPublicIdFromUrl(file.media_url)
     }
   };
 
@@ -397,4 +401,27 @@ async function generateFileHash(url) {
 function hashString(str) {
   const crypto = require('crypto');
   return crypto.createHash('sha256').update(str).digest('hex');
+}
+
+/**
+ * Extract Cloudinary public ID from URL
+ */
+function extractPublicIdFromUrl(url) {
+  if (!url) return '';
+  
+  try {
+    // Cloudinary URLs typically have format: .../upload/v123456789/folder/filename.ext
+    const match = url.match(/\/upload\/(?:v\d+\/)?(.+?)(?:\.[^.]+)?$/);
+    if (match && match[1]) {
+      return match[1];
+    }
+    
+    // Fallback: use filename
+    const parts = url.split('/');
+    const filename = parts[parts.length - 1];
+    return filename.split('.')[0];
+  } catch (error) {
+    console.warn('Error extracting public ID:', error);
+    return '';
+  }
 }
