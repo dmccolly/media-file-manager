@@ -220,6 +220,9 @@ async function syncToWebflowAssets(file, apiToken, siteId) {
     }
   }
 
+  // Generate file hash from URL (Webflow uses this for deduplication)
+  const fileHash = await generateFileHash(file.media_url);
+
   const response = await fetch(`https://api.webflow.com/v2/sites/${siteId}/assets`, {
     method: 'POST',
     headers: {
@@ -229,6 +232,7 @@ async function syncToWebflowAssets(file, apiToken, siteId) {
     body: JSON.stringify({
       url: file.media_url,
       fileName: fileName,
+      fileHash: fileHash,
       displayName: file.title || file.name || 'Untitled',
       altText: file.description || file.title || file.name || ''
     })
@@ -334,4 +338,46 @@ function getFileExtension(fileType, url) {
   if (fileType.includes('text/plain')) return 'txt';
   
   return 'file';
+}
+
+/**
+ * Generate file hash from URL
+ * Webflow uses this for file deduplication
+ */
+async function generateFileHash(url) {
+  if (!url) {
+    return 'unknown';
+  }
+  
+  try {
+    // Fetch the file from the URL
+    const response = await fetch(url);
+    if (!response.ok) {
+      console.warn(`Failed to fetch file for hashing: ${response.status}`);
+      // Fallback: use URL-based hash
+      return hashString(url);
+    }
+    
+    // Get the file content as array buffer
+    const arrayBuffer = await response.arrayBuffer();
+    
+    // Generate SHA-256 hash
+    const crypto = require('crypto');
+    const hash = crypto.createHash('sha256');
+    hash.update(Buffer.from(arrayBuffer));
+    return hash.digest('hex');
+    
+  } catch (error) {
+    console.warn(`Error generating file hash: ${error.message}`);
+    // Fallback: use URL-based hash
+    return hashString(url);
+  }
+}
+
+/**
+ * Generate hash from string (fallback method)
+ */
+function hashString(str) {
+  const crypto = require('crypto');
+  return crypto.createHash('sha256').update(str).digest('hex');
 }
