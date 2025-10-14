@@ -327,6 +327,25 @@ async function syncToWebflowCollection(file, apiToken, collectionId) {
   const result = await response.json();
   console.log(`✅ Collection item created: ${result.id}`);
   
+  // Auto-publish the item
+  try {
+    const publishResponse = await fetch(`https://api.webflow.com/v2/collections/${collectionId}/items/${result.id}/publish`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${apiToken}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (publishResponse.ok) {
+      console.log(`✅ Item auto-published: ${result.id}`);
+    } else {
+      console.warn(`⚠️ Failed to auto-publish item: ${result.id}`);
+    }
+  } catch (publishError) {
+    console.warn(`⚠️ Error auto-publishing item: ${publishError.message}`);
+  }
+  
   return { itemId: result.id, existed: false };
 }
 
