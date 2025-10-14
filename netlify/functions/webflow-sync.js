@@ -209,12 +209,12 @@ async function syncToWebflowAssets(file, apiToken, siteId) {
   if (file.media_url) {
     const urlParts = file.media_url.split('/');
     const lastPart = urlParts[urlParts.length - 1];
-    if (lastPart &amp;&amp; lastPart.includes('.')) {
+    if (lastPart && lastPart.includes('.')) {
       fileName = lastPart.split('?')[0]; // Remove query params
     } else {
       // Add extension based on file type
       const ext = getFileExtension(file.file_type, file.media_url);
-      if (ext &amp;&amp; !fileName.includes('.')) {
+      if (ext && !fileName.includes('.')) {
         fileName = `${fileName}.${ext}`;
       }
     }
