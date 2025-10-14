@@ -202,6 +202,24 @@ exports.handler = async (event) => {
 async function syncToWebflowAssets(file, apiToken, siteId) {
   console.log(`🔄 Syncing to Webflow Assets: ${file.title}`);
 
+  // Extract filename from URL or use title
+  let fileName = file.title || file.name || 'untitled';
+  
+  // Try to extract filename from media_url
+  if (file.media_url) {
+    const urlParts = file.media_url.split('/');
+    const lastPart = urlParts[urlParts.length - 1];
+    if (lastPart &amp;&amp; lastPart.includes('.')) {
+      fileName = lastPart.split('?')[0]; // Remove query params
+    } else {
+      // Add extension based on file type
+      const ext = getFileExtension(file.file_type, file.media_url);
+      if (ext &amp;&amp; !fileName.includes('.')) {
+        fileName = `${fileName}.${ext}`;
+      }
+    }
+  }
+
   const response = await fetch(`https://api.webflow.com/v2/sites/${siteId}/assets`, {
     method: 'POST',
     headers: {
@@ -210,6 +228,7 @@ async function syncToWebflowAssets(file, apiToken, siteId) {
     },
     body: JSON.stringify({
       url: file.media_url,
+      fileName: fileName,
       displayName: file.title || file.name || 'Untitled',
       altText: file.description || file.title || file.name || ''
     })
@@ -281,4 +300,38 @@ function generateSlug(title) {
     .replace(/\s+/g, '-')
     .replace(/-+/g, '-')
     .trim();
+}
+
+/**
+ * Get file extension from file type or URL
+ */
+function getFileExtension(fileType, url) {
+  // Try to get from URL first
+  if (url) {
+    const urlParts = url.split('.');
+    const lastPart = urlParts[urlParts.length - 1].split('?')[0];
+    if (lastPart && lastPart.length <= 5) {
+      return lastPart;
+    }
+  }
+  
+  // Fallback to file type mapping
+  if (!fileType) return 'file';
+  
+  if (fileType.includes('image/jpeg') || fileType.includes('image/jpg')) return 'jpg';
+  if (fileType.includes('image/png')) return 'png';
+  if (fileType.includes('image/gif')) return 'gif';
+  if (fileType.includes('image/webp')) return 'webp';
+  if (fileType.includes('image/svg')) return 'svg';
+  if (fileType.includes('video/mp4')) return 'mp4';
+  if (fileType.includes('video/webm')) return 'webm';
+  if (fileType.includes('video/mov')) return 'mov';
+  if (fileType.includes('audio/mp3')) return 'mp3';
+  if (fileType.includes('audio/wav')) return 'wav';
+  if (fileType.includes('audio/ogg')) return 'ogg';
+  if (fileType.includes('application/pdf')) return 'pdf';
+  if (fileType.includes('application/zip')) return 'zip';
+  if (fileType.includes('text/plain')) return 'txt';
+  
+  return 'file';
 }
