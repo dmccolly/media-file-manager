@@ -272,8 +272,15 @@ async function syncToWebflowAssets(file, apiToken, siteId) {
 async function syncToWebflowCollection(file, apiToken, collectionId) {
   console.log(`🔄 Syncing to Webflow Collection: ${file.title}`);
 
+  // Check for existing item to prevent duplicates
+  const existingItem = await checkForExistingItem(file, apiToken, collectionId);
+  if (existingItem) {
+    console.log(`⚠️ Item already exists in Webflow: ${file.title} (ID: ${existingItem.id})`);
+    return { itemId: existingItem.id, existed: true };
+  }
+
   const slug = generateSlug(file.title || file.name || 'untitled');
-  const thumbnailUrl = file.thumbnail || file.media_url;
+  const thumbnailUrl = generateThumbnailUrl(file);
 
   // Convert upload date to ISO 8601 format
   let uploadDate = new Date().toISOString();
@@ -320,7 +327,7 @@ async function syncToWebflowCollection(file, apiToken, collectionId) {
   const result = await response.json();
   console.log(`✅ Collection item created: ${result.id}`);
   
-  return { itemId: result.id };
+  return { itemId: result.id, existed: false };
 }
 
 /**
@@ -465,4 +472,85 @@ function convertToISODate(dateValue) {
     console.warn('Error converting date:', error);
     return new Date().toISOString();
   }
+}
+
+/**
+ * Check if item already exists in Webflow collection
+ */
+async function checkForExistingItem(file, apiToken, collectionId) {
+  try {
+    const response = await fetch(`https://api.webflow.com/v2/collections/${collectionId}/items`, {
+      headers: {
+        'Authorization': `Bearer ${apiToken}`
+      }
+    });
+    
+    if (!response.ok) {
+      console.warn('Could not check for existing items');
+      return null;
+    }
+    
+    const data = await response.json();
+    const items = data.items || [];
+    
+    // Check for duplicate by media URL (most reliable)
+    if (file.media_url) {
+      const existingByUrl = items.find(item => 
+        item.fieldData['media-url'] === file.media_url
+      );
+      if (existingByUrl) return existingByUrl;
+    }
+    
+    // Check for duplicate by name
+    const fileName = file.title || file.name;
+    if (fileName) {
+      const existingByName = items.find(item => 
+        item.fieldData.name === fileName
+      );
+      if (existingByName) return existingByName;
+    }
+    
+    return null;
+  } catch (error) {
+    console.warn('Error checking for existing items:', error);
+    return null;
+  }
+}
+
+/**
+ * Generate appropriate thumbnail URL
+ */
+function generateThumbnailUrl(file) {
+  // If file already has a thumbnail, use it
+  if (file.thumbnail && file.thumbnail.trim() !== '') {
+    return file.thumbnail;
+  }
+  
+  // For images, use the media URL as thumbnail
+  if (file.file_type && file.file_type.startsWith('image/')) {
+    return file.media_url;
+  }
+  
+  // For videos, try to generate a video thumbnail
+  if (file.file_type && file.file_type.startsWith('video/') && file.media_url) {
+    // Cloudinary video thumbnail
+    if (file.media_url.includes('cloudinary.com')) {
+      return file.media_url
+        .replace('/upload/', '/upload/w_300,h_200,c_fill,f_auto,q_auto,so_0/')
+        .replace(/\.[^.]+$/, '.jpg');
+    }
+  }
+  
+  // For PDFs, try to generate a PDF thumbnail
+  if (file.file_type === 'application/pdf' && file.media_url) {
+    // Cloudinary PDF thumbnail
+    if (file.media_url.includes('cloudinary.com')) {
+      return file.media_url
+        .replace('/upload/', '/upload/w_300,h_200,c_fill,f_auto,q_auto,pg_1/')
+        .replace(/\.pdf$/i, '.jpg');
+    }
+  }
+  
+  // Fallback: use media URL or placeholder
+  return file.media_url || 'https://via.placeholder.com/300x200?text=No+Thumbnail';
 }
