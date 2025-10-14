@@ -537,39 +537,67 @@ async function checkForExistingItem(file, apiToken, collectionId) {
 }
 
 /**
- * Generate appropriate thumbnail URL
+ * Generate consistent thumbnail URL for gallery grid
  */
 function generateThumbnailUrl(file) {
-  // If file already has a thumbnail, use it
-  if (file.thumbnail && file.thumbnail.trim() !== '') {
-    return file.thumbnail;
+  const THUMBNAIL_WIDTH = 400;
+  const THUMBNAIL_HEIGHT = 300;
+  
+  // If file has existing thumbnail and it's from Cloudinary, optimize it
+  if (file.thumbnail && file.thumbnail.trim() !== '' && file.thumbnail.includes('cloudinary.com')) {
+    return optimizeCloudinaryThumbnail(file.thumbnail, THUMBNAIL_WIDTH, THUMBNAIL_HEIGHT);
   }
   
-  // For images, use the media URL as thumbnail
-  if (file.file_type && file.file_type.startsWith('image/')) {
+  // For images, create consistent thumbnail from media URL
+  if (file.file_type && file.file_type.startsWith('image/') && file.media_url) {
+    if (file.media_url.includes('cloudinary.com')) {
+      return optimizeCloudinaryThumbnail(file.media_url, THUMBNAIL_WIDTH, THUMBNAIL_HEIGHT);
+    }
     return file.media_url;
   }
   
-  // For videos, try to generate a video thumbnail
+  // For videos, generate consistent video thumbnail
   if (file.file_type && file.file_type.startsWith('video/') && file.media_url) {
-    // Cloudinary video thumbnail
     if (file.media_url.includes('cloudinary.com')) {
       return file.media_url
-        .replace('/upload/', '/upload/w_300,h_200,c_fill,f_auto,q_auto,so_0/')
+        .replace('/upload/', `/upload/w_${THUMBNAIL_WIDTH},h_${THUMBNAIL_HEIGHT},c_fill,f_auto,q_auto,g_auto,so_0/`)
         .replace(/\.[^.]+$/, '.jpg');
     }
   }
   
-  // For PDFs, try to generate a PDF thumbnail
+  // For PDFs, generate consistent PDF thumbnail
   if (file.file_type === 'application/pdf' && file.media_url) {
-    // Cloudinary PDF thumbnail
     if (file.media_url.includes('cloudinary.com')) {
       return file.media_url
-        .replace('/upload/', '/upload/w_300,h_200,c_fill,f_auto,q_auto,pg_1/')
+        .replace('/upload/', `/upload/w_${THUMBNAIL_WIDTH},h_${THUMBNAIL_HEIGHT},c_fill,f_auto,q_auto,g_auto,pg_1/`)
         .replace(/\.pdf$/i, '.jpg');
     }
   }
   
-  // Fallback: use media URL or placeholder
-  return file.media_url || 'https://via.placeholder.com/300x200?text=No+Thumbnail';
+  // For audio files, use a consistent placeholder
+  if (file.file_type && file.file_type.startsWith('audio/')) {
+    return `https://via.placeholder.com/${THUMBNAIL_WIDTH}x${THUMBNAIL_HEIGHT}/4A90E2/FFFFFF?text=🎵+Audio+File`;
+  }
+  
+  // Generic file placeholder
+  return `https://via.placeholder.com/${THUMBNAIL_WIDTH}x${THUMBNAIL_HEIGHT}/6B7280/FFFFFF?text=📄+${encodeURIComponent(file.file_type || 'File')}`;
+}
+
+/**
+ * Optimize Cloudinary URL for consistent thumbnails
+ */
+function optimizeCloudinaryThumbnail(url, width, height) {
+  if (!url || !url.includes('cloudinary.com')) {
+    return url;
+  }
+  
+  // Remove existing transformations and add consistent ones
+  const baseUrl = url.split('/upload/')[0] + '/upload/';
+  const imagePath = url.split('/upload/')[1];
+  
+  // Remove existing transformations (everything before the first slash after upload/)
+  const cleanImagePath = imagePath.replace(/^[^\/]*\//, '');
+  
+  // Add consistent transformations for grid layout
+  return `${baseUrl}w_${width},h_${height},c_fill,f_auto,q_auto,g_auto/${cleanImagePath}`;
 }
