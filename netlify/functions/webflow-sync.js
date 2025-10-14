@@ -137,21 +137,38 @@ exports.handler = async (event) => {
       try {
         console.log(`🔄 Webflow Sync: Processing file: ${file.title || file.id}`);
 
-        // Sync to Webflow Media Assets
-        const assetResult = await syncToWebflowAssets(file, WEBFLOW_API_TOKEN, WEBFLOW_SITE_ID);
+        let assetResult = { assetId: null, error: null };
+        let collectionResult = { itemId: null, error: null };
+
+        // Try to sync to Webflow Media Assets (optional - may fail)
+        try {
+          assetResult = await syncToWebflowAssets(file, WEBFLOW_API_TOKEN, WEBFLOW_SITE_ID);
+          console.log(`✅ Asset synced: ${assetResult.assetId}`);
+        } catch (assetError) {
+          console.warn(`⚠️ Webflow Assets sync failed (non-critical): ${assetError.message}`);
+          assetResult.error = assetError.message;
+          // Continue to CMS sync even if Assets fails
+        }
         
-        // Sync to Webflow CMS Collection
-        const collectionResult = await syncToWebflowCollection(
-          file, 
-          WEBFLOW_API_TOKEN, 
-          WEBFLOW_COLLECTION_ID
-        );
+        // Sync to Webflow CMS Collection (primary sync target)
+        try {
+          collectionResult = await syncToWebflowCollection(
+            file, 
+            WEBFLOW_API_TOKEN, 
+            WEBFLOW_COLLECTION_ID
+          );
+          console.log(`✅ Collection item created: ${collectionResult.itemId}`);
+        } catch (collectionError) {
+          console.error(`❌ Webflow Collection sync failed: ${collectionError.message}`);
+          throw collectionError; // This is critical, so throw
+        }
 
         results.successful.push({
           fileId: file.id,
           title: file.title,
           assetId: assetResult.assetId,
-          collectionItemId: collectionResult.itemId
+          collectionItemId: collectionResult.itemId,
+          assetsError: assetResult.error
         });
 
         console.log(`✅ Webflow Sync: Successfully synced file: ${file.title || file.id}`);
