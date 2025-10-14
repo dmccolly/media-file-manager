@@ -275,6 +275,14 @@ async function syncToWebflowCollection(file, apiToken, collectionId) {
   const slug = generateSlug(file.title || file.name || 'untitled');
   const thumbnailUrl = file.thumbnail || file.media_url;
 
+  // Convert upload date to ISO 8601 format
+  let uploadDate = new Date().toISOString();
+  if (file.upload_date) {
+    uploadDate = convertToISODate(file.upload_date);
+  } else if (file.created_at) {
+    uploadDate = convertToISODate(file.created_at);
+  }
+
   const itemData = {
     isArchived: false,
     isDraft: false,
@@ -290,7 +298,7 @@ async function syncToWebflowCollection(file, apiToken, collectionId) {
       'file-type': file.file_type || 'file',
       'file-size': file.file_size || 0,
       tags: Array.isArray(file.tags) ? file.tags.join(', ') : (file.tags || ''),
-      'upload-date': file.upload_date || file.created_at || new Date().toISOString(),
+      'upload-date': uploadDate,
       'cloudinary-public-id': extractPublicIdFromUrl(file.media_url)
     }
   };
@@ -423,5 +431,38 @@ function extractPublicIdFromUrl(url) {
   } catch (error) {
     console.warn('Error extracting public ID:', error);
     return '';
+  }
+}
+
+/**
+ * Convert various date formats to ISO 8601 string
+ */
+function convertToISODate(dateValue) {
+  if (!dateValue) {
+    return new Date().toISOString();
+  }
+  
+  try {
+    // If it's already a valid ISO string, return it
+    if (typeof dateValue === 'string' && dateValue.includes('T')) {
+      return new Date(dateValue).toISOString();
+    }
+    
+    // If it's a Unix timestamp (number in milliseconds)
+    if (typeof dateValue === 'number') {
+      return new Date(dateValue).toISOString();
+    }
+    
+    // Try to parse as date
+    const date = new Date(dateValue);
+    if (!isNaN(date.getTime())) {
+      return date.toISOString();
+    }
+    
+    // Fallback to current date
+    return new Date().toISOString();
+  } catch (error) {
+    console.warn('Error converting date:', error);
+    return new Date().toISOString();
   }
 }
