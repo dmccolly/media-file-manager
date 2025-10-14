@@ -1,45 +1,284 @@
-
 /**
- * Placeholder Webflow sync function.
- *
- * This stub exists to prevent 404 errors when the client code calls
- * `/.netlify/functions/webflow-sync`. It simply returns a 200 OK status
- * along with any request body it receives. In a real-world deployment,
- * you would replace the contents of this handler with logic that
- * interacts with the Webflow API or performs whatever synchronization
- * your application requires.
+ * Webflow Sync Function
+ * 
+ * This function syncs media assets from Xano to Webflow CMS collection and media assets.
+ * It can be triggered manually or via webhook when new assets are added to Cloudinary/Xano.
  */
-// Exported Netlify function. Written without external type imports so that
-// no additional dependencies are required during build. Avoid importing
-// '@netlify/functions' to prevent missing dependency errors.
+
 exports.handler = async (event) => {
-  // Only allow POST requests; respond with 405 for all other methods
-  if (event.httpMethod !== 'POST') {
+  // Handle CORS preflight
+  if (event.httpMethod === 'OPTIONS') {
+    return {
+      statusCode: 204,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+        'Access-Control-Allow-Methods': 'POST, GET, OPTIONS'
+      },
+      body: ''
+    };
+  }
+
+  // Only allow POST and GET requests
+  if (event.httpMethod !== 'POST' && event.httpMethod !== 'GET') {
     return {
       statusCode: 405,
-      body: 'Method Not Allowed'
-    }
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*'
+      },
+      body: JSON.stringify({ error: 'Method Not Allowed' })
+    };
   }
 
   try {
-    // Attempt to parse the request body as JSON. If the body is empty
-    // or not valid JSON, default to an empty object.
-    const body = event.body ? JSON.parse(event.body) : {}
-    // TODO: Implement real sync logic here if needed.
+    console.log('🔄 Webflow Sync: Starting sync process');
+
+    // Get environment variables
+    const WEBFLOW_API_TOKEN = process.env.VITE_WEBFLOW_API_TOKEN;
+    const WEBFLOW_SITE_ID = process.env.VITE_WEBFLOW_SITE_ID || '688ed8debc05764047afa2a7';
+    const WEBFLOW_COLLECTION_ID = process.env.VITE_WEBFLOW_COLLECTION_ID || '6891479d29ed1066b71124e9';
+    const XANO_API_KEY = process.env.XANO_API_KEY;
+    const XANO_BASE_URL = 'https://xajo-bs7d-cagt.n7e.xano.io/api:pYeQctVX';
+
+    // Validate required environment variables
+    if (!WEBFLOW_API_TOKEN) {
+      console.error('❌ Webflow Sync: VITE_WEBFLOW_API_TOKEN not configured');
+      return {
+        statusCode: 500,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        },
+        body: JSON.stringify({ 
+          error: 'Webflow API token not configured',
+          success: false 
+        })
+      };
+    }
+
+    if (!XANO_API_KEY) {
+      console.error('❌ Webflow Sync: XANO_API_KEY not configured');
+      return {
+        statusCode: 500,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        },
+        body: JSON.stringify({ 
+          error: 'Xano API key not configured',
+          success: false 
+        })
+      };
+    }
+
+    // Parse request body
+    const body = event.body ? JSON.parse(event.body) : {};
+    const { fileId, syncAll = false } = body;
+
+    let filesToSync = [];
+
+    if (syncAll) {
+      // Fetch all files from Xano
+      console.log('🔄 Webflow Sync: Fetching all files from Xano');
+      const xanoResponse = await fetch(`${XANO_BASE_URL}/user_submission`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${XANO_API_KEY}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!xanoResponse.ok) {
+        throw new Error(`Failed to fetch files from Xano: ${xanoResponse.status}`);
+      }
+
+      filesToSync = await xanoResponse.json();
+      console.log(`✅ Webflow Sync: Found ${filesToSync.length} files to sync`);
+    } else if (fileId) {
+      // Fetch specific file from Xano
+      console.log(`🔄 Webflow Sync: Fetching file ${fileId} from Xano`);
+      const xanoResponse = await fetch(`${XANO_BASE_URL}/user_submission/${fileId}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${XANO_API_KEY}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!xanoResponse.ok) {
+        throw new Error(`Failed to fetch file from Xano: ${xanoResponse.status}`);
+      }
+
+      const file = await xanoResponse.json();
+      filesToSync = [file];
+    } else {
+      return {
+        statusCode: 400,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        },
+        body: JSON.stringify({ 
+          error: 'Either fileId or syncAll must be provided',
+          success: false 
+        })
+      };
+    }
+
+    // Sync each file to Webflow
+    const results = {
+      successful: [],
+      failed: [],
+      total: filesToSync.length
+    };
+
+    for (const file of filesToSync) {
+      try {
+        console.log(`🔄 Webflow Sync: Processing file: ${file.title || file.id}`);
+
+        // Sync to Webflow Media Assets
+        const assetResult = await syncToWebflowAssets(file, WEBFLOW_API_TOKEN, WEBFLOW_SITE_ID);
+        
+        // Sync to Webflow CMS Collection
+        const collectionResult = await syncToWebflowCollection(
+          file, 
+          WEBFLOW_API_TOKEN, 
+          WEBFLOW_COLLECTION_ID
+        );
+
+        results.successful.push({
+          fileId: file.id,
+          title: file.title,
+          assetId: assetResult.assetId,
+          collectionItemId: collectionResult.itemId
+        });
+
+        console.log(`✅ Webflow Sync: Successfully synced file: ${file.title || file.id}`);
+      } catch (error) {
+        console.error(`❌ Webflow Sync: Failed to sync file ${file.id}:`, error.message);
+        results.failed.push({
+          fileId: file.id,
+          title: file.title,
+          error: error.message
+        });
+      }
+    }
+
+    console.log(`✅ Webflow Sync: Complete. Success: ${results.successful.length}, Failed: ${results.failed.length}`);
 
     return {
       statusCode: 200,
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*'
       },
-      body: JSON.stringify({ ok: true, message: 'Webflow sync stub invoked', data: body })
-    }
-  } catch (err) {
-    // On JSON parse error or unexpected failure, return a 500 status
-    const message = err instanceof Error ? err.message : 'Internal Server Error'
+      body: JSON.stringify({
+        success: true,
+        message: 'Webflow sync completed',
+        results
+      })
+    };
+
+  } catch (error) {
+    console.error('❌ Webflow Sync: Error:', error);
     return {
       statusCode: 500,
-      body: message
-    }
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*'
+      },
+      body: JSON.stringify({
+        success: false,
+        error: error.message || 'Internal server error'
+      })
+    };
   }
+};
+
+/**
+ * Sync file to Webflow Media Assets
+ */
+async function syncToWebflowAssets(file, apiToken, siteId) {
+  console.log(`🔄 Syncing to Webflow Assets: ${file.title}`);
+
+  const response = await fetch(`https://api.webflow.com/v2/sites/${siteId}/assets`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiToken}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      url: file.media_url,
+      displayName: file.title || file.name || 'Untitled',
+      altText: file.description || file.title || file.name || ''
+    })
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Webflow Assets API error: ${response.status} - ${errorText}`);
+  }
+
+  const result = await response.json();
+  console.log(`✅ Asset synced: ${result.id}`);
+  
+  return { assetId: result.id };
+}
+
+/**
+ * Sync file to Webflow CMS Collection
+ */
+async function syncToWebflowCollection(file, apiToken, collectionId) {
+  console.log(`🔄 Syncing to Webflow Collection: ${file.title}`);
+
+  const slug = generateSlug(file.title || file.name || 'untitled');
+
+  const itemData = {
+    isArchived: false,
+    isDraft: false,
+    fieldData: {
+      name: file.title || file.name || 'Untitled',
+      slug: slug,
+      'media-url': file.media_url,
+      description: file.description || '',
+      category: file.category || 'Files',
+      'file-type': file.file_type || 'file',
+      'file-size': file.file_size || 0,
+      tags: Array.isArray(file.tags) ? file.tags.join(', ') : (file.tags || ''),
+      author: file.author || file.submitted_by || 'Unknown',
+      'upload-date': file.upload_date || file.created_at || new Date().toISOString()
+    }
+  };
+
+  const response = await fetch(`https://api.webflow.com/v2/collections/${collectionId}/items`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiToken}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(itemData)
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Webflow Collection API error: ${response.status} - ${errorText}`);
+  }
+
+  const result = await response.json();
+  console.log(`✅ Collection item created: ${result.id}`);
+  
+  return { itemId: result.id };
+}
+
+/**
+ * Generate URL-friendly slug from title
+ */
+function generateSlug(title) {
+  return title
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .trim();
 }
