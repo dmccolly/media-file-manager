@@ -35,15 +35,15 @@ exports.handler = async (event) => {
     console.log(' Webflow Sync: Starting sync process');
 
     // Get environment variables
-    const WEBFLOW_API_TOKEN = process.env.VITE_WEBFLOW_API_TOKEN;
-    const WEBFLOW_SITE_ID = process.env.VITE_WEBFLOW_SITE_ID || '688ed8debc05764047afa2a7';
-    const WEBFLOW_COLLECTION_ID = process.env.VITE_WEBFLOW_COLLECTION_ID || '6891479d29ed1066b71124e9';
+    const WEBFLOW_API_TOKEN = process.env.VITE_WEBFLOW_API_TOKEN || process.env.WEBFLOW_API_TOKEN;
+    const WEBFLOW_SITE_ID = process.env.VITE_WEBFLOW_SITE_ID || process.env.WEBFLOW_SITE_ID || '688ed8debc05764047afa2a7';
+    const WEBFLOW_COLLECTION_ID = process.env.VITE_WEBFLOW_COLLECTION_ID || process.env.WEBFLOW_COLLECTION_ID || '6891479d29ed1066b71124e9';
     const XANO_API_KEY = process.env.XANO_API_KEY;
     const XANO_BASE_URL = 'https://xajo-bs7d-cagt.n7e.xano.io/api:pYeQctVX';
 
     // Validate required environment variables
-    if (!WEBFLOW_API_TOKEN) {
-      console.error('❌ Webflow Sync: VITE_WEBFLOW_API_TOKEN not configured');
+    if (!WEBFLOW_API_TOKEN || !WEBFLOW_SITE_ID || !WEBFLOW_COLLECTION_ID) {
+      console.error('❌ Webflow Sync: Missing Webflow API token, site ID or collection ID');
       return {
         statusCode: 500,
         headers: {
