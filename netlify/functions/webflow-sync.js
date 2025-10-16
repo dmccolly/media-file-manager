@@ -32,7 +32,7 @@ exports.handler = async (event) => {
   }
 
   try {
-    console.log('🔄 Webflow Sync: Starting sync process');
+    console.log(' Webflow Sync: Starting sync process');
 
     // Get environment variables
     const WEBFLOW_API_TOKEN = process.env.VITE_WEBFLOW_API_TOKEN;
@@ -80,7 +80,7 @@ exports.handler = async (event) => {
 
     if (syncAll) {
       // Fetch all files from Xano
-      console.log('🔄 Webflow Sync: Fetching all files from Xano');
+      console.log(' Webflow Sync: Fetching all files from Xano');
       const xanoResponse = await fetch(`${XANO_BASE_URL}/user_submission`, {
         method: 'GET',
         headers: {
@@ -97,7 +97,7 @@ exports.handler = async (event) => {
       console.log(`✅ Webflow Sync: Found ${filesToSync.length} files to sync`);
     } else if (fileId) {
       // Fetch specific file from Xano
-      console.log(`🔄 Webflow Sync: Fetching file ${fileId} from Xano`);
+      console.log(` Webflow Sync: Fetching file ${fileId} from Xano`);
       const xanoResponse = await fetch(`${XANO_BASE_URL}/user_submission/${fileId}`, {
         method: 'GET',
         headers: {
@@ -135,7 +135,7 @@ exports.handler = async (event) => {
 
     for (const file of filesToSync) {
       try {
-        console.log(`🔄 Webflow Sync: Processing file: ${file.title || file.id}`);
+        console.log(` Webflow Sync: Processing file: ${file.title || file.id}`);
 
         let assetResult = { assetId: null, error: null };
         let collectionResult = { itemId: null, error: null };
@@ -149,7 +149,7 @@ exports.handler = async (event) => {
           assetResult.error = assetError.message;
           // Continue to CMS sync even if Assets fails
         }
-        
+
         // Sync to Webflow CMS Collection (primary sync target)
         try {
           collectionResult = await syncToWebflowCollection(
@@ -217,11 +217,11 @@ exports.handler = async (event) => {
  * Sync file to Webflow Media Assets
  */
 async function syncToWebflowAssets(file, apiToken, siteId) {
-  console.log(`🔄 Syncing to Webflow Assets: ${file.title}`);
+  console.log(` Syncing to Webflow Assets: ${file.title}`);
 
   // Extract filename from URL or use title
   let fileName = file.title || file.name || 'untitled';
-  
+
   // Try to extract filename from media_url
   if (file.media_url) {
     const urlParts = file.media_url.split('/');
@@ -262,7 +262,7 @@ async function syncToWebflowAssets(file, apiToken, siteId) {
 
   const result = await response.json();
   console.log(`✅ Asset synced: ${result.id}`);
-  
+
   return { assetId: result.id };
 }
 
@@ -270,7 +270,7 @@ async function syncToWebflowAssets(file, apiToken, siteId) {
  * Sync file to Webflow CMS Collection
  */
 async function syncToWebflowCollection(file, apiToken, collectionId) {
-  console.log(`🔄 Syncing to Webflow Collection: ${file.title}`);
+  console.log(` Syncing to Webflow Collection: ${file.title}`);
 
   // Check for existing item to prevent duplicates
   const existingItem = await checkForExistingItem(file, apiToken, collectionId);
@@ -326,7 +326,7 @@ async function syncToWebflowCollection(file, apiToken, collectionId) {
 
   const result = await response.json();
   console.log(`✅ Collection item created: ${result.id}`);
-  
+
   // Auto-publish the item
   try {
     const publishResponse = await fetch(`https://api.webflow.com/v2/collections/${collectionId}/items/${result.id}/publish`, {
@@ -336,7 +336,7 @@ async function syncToWebflowCollection(file, apiToken, collectionId) {
         'Content-Type': 'application/json'
       }
     });
-    
+
     if (publishResponse.ok) {
       console.log(`✅ Item auto-published: ${result.id}`);
     } else {
@@ -345,7 +345,7 @@ async function syncToWebflowCollection(file, apiToken, collectionId) {
   } catch (publishError) {
     console.warn(`⚠️ Error auto-publishing item: ${publishError.message}`);
   }
-  
+
   return { itemId: result.id, existed: false };
 }
 
@@ -373,10 +373,10 @@ function getFileExtension(fileType, url) {
       return lastPart;
     }
   }
-  
+
   // Fallback to file type mapping
   if (!fileType) return 'file';
-  
+
   if (fileType.includes('image/jpeg') || fileType.includes('image/jpg')) return 'jpg';
   if (fileType.includes('image/png')) return 'png';
   if (fileType.includes('image/gif')) return 'gif';
@@ -391,7 +391,7 @@ function getFileExtension(fileType, url) {
   if (fileType.includes('application/pdf')) return 'pdf';
   if (fileType.includes('application/zip')) return 'zip';
   if (fileType.includes('text/plain')) return 'txt';
-  
+
   return 'file';
 }
 
@@ -403,7 +403,7 @@ async function generateFileHash(url) {
   if (!url) {
     return 'unknown';
   }
-  
+
   try {
     // Fetch the file from the URL
     const response = await fetch(url);
@@ -412,16 +412,16 @@ async function generateFileHash(url) {
       // Fallback: use URL-based hash
       return hashString(url);
     }
-    
+
     // Get the file content as array buffer
     const arrayBuffer = await response.arrayBuffer();
-    
+
     // Generate SHA-256 hash
     const crypto = require('crypto');
     const hash = crypto.createHash('sha256');
     hash.update(Buffer.from(arrayBuffer));
     return hash.digest('hex');
-    
+
   } catch (error) {
     console.warn(`Error generating file hash: ${error.message}`);
     // Fallback: use URL-based hash
@@ -442,14 +442,14 @@ function hashString(str) {
  */
 function extractPublicIdFromUrl(url) {
   if (!url) return '';
-  
+
   try {
     // Cloudinary URLs typically have format: .../upload/v123456789/folder/filename.ext
     const match = url.match(/\/upload\/(?:v\d+\/)?(.+?)(?:\.[^.]+)?$/);
     if (match && match[1]) {
       return match[1];
     }
-    
+
     // Fallback: use filename
     const parts = url.split('/');
     const filename = parts[parts.length - 1];
@@ -467,24 +467,24 @@ function convertToISODate(dateValue) {
   if (!dateValue) {
     return new Date().toISOString();
   }
-  
+
   try {
     // If it's already a valid ISO string, return it
     if (typeof dateValue === 'string' && dateValue.includes('T')) {
       return new Date(dateValue).toISOString();
     }
-    
+
     // If it's a Unix timestamp (number in milliseconds)
     if (typeof dateValue === 'number') {
       return new Date(dateValue).toISOString();
     }
-    
+
     // Try to parse as date
     const date = new Date(dateValue);
     if (!isNaN(date.getTime())) {
       return date.toISOString();
     }
-    
+
     // Fallback to current date
     return new Date().toISOString();
   } catch (error) {
@@ -503,15 +503,15 @@ async function checkForExistingItem(file, apiToken, collectionId) {
         'Authorization': `Bearer ${apiToken}`
       }
     });
-    
+
     if (!response.ok) {
       console.warn('Could not check for existing items');
       return null;
     }
-    
+
     const data = await response.json();
     const items = data.items || [];
-    
+
     // Check for duplicate by media URL (most reliable)
     if (file.media_url) {
       const existingByUrl = items.find(item => 
@@ -519,7 +519,7 @@ async function checkForExistingItem(file, apiToken, collectionId) {
       );
       if (existingByUrl) return existingByUrl;
     }
-    
+
     // Check for duplicate by name
     const fileName = file.title || file.name;
     if (fileName) {
@@ -528,7 +528,7 @@ async function checkForExistingItem(file, apiToken, collectionId) {
       );
       if (existingByName) return existingByName;
     }
-    
+
     return null;
   } catch (error) {
     console.warn('Error checking for existing items:', error);
@@ -542,12 +542,12 @@ async function checkForExistingItem(file, apiToken, collectionId) {
 function generateThumbnailUrl(file) {
   const THUMBNAIL_WIDTH = 400;
   const THUMBNAIL_HEIGHT = 300;
-  
+
   // If file has existing thumbnail and it's from Cloudinary, optimize it
   if (file.thumbnail && file.thumbnail.trim() !== '' && file.thumbnail.includes('cloudinary.com')) {
     return optimizeCloudinaryThumbnail(file.thumbnail, THUMBNAIL_WIDTH, THUMBNAIL_HEIGHT);
   }
-  
+
   // For images, create consistent thumbnail from media URL
   if (file.file_type && file.file_type.startsWith('image/') && file.media_url) {
     if (file.media_url.includes('cloudinary.com')) {
@@ -555,7 +555,7 @@ function generateThumbnailUrl(file) {
     }
     return file.media_url;
   }
-  
+
   // For videos, generate consistent video thumbnail
   if (file.file_type && file.file_type.startsWith('video/') && file.media_url) {
     if (file.media_url.includes('cloudinary.com')) {
@@ -564,7 +564,7 @@ function generateThumbnailUrl(file) {
         .replace(/\.[^.]+$/, '.jpg');
     }
   }
-  
+
   // For PDFs, generate consistent PDF thumbnail
   if (file.file_type === 'application/pdf' && file.media_url) {
     if (file.media_url.includes('cloudinary.com')) {
@@ -573,14 +573,14 @@ function generateThumbnailUrl(file) {
         .replace(/\.pdf$/i, '.jpg');
     }
   }
-  
+
   // For audio files, use a consistent placeholder
   if (file.file_type && file.file_type.startsWith('audio/')) {
-    return `https://via.placeholder.com/${THUMBNAIL_WIDTH}x${THUMBNAIL_HEIGHT}/4A90E2/FFFFFF?text=🎵+Audio+File`;
+    return `https://via.placeholder.com/${THUMBNAIL_WIDTH}x${THUMBNAIL_HEIGHT}/4A90E2/FFFFFF?text=+Audio+File`;
   }
-  
+
   // Generic file placeholder
-  return `https://via.placeholder.com/${THUMBNAIL_WIDTH}x${THUMBNAIL_HEIGHT}/6B7280/FFFFFF?text=📄+${encodeURIComponent(file.file_type || 'File')}`;
+  return `https://via.placeholder.com/${THUMBNAIL_WIDTH}x${THUMBNAIL_HEIGHT}/6B7280/FFFFFF?text=+${encodeURIComponent(file.file_type || 'File')}`;
 }
 
 /**
@@ -590,14 +590,15 @@ function optimizeCloudinaryThumbnail(url, width, height) {
   if (!url || !url.includes('cloudinary.com')) {
     return url;
   }
-  
+
   // Remove existing transformations and add consistent ones
   const baseUrl = url.split('/upload/')[0] + '/upload/';
   const imagePath = url.split('/upload/')[1];
-  
+
   // Remove existing transformations (everything before the first slash after upload/)
   const cleanImagePath = imagePath.replace(/^[^\/]*\//, '');
-  
+
   // Add consistent transformations for grid layout
   return `${baseUrl}w_${width},h_${height},c_fill,f_auto,q_auto,g_auto/${cleanImagePath}`;
 }
+
