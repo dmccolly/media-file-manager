@@ -39,7 +39,7 @@ exports.handler = async (event) => {
     const WEBFLOW_SITE_ID = process.env.VITE_WEBFLOW_SITE_ID || process.env.WEBFLOW_SITE_ID || '688ed8debc05764047afa2a7';
     const WEBFLOW_COLLECTION_ID = process.env.VITE_WEBFLOW_COLLECTION_ID || process.env.WEBFLOW_COLLECTION_ID || '6891479d29ed1066b71124e9';
     const XANO_API_KEY = process.env.XANO_API_KEY;
-    const XANO_BASE_URL = 'https://xajo-bs7d-cagt.n7e.xano.io/api:pYeQctVX';
+    const XANO_BASE_URL = process.env.XANO_BASE_URL || 'https://xajo-bs7d-cagt.n7e.xano.io/api:pYeQctVX';
 
     // Validate required environment variables
     if (!WEBFLOW_API_TOKEN || !WEBFLOW_SITE_ID || !WEBFLOW_COLLECTION_ID) {
@@ -57,7 +57,7 @@ exports.handler = async (event) => {
       };
     }
 
-    if (!XANO_API_KEY) {
+    if (!XANO_API_KEY || !XANO_BASE_URL) {
       console.error('❌ Webflow Sync: XANO_API_KEY not configured');
       return {
         statusCode: 500,
