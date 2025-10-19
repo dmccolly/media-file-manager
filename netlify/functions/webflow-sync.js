@@ -331,7 +331,7 @@ function generateThumbnailUrl(file) {
 
   // For images, use the media URL
   // Determine if this is an image by checking file_type, category, or URL extension
-  const isImage = (file.file_type && file.file_type.startsWith('image/')) ||
+    const isImage = (file.file_type && (file.file_type.startsWith('image/') || file.file_type === 'image')) ||
                   (file.category && (file.category === 'images' || file.category === 'image')) ||
                   (file.media_url && /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(file.media_url));
 
