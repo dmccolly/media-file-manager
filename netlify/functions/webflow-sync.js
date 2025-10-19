@@ -1,40 +1,17 @@
 /**
- * Webflow Sync Function with event triggers
- *
- * This Netlify function keeps a Webflow CMS collection in sync with
- * assets stored in Xano/Cloudinary.  It supports three modes of
- * operation:
- *
- *  1. **Scheduled sync** – When invoked by Netlify's scheduler (see
- *     the exported `config` at the bottom of the file), the function
- *     fetches *all* records from the Xano `user_submission` endpoint
- *     and upserts them into the specified Webflow collection.  This
- *     provides a fallback to ensure eventual consistency even if
- *     individual events are missed.
- *
- *  2. **Create/update event** – When invoked via HTTP POST with a
- *     JSON body containing `{ "fileId": "12345" }`, the function
- *     fetches that single record from Xano and upserts it into
- *     Webflow.  This can be used as a webhook target from Xano or
- *     Cloudinary to immediately publish new assets without waiting
- *     for the next scheduled run.
- *
- *  3. **Delete event** – When invoked via HTTP POST with a JSON body
- *     containing `{ "fileId": "12345", "action": "delete" }`, the
- *     function removes the corresponding record from Xano and
- *     deletes the matching item from Webflow.  It identifies the
- *     Webflow item by the file's Cloudinary public ID or name.  This
- *     allows your file manager to stay in sync when assets are
- *     deleted.
- *
- * All configuration values (Webflow token, site ID, collection ID,
- * Xano base URL, API key, etc.) are read from environment variables.
- * You can provide either VITE-prefixed variables (for front-end
- * compatibility) or plain names; the function tries both.
+ * Enhanced Webflow Sync Function with Video Support
+ * 
+ * This version properly handles:
+ * - Cloudinary video URLs
+ * - Video thumbnails
+ * - Video-specific metadata
+ * - YouTube and Vimeo embeds
+ * 
+ * Replace your existing netlify/functions/webflow-sync.js with this file
  */
 
 exports.handler = async (event) => {
-  // CORS preflight for browsers
+  // CORS preflight
   if (event.httpMethod === 'OPTIONS') {
     return {
       statusCode: 204,
@@ -47,8 +24,6 @@ exports.handler = async (event) => {
     };
   }
 
-  // Only allow GET or POST.  GET is reserved for scheduled invocations,
-  // POST is used for event-driven triggers.
   if (event.httpMethod !== 'POST' && event.httpMethod !== 'GET') {
     return {
       statusCode: 405,
@@ -61,18 +36,18 @@ exports.handler = async (event) => {
   }
 
   try {
-    console.log('Webflow Sync: Starting');
+    console.log('🔄 Webflow Sync: Starting');
 
-    // Read environment variables.  Support both VITE_ and plain names.
+    // Environment variables
     const WEBFLOW_API_TOKEN = process.env.VITE_WEBFLOW_API_TOKEN || process.env.WEBFLOW_API_TOKEN;
     const WEBFLOW_SITE_ID = process.env.VITE_WEBFLOW_SITE_ID || process.env.WEBFLOW_SITE_ID;
     const WEBFLOW_COLLECTION_ID = process.env.VITE_WEBFLOW_COLLECTION_ID || process.env.WEBFLOW_COLLECTION_ID;
     const XANO_API_KEY = process.env.XANO_API_KEY;
-    const XANO_BASE_URL = process.env.XANO_BASE_URL;
+    const XANO_BASE_URL = process.env.XANO_BASE_URL || 'https://xajo-bs7d-cagt.n7e.xano.io/api:pYeQctVX';
 
-    // Validate required variables.  Without these the function cannot proceed.
+    // Validate configuration
     if (!WEBFLOW_API_TOKEN || !WEBFLOW_SITE_ID || !WEBFLOW_COLLECTION_ID) {
-      console.error('Missing Webflow configuration');
+      console.error('❌ Missing Webflow configuration');
       return {
         statusCode: 500,
         headers: {
@@ -82,8 +57,8 @@ exports.handler = async (event) => {
         body: JSON.stringify({ success: false, error: 'Webflow configuration missing' })
       };
     }
-    if (!XANO_API_KEY || !XANO_BASE_URL) {
-      console.error('Missing Xano configuration');
+    if (!XANO_API_KEY) {
+      console.error('❌ Missing Xano configuration');
       return {
         statusCode: 500,
         headers: {
@@ -94,22 +69,22 @@ exports.handler = async (event) => {
       };
     }
 
-    // Parse the request body (if present).  Invalid JSON is ignored.
+    // Parse request body
     let bodyJson = {};
     if (event.httpMethod === 'POST' && event.body) {
       try {
         bodyJson = JSON.parse(event.body);
       } catch (err) {
-        console.warn('Could not parse request body as JSON');
+        console.warn('⚠️ Could not parse request body as JSON');
       }
     }
 
     const action = bodyJson.action || 'upsert';
     const fileId = bodyJson.fileId || null;
 
-    // Determine mode: delete, upsert single, or full sync
+    // Handle delete action
     if (action === 'delete' && fileId) {
-      console.log(`Webflow Sync: Deleting file ${fileId}`);
+      console.log(`🗑️ Webflow Sync: Deleting file ${fileId}`);
       const delResult = await deleteFileAndItem(
         fileId,
         {
@@ -129,9 +104,9 @@ exports.handler = async (event) => {
       };
     }
 
-    // If a specific fileId is provided, upsert just that record
+    // Handle single file sync
     if (fileId) {
-      console.log(`Webflow Sync: Syncing single file ${fileId}`);
+      console.log(`🔄 Webflow Sync: Syncing single file ${fileId}`);
       const file = await fetchFileFromXano(fileId, XANO_BASE_URL, XANO_API_KEY);
       if (!file) {
         return {
@@ -154,9 +129,8 @@ exports.handler = async (event) => {
       };
     }
 
-    // Default: fetch all files from Xano and upsert them.  This is
-    // triggered either by a scheduled invocation or a GET request.
-    console.log('Webflow Sync: Performing full sync from Xano');
+    // Handle full sync
+    console.log('🔄 Webflow Sync: Performing full sync from Xano');
     const allFiles = await fetchAllFilesFromXano(XANO_BASE_URL, XANO_API_KEY);
     const results = { successful: [], failed: [] };
     for (const file of allFiles) {
@@ -176,7 +150,7 @@ exports.handler = async (event) => {
       body: JSON.stringify({ success: true, results })
     };
   } catch (err) {
-    console.error('Webflow Sync: Unexpected error', err);
+    console.error('❌ Webflow Sync: Unexpected error', err);
     return {
       statusCode: 500,
       headers: {
@@ -189,7 +163,7 @@ exports.handler = async (event) => {
 };
 
 /**
- * Fetch a single file record from Xano by ID
+ * Fetch a single file from Xano
  */
 async function fetchFileFromXano(fileId, baseUrl, apiKey) {
   const res = await fetch(`${baseUrl}/user_submission/${fileId}`, {
@@ -202,7 +176,7 @@ async function fetchFileFromXano(fileId, baseUrl, apiKey) {
 }
 
 /**
- * Fetch all file records from Xano
+ * Fetch all files from Xano
  */
 async function fetchAllFilesFromXano(baseUrl, apiKey) {
   const res = await fetch(`${baseUrl}/user_submission`, {
@@ -215,21 +189,23 @@ async function fetchAllFilesFromXano(baseUrl, apiKey) {
 }
 
 /**
- * Upsert a file into Webflow.  This helper encapsulates the logic
- * to upload the asset (if possible) and create the CMS item.  It
- * returns an object containing IDs of the created asset and
- * collection item.
+ * Upsert a file into Webflow
  */
 async function upsertFile(file, apiToken, siteId, collectionId) {
-  // First attempt to upload the asset into Webflow's media library.
+  console.log(`📝 Upserting file: ${file.title || file.name}`);
+  
+  // Try to upload to Webflow Assets (optional, may fail for videos)
   let assetResult = { assetId: null, error: null };
   try {
     assetResult = await syncToWebflowAssets(file, apiToken, siteId);
   } catch (err) {
     assetResult.error = err.message;
-    console.warn(`Asset upload failed: ${err.message}`);
+    console.warn(`⚠️ Asset upload failed (non-critical): ${err.message}`);
   }
+  
+  // Create/update collection item (this is the important part!)
   const collectionRes = await syncToWebflowCollection(file, apiToken, collectionId);
+  
   return {
     fileId: file.id,
     assetId: assetResult.assetId,
@@ -240,178 +216,193 @@ async function upsertFile(file, apiToken, siteId, collectionId) {
 }
 
 /**
- * Delete a file from Xano and its corresponding item from Webflow
- */
-async function deleteFileAndItem(fileId, { apiToken, collectionId, xanoBaseUrl, xanoApiKey }) {
-  const result = { removedFromXano: false, removedFromWebflow: false };
-  // Remove from Xano
-  try {
-    const delRes = await fetch(`${xanoBaseUrl}/user_submission/${fileId}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${xanoApiKey}` }
-    });
-    result.removedFromXano = delRes.ok;
-  } catch (err) {
-    console.warn(`Xano delete error: ${err.message}`);
-  }
-  // Remove from Webflow by finding the matching item
-  try {
-    const items = await listWebflowItems(collectionId, apiToken);
-    const match = items.find(itm => {
-      const fd = itm.fieldData || {};
-      if (fd['file-id'] && String(fd['file-id']) === String(fileId)) return true;
-      const pubId = fd['cloudinary-public-id'];
-      if (pubId && pubId.includes(fileId)) return true;
-      return false;
-    });
-    if (match) {
-      await deleteWebflowItem(collectionId, match.id, apiToken);
-      result.removedFromWebflow = true;
-    }
-  } catch (err) {
-    console.warn(`Webflow delete error: ${err.message}`);
-  }
-  return result;
-}
-
-/**
- * List all items in a Webflow collection
- */
-async function listWebflowItems(collectionId, apiToken) {
-  const response = await fetch(`https://api.webflow.com/v2/collections/${collectionId}/items`, {
-    headers: { Authorization: `Bearer ${apiToken}` }
-  });
-  if (!response.ok) {
-    throw new Error(`Failed to list Webflow items: ${response.status}`);
-  }
-  const data = await response.json();
-  return data.items || [];
-}
-
-/**
- * Delete a specific item from a Webflow collection
- */
-async function deleteWebflowItem(collectionId, itemId, apiToken) {
-  const response = await fetch(`https://api.webflow.com/v2/collections/${collectionId}/items/${itemId}`, {
-    method: 'DELETE',
-    headers: { Authorization: `Bearer ${apiToken}` }
-  });
-  if (!response.ok) {
-    throw new Error(`Failed to delete Webflow item: ${response.status}`);
-  }
-}
-
-/* Existing helper functions copied from the robust version.  These
- * include syncToWebflowAssets, syncToWebflowCollection, generateSlug,
- * generateFileHash, hashString, extractPublicIdFromUrl, convertToISODate,
- * checkForExistingItem, generateThumbnailUrl, optimizeCloudinaryThumbnail.
- * They are unchanged and reused here to avoid duplication.
- */
-
-/**
- * Sync file to Webflow Media Assets
- */
-async function syncToWebflowAssets(file, apiToken, siteId) {
-  console.log(`Syncing to Webflow Assets: ${file.title || file.name}`);
-  let fileName = file.title || file.name || 'untitled';
-  if (file.media_url) {
-    const urlParts = file.media_url.split('/');
-    const lastPart = urlParts[urlParts.length - 1];
-    if (lastPart && lastPart.includes('.')) {
-      fileName = lastPart.split('?')[0];
-    } else {
-      const ext = getFileExtension(file.file_type, file.media_url);
-      if (ext && !fileName.includes('.')) {
-        fileName = `${fileName}.${ext}`;
-      }
-    }
-  }
-  const fileHash = await generateFileHash(file.media_url);
-  const response = await fetch(`https://api.webflow.com/v2/sites/${siteId}/assets`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${apiToken}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      url: file.media_url,
-      fileName: fileName,
-      fileHash: fileHash,
-      displayName: file.title || file.name || 'Untitled',
-      altText: file.description || file.title || file.name || ''
-    })
-  });
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Webflow Assets API error: ${response.status} - ${errorText}`);
-  }
-  const result = await response.json();
-  return { assetId: result.id };
-}
-
-/**
- * Sync file to Webflow CMS Collection
+ * Sync to Webflow CMS Collection (ENHANCED FOR VIDEOS)
  */
 async function syncToWebflowCollection(file, apiToken, collectionId) {
-  console.log(`Syncing to Webflow Collection: ${file.title || file.name}`);
+  console.log(`📋 Syncing to Webflow Collection: ${file.title || file.name}`);
+  
+  // Check for existing item
   const existingItem = await checkForExistingItem(file, apiToken, collectionId);
   if (existingItem) {
+    console.log(`✅ Item already exists: ${existingItem.id}`);
     return { itemId: existingItem.id, existed: true };
   }
+
   const slug = generateSlug(file.title || file.name || 'untitled');
   const thumbnailUrl = generateThumbnailUrl(file);
+  
+  // Determine upload date
   let uploadDate = new Date().toISOString();
   if (file.upload_date) {
     uploadDate = convertToISODate(file.upload_date);
   } else if (file.created_at) {
     uploadDate = convertToISODate(file.created_at);
   }
+
+  // Determine media type (for video gallery)
+  let mediaType = 'Upload'; // Default for Cloudinary uploads
+  if (file.media_url && file.media_url.includes('youtube.com')) {
+    mediaType = 'YouTube';
+  } else if (file.media_url && file.media_url.includes('vimeo.com')) {
+    mediaType = 'Vimeo';
+  }
+
+  // Extract video IDs if applicable
+  let youtubeId = '';
+  let vimeoId = '';
+  if (mediaType === 'YouTube') {
+    youtubeId = extractYouTubeId(file.media_url);
+  } else if (mediaType === 'Vimeo') {
+    vimeoId = extractVimeoId(file.media_url);
+  }
+
+  // Build item data with ALL fields
   const itemData = {
     isArchived: false,
     isDraft: false,
     fieldData: {
-      name: file.title || file.name || 'Untitled',
-      slug: slug,
+      'name': file.title || file.name || 'Untitled',
+      'slug': slug,
       'media-url': file.media_url,
-      thumbnail: thumbnailUrl,
-      description: file.description || '',
-      category: file.category || 'Files',
-      station: file.station || '',
+      'thumbnail': thumbnailUrl,
+      'description': file.description || '',
+      'category': file.category || 'Files',
+      'station': file.station || '',
       'submitted-by': file.submitted_by || file.author || 'Unknown',
       'file-type': file.file_type || 'file',
       'file-size': file.file_size || 0,
-      tags: Array.isArray(file.tags) ? file.tags.join(', ') : (file.tags || ''),
+      'tags': Array.isArray(file.tags) ? file.tags.join(', ') : (file.tags || ''),
       'upload-date': uploadDate,
       'cloudinary-public-id': extractPublicIdFromUrl(file.media_url),
-      'file-id': file.id
+      'file-id': file.id,
+      'media-type': mediaType,
+      'youtube-id': youtubeId,
+      'vimeo-id': vimeoId,
+      'duration': file.duration || ''
     }
   };
+
+  console.log('📤 Sending to Webflow:', JSON.stringify(itemData, null, 2));
+
+  // Create the item
   const response = await fetch(`https://api.webflow.com/v2/collections/${collectionId}/items`, {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${apiToken}`,
+      'Authorization': `Bearer ${apiToken}`,
       'Content-Type': 'application/json'
     },
     body: JSON.stringify(itemData)
   });
+
   if (!response.ok) {
     const errorText = await response.text();
+    console.error('❌ Webflow Collection API error:', response.status, errorText);
     throw new Error(`Webflow Collection API error: ${response.status} - ${errorText}`);
   }
+
   const result = await response.json();
+  console.log('✅ Collection item created:', result.id);
+
+  // Try to publish the item
   try {
     await fetch(`https://api.webflow.com/v2/collections/${collectionId}/items/${result.id}/publish`, {
       method: 'PUT',
-      headers: { Authorization: `Bearer ${apiToken}` }
+      headers: { 'Authorization': `Bearer ${apiToken}` }
     });
+    console.log('✅ Item published');
   } catch (err) {
-    console.warn(`Failed to auto-publish item ${result.id}: ${err.message}`);
+    console.warn(`⚠️ Failed to auto-publish item ${result.id}: ${err.message}`);
   }
+
   return { itemId: result.id, existed: false };
 }
 
 /**
- * Generate a URL-friendly slug
+ * Generate thumbnail URL for videos
+ */
+function generateThumbnailUrl(file) {
+  const width = 400;
+  const height = 300;
+
+  // Use existing thumbnail if available
+  if (file.thumbnail && file.thumbnail.trim() && file.thumbnail.includes('cloudinary.com')) {
+    return optimizeCloudinaryThumbnail(file.thumbnail, width, height);
+  }
+
+  // For images, use the media URL
+  if (file.file_type && file.file_type.startsWith('image/') && file.media_url) {
+    if (file.media_url.includes('cloudinary.com')) {
+      return optimizeCloudinaryThumbnail(file.media_url, width, height);
+    }
+    return file.media_url;
+  }
+
+  // For videos, generate thumbnail from Cloudinary
+  if (file.file_type && file.file_type.startsWith('video/') && file.media_url) {
+    if (file.media_url.includes('cloudinary.com')) {
+      // Extract first frame as thumbnail
+      return file.media_url
+        .replace('/upload/', `/upload/w_${width},h_${height},c_fill,f_auto,q_auto,g_auto,so_0/`)
+        .replace(/\.[^.]+$/, '.jpg');
+    }
+  }
+
+  // For PDFs, generate thumbnail
+  if (file.file_type === 'application/pdf' && file.media_url) {
+    if (file.media_url.includes('cloudinary.com')) {
+      return file.media_url
+        .replace('/upload/', `/upload/w_${width},h_${height},c_fill,f_auto,q_auto,g_auto,pg_1/`)
+        .replace(/\.pdf$/i, '.jpg');
+    }
+  }
+
+  // Fallback placeholders
+  if (file.file_type && file.file_type.startsWith('audio/')) {
+    return `https://via.placeholder.com/${width}x${height}/4A90E2/FFFFFF?text=+Audio+File`;
+  }
+
+  return `https://via.placeholder.com/${width}x${height}/6B7280/FFFFFF?text=+${encodeURIComponent(file.file_type || 'File')}`;
+}
+
+/**
+ * Optimize Cloudinary thumbnail URLs
+ */
+function optimizeCloudinaryThumbnail(url, width, height) {
+  if (!url || !url.includes('cloudinary.com')) return url;
+  const baseUrl = url.split('/upload/')[0] + '/upload/';
+  const imagePath = url.split('/upload/')[1];
+  const cleanImage = imagePath.replace(/^[^\/]*\//, '');
+  return `${baseUrl}w_${width},h_${height},c_fill,f_auto,q_auto,g_auto/${cleanImage}`;
+}
+
+/**
+ * Extract YouTube video ID from URL
+ */
+function extractYouTubeId(url) {
+  if (!url) return '';
+  const patterns = [
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\s]+)/,
+    /youtube\.com\/embed\/([^&\s]+)/,
+    /youtube\.com\/v\/([^&\s]+)/
+  ];
+  for (let pattern of patterns) {
+    const match = url.match(pattern);
+    if (match && match[1]) return match[1];
+  }
+  return '';
+}
+
+/**
+ * Extract Vimeo video ID from URL
+ */
+function extractVimeoId(url) {
+  if (!url) return '';
+  const match = url.match(/vimeo\.com\/(\d+)/);
+  return match ? match[1] : '';
+}
+
+/**
+ * Generate URL-friendly slug
  */
 function generateSlug(title) {
   return title
@@ -423,64 +414,7 @@ function generateSlug(title) {
 }
 
 /**
- * Determine a file extension from type or URL
- */
-function getFileExtension(fileType, url) {
-  if (url) {
-    const parts = url.split('.');
-    const last = parts[parts.length - 1].split('?')[0];
-    if (last && last.length <= 5) return last;
-  }
-  if (!fileType) return 'file';
-  if (fileType.includes('image/jpeg') || fileType.includes('image/jpg')) return 'jpg';
-  if (fileType.includes('image/png')) return 'png';
-  if (fileType.includes('image/gif')) return 'gif';
-  if (fileType.includes('image/webp')) return 'webp';
-  if (fileType.includes('image/svg')) return 'svg';
-  if (fileType.includes('video/mp4')) return 'mp4';
-  if (fileType.includes('video/webm')) return 'webm';
-  if (fileType.includes('video/mov')) return 'mov';
-  if (fileType.includes('audio/mp3')) return 'mp3';
-  if (fileType.includes('audio/wav')) return 'wav';
-  if (fileType.includes('audio/ogg')) return 'ogg';
-  if (fileType.includes('application/pdf')) return 'pdf';
-  if (fileType.includes('application/zip')) return 'zip';
-  if (fileType.includes('text/plain')) return 'txt';
-  return 'file';
-}
-
-/**
- * Generate a SHA-256 hash for a file URL
- */
-async function generateFileHash(url) {
-  if (!url) return 'unknown';
-  try {
-    const res = await fetch(url);
-    if (!res.ok) {
-      console.warn(`File hash fetch failed: ${res.status}`);
-      return hashString(url);
-    }
-    const buf = await res.arrayBuffer();
-    const crypto = require('crypto');
-    const hash = crypto.createHash('sha256');
-    hash.update(Buffer.from(buf));
-    return hash.digest('hex');
-  } catch (err) {
-    console.warn(`File hash error: ${err.message}`);
-    return hashString(url);
-  }
-}
-
-/**
- * Fallback: hash a string with SHA-256
- */
-function hashString(str) {
-  const crypto = require('crypto');
-  return crypto.createHash('sha256').update(str).digest('hex');
-}
-
-/**
- * Extract Cloudinary public ID from a URL
+ * Extract Cloudinary public ID from URL
  */
 function extractPublicIdFromUrl(url) {
   if (!url) return '';
@@ -518,20 +452,31 @@ function convertToISODate(value) {
 async function checkForExistingItem(file, apiToken, collectionId) {
   try {
     const res = await fetch(`https://api.webflow.com/v2/collections/${collectionId}/items`, {
-      headers: { Authorization: `Bearer ${apiToken}` }
+      headers: { 'Authorization': `Bearer ${apiToken}` }
     });
     if (!res.ok) return null;
     const data = await res.json();
     const items = data.items || [];
+    
+    // Check by file ID first (most reliable)
+    if (file.id) {
+      const existingById = items.find(it => it.fieldData && String(it.fieldData['file-id']) === String(file.id));
+      if (existingById) return existingById;
+    }
+    
+    // Check by media URL
     if (file.media_url) {
       const existingByUrl = items.find(it => it.fieldData && it.fieldData['media-url'] === file.media_url);
       if (existingByUrl) return existingByUrl;
     }
+    
+    // Check by name
     const fname = file.title || file.name;
     if (fname) {
       const existingByName = items.find(it => it.fieldData && it.fieldData.name === fname);
       if (existingByName) return existingByName;
     }
+    
     return null;
   } catch (err) {
     console.warn(`Existing item check failed: ${err.message}`);
@@ -540,53 +485,107 @@ async function checkForExistingItem(file, apiToken, collectionId) {
 }
 
 /**
- * Generate a consistent thumbnail URL
+ * Sync to Webflow Assets (optional, may fail for videos)
  */
-function generateThumbnailUrl(file) {
-  const width = 400;
-  const height = 300;
-  if (file.thumbnail && file.thumbnail.trim() && file.thumbnail.includes('cloudinary.com')) {
-    return optimizeCloudinaryThumbnail(file.thumbnail, width, height);
-  }
-  if (file.file_type && file.file_type.startsWith('image/') && file.media_url) {
-    if (file.media_url.includes('cloudinary.com')) {
-      return optimizeCloudinaryThumbnail(file.media_url, width, height);
-    }
-    return file.media_url;
-  }
-  if (file.file_type && file.file_type.startsWith('video/') && file.media_url) {
-    if (file.media_url.includes('cloudinary.com')) {
-      return file.media_url
-        .replace('/upload/', `/upload/w_${width},h_${height},c_fill,f_auto,q_auto,g_auto,so_0/`)
-        .replace(/\.[^.]+$/, '.jpg');
+async function syncToWebflowAssets(file, apiToken, siteId) {
+  console.log(`📦 Syncing to Webflow Assets: ${file.title || file.name}`);
+  
+  let fileName = file.title || file.name || 'untitled';
+  if (file.media_url) {
+    const urlParts = file.media_url.split('/');
+    const lastPart = urlParts[urlParts.length - 1];
+    if (lastPart && lastPart.includes('.')) {
+      fileName = lastPart.split('?')[0];
     }
   }
-  if (file.file_type === 'application/pdf' && file.media_url) {
-    if (file.media_url.includes('cloudinary.com')) {
-      return file.media_url
-        .replace('/upload/', `/upload/w_${width},h_${height},c_fill,f_auto,q_auto,g_auto,pg_1/`)
-        .replace(/\.pdf$/i, '.jpg');
-    }
+
+  const response = await fetch(`https://api.webflow.com/v2/sites/${siteId}/assets`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiToken}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      url: file.media_url,
+      fileName: fileName,
+      displayName: file.title || file.name || 'Untitled',
+      altText: file.description || file.title || file.name || ''
+    })
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Webflow Assets API error: ${response.status} - ${errorText}`);
   }
-  if (file.file_type && file.file_type.startsWith('audio/')) {
-    return `https://via.placeholder.com/${width}x${height}/4A90E2/FFFFFF?text=+Audio+File`;
-  }
-  return `https://via.placeholder.com/${width}x${height}/6B7280/FFFFFF?text=+${encodeURIComponent(file.file_type || 'File')}`;
+
+  const result = await response.json();
+  return { assetId: result.id };
 }
 
 /**
- * Optimize Cloudinary URLs for consistent thumbnail sizes
+ * Delete file and item
  */
-function optimizeCloudinaryThumbnail(url, width, height) {
-  if (!url || !url.includes('cloudinary.com')) return url;
-  const baseUrl = url.split('/upload/')[0] + '/upload/';
-  const imagePath = url.split('/upload/')[1];
-  const cleanImage = imagePath.replace(/^[^\/]*\//, '');
-  return `${baseUrl}w_${width},h_${height},c_fill,f_auto,q_auto,g_auto/${cleanImage}`;
+async function deleteFileAndItem(fileId, { apiToken, collectionId, xanoBaseUrl, xanoApiKey }) {
+  const result = { removedFromXano: false, removedFromWebflow: false };
+  
+  // Remove from Xano
+  try {
+    const delRes = await fetch(`${xanoBaseUrl}/user_submission/${fileId}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${xanoApiKey}` }
+    });
+    result.removedFromXano = delRes.ok;
+  } catch (err) {
+    console.warn(`Xano delete error: ${err.message}`);
+  }
+  
+  // Remove from Webflow
+  try {
+    const items = await listWebflowItems(collectionId, apiToken);
+    const match = items.find(itm => {
+      const fd = itm.fieldData || {};
+      if (fd['file-id'] && String(fd['file-id']) === String(fileId)) return true;
+      return false;
+    });
+    if (match) {
+      await deleteWebflowItem(collectionId, match.id, apiToken);
+      result.removedFromWebflow = true;
+    }
+  } catch (err) {
+    console.warn(`Webflow delete error: ${err.message}`);
+  }
+  
+  return result;
 }
 
-// Tell Netlify to run this function on a schedule.  You can adjust
-// the cron expression below; the minimum interval is every 15 minutes.
+/**
+ * List Webflow items
+ */
+async function listWebflowItems(collectionId, apiToken) {
+  const response = await fetch(`https://api.webflow.com/v2/collections/${collectionId}/items`, {
+    headers: { 'Authorization': `Bearer ${apiToken}` }
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to list Webflow items: ${response.status}`);
+  }
+  const data = await response.json();
+  return data.items || [];
+}
+
+/**
+ * Delete Webflow item
+ */
+async function deleteWebflowItem(collectionId, itemId, apiToken) {
+  const response = await fetch(`https://api.webflow.com/v2/collections/${collectionId}/items/${itemId}`, {
+    method: 'DELETE',
+    headers: { 'Authorization': `Bearer ${apiToken}` }
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to delete Webflow item: ${response.status}`);
+  }
+}
+
+// Schedule this function to run hourly
 exports.config = {
   schedule: '@hourly'
 };
