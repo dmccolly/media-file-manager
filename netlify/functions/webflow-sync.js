@@ -330,7 +330,12 @@ function generateThumbnailUrl(file) {
   }
 
   // For images, use the media URL
-  if (file.file_type && file.file_type.startsWith('image/') && file.media_url) {
+  // Determine if this is an image by checking file_type, category, or URL extension
+  const isImage = (file.file_type && file.file_type.startsWith('image/')) ||
+                  (file.category && (file.category === 'images' || file.category === 'image')) ||
+                  (file.media_url && /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(file.media_url));
+
+  if (isImage && file.media_url) {
     if (file.media_url.includes('cloudinary.com')) {
       return optimizeCloudinaryThumbnail(file.media_url, width, height);
     }
