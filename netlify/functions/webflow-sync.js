@@ -141,6 +141,31 @@ exports.handler = async (event) => {
         results.failed.push({ fileId: file.id, error: err.message });
       }
     }
+
+      // Auto-publish the site to make changes live
+      console.log('🚀 Auto-publishing site to make changes live...');
+      try {
+        const publishResponse = await fetch(`https://api.webflow.com/v2/sites/${WEBFLOW_SITE_ID}/publish`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${WEBFLOW_API_TOKEN}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ publishToWebflowSubdomain: true })
+        });
+        
+        if (publishResponse.ok) {
+          console.log('✅ Site published successfully');
+          results.published = true;
+        } else {
+          console.warn('⚠️ Site publish failed, but sync completed');
+          results.published = false;
+        }
+      } catch (publishErr) {
+        console.warn('⚠️ Site publish error:', publishErr.message);
+        results.published = false;
+      }
+
     return {
       statusCode: 200,
       headers: {
