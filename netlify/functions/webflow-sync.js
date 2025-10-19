@@ -374,7 +374,7 @@ function generateThumbnailUrl(file) {
 
   // Fallback placeholders
   // Determine if this is audio by checking file_type or URL
-  const isAudio = (file.file_type && file.file_type.startsWith('audio/')) ||
+  const isAudio = (file.file_type && (file.file_type.startsWith('audio/') || file.file_type === 'audio')) ||
                   (file.media_url && /\.(mp3|wav|m4a|aac|ogg|flac)$/i.test(file.media_url));
   
   if (isAudio) {
