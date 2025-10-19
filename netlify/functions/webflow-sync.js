@@ -276,8 +276,8 @@ async function syncToWebflowCollection(file, apiToken, collectionId) {
       'cloudinary-public-id': extractPublicIdFromUrl(file.media_url),
       'file-id': file.id,
       'media-type': mediaType,
-      'youtube-id': youtubeId,
-      'vimeo-id': vimeoId,
+      'youtube-video-id': youtubeId,
+      'vimeo-video-id': vimeoId,
       'duration': file.duration || ''
     }
   };
