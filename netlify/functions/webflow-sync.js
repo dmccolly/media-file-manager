@@ -343,7 +343,12 @@ function generateThumbnailUrl(file) {
   }
 
   // For videos, generate thumbnail from Cloudinary
-  if (file.file_type && file.file_type.startsWith('video/') && file.media_url) {
+  // Determine if this is a video by checking file_type, category, or URL
+  const isVideo = (file.file_type && file.file_type.startsWith('video/')) ||
+                  (file.category && (file.category === 'video' || file.category === 'videos')) ||
+                  (file.media_url && /\.(mp4|mov|avi|webm|mkv)$/i.test(file.media_url));
+
+  if (isVideo && file.media_url) {
     if (file.media_url.includes('cloudinary.com')) {
       // Extract first frame as thumbnail
       return file.media_url
@@ -353,7 +358,13 @@ function generateThumbnailUrl(file) {
   }
 
   // For PDFs, generate thumbnail
-  if (file.file_type === 'application/pdf' && file.media_url) {
+  // Determine if this is a PDF by checking file_type, category, or URL
+  const isPDF = (file.file_type === 'application/pdf') ||
+                (file.file_type === 'document') ||
+                (file.category && file.category === 'documents') ||
+                (file.media_url && /\.pdf$/i.test(file.media_url));
+
+  if (isPDF && file.media_url) {
     if (file.media_url.includes('cloudinary.com')) {
       return file.media_url
         .replace('/upload/', `/upload/w_${width},h_${height},c_fill,f_auto,q_auto,g_auto,pg_1/`)
@@ -362,7 +373,11 @@ function generateThumbnailUrl(file) {
   }
 
   // Fallback placeholders
-  if (file.file_type && file.file_type.startsWith('audio/')) {
+  // Determine if this is audio by checking file_type or URL
+  const isAudio = (file.file_type && file.file_type.startsWith('audio/')) ||
+                  (file.media_url && /\.(mp3|wav|m4a|aac|ogg|flac)$/i.test(file.media_url));
+  
+  if (isAudio) {
     return `https://via.placeholder.com/${width}x${height}/4A90E2/FFFFFF?text=+Audio+File`;
   }
 
