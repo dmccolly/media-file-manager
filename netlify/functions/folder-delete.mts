@@ -1,4 +1,5 @@
 import type { Context } from '@netlify/functions'
+import { deleteFolder, getFolderResources } from './lib/cloudinaryService.mjs'
 
 export default async (req: Context) => {
   // CORS headers
@@ -23,52 +24,102 @@ export default async (req: Context) => {
   }
 
   try {
-    // Extract folder ID from path: /api/folder-delete/123
-    const pathParts = req.path.split('/')
-    const folderId = pathParts[pathParts.length - 1]
+    // Extract folder path from query parameters or body
+    const url = new URL(req.url)
+    let folderPath = url.searchParams.get('path')
+    
+    // If not in query params, try to get from body
+    if (!folderPath) {
+      let bodyText = ''
+      if (typeof req.body === 'string') {
+        bodyText = req.body
+      } else if (req.body) {
+        bodyText = await req.text()
+      }
+      
+      if (bodyText) {
+        const body = JSON.parse(bodyText)
+        folderPath = body.path
+      }
+    }
 
-    if (!folderId || folderId === 'folder-delete') {
+    if (!folderPath) {
       return new Response(
-        JSON.stringify({ error: 'Folder ID is required' }),
+        JSON.stringify({ error: 'Folder path is required' }),
         { status: 400, headers }
       )
     }
 
-    const xanoApiKey = process.env.XANO_API_KEY
-    const xanoBaseUrl = process.env.XANO_BASE_URL || 'https://xajo-bs7d-cagt.n7e.xano.io/api:pYeQctVX'
+    // Convert database path (with leading slash) to Cloudinary path (without leading slash)
+    const cloudinaryPath = folderPath.replace(/^\//, '')
 
-    console.log(`🗑️ Deleting folder from Xano database: ID ${folderId}`)
+    console.log(`🗑️ Attempting to delete folder from Cloudinary: ${cloudinaryPath}`)
 
-    // Delete folder from Xano
-    const xanoResponse = await fetch(`${xanoBaseUrl}/folder/${folderId}`, {
-      method: 'DELETE',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(xanoApiKey && { 'Authorization': `Bearer ${xanoApiKey}` }),
-      },
-    })
+    // Check if folder has any resources before attempting deletion
+    try {
+      const resources = await getFolderResources(cloudinaryPath)
+      if (resources.resources && resources.resources.length > 0) {
+        console.log(`⚠️ Folder contains ${resources.resources.length} files`)
+        return new Response(
+          JSON.stringify({ 
+            error: 'Cannot delete non-empty folder',
+            message: `Folder contains ${resources.resources.length} file(s). Please move or delete all files first.`,
+            file_count: resources.resources.length
+          }),
+          { status: 400, headers }
+        )
+      }
+    } catch (resourceError: any) {
+      console.warn('⚠️ Could not check folder resources:', resourceError.message)
+      // Continue with deletion attempt even if resource check fails
+    }
 
-    if (!xanoResponse.ok) {
-      const errorText = await xanoResponse.text()
-      console.error('❌ Xano folder deletion failed:', errorText)
+    // Attempt to delete folder from Cloudinary
+    try {
+      await deleteFolder(cloudinaryPath)
+      console.log('✅ Folder deleted successfully from Cloudinary')
+    } catch (cloudinaryError: any) {
+      console.error('❌ Cloudinary folder deletion failed:', cloudinaryError)
       return new Response(
         JSON.stringify({ 
-          error: 'Failed to delete folder from database',
-          details: errorText 
+          error: 'Failed to delete folder from Cloudinary',
+          message: cloudinaryError.message || 'Unknown error'
         }),
-        { status: xanoResponse.status, headers }
+        { status: 500, headers }
       )
     }
 
-    console.log('✅ Folder deleted successfully from database')
-
-    // Note: Files in this folder should be moved to parent folder
-    // This should be handled by the frontend before calling delete
+    // Optionally: Delete folder from Xano database if you're tracking folders there
+    // This part is commented out since the original implementation didn't seem to use Xano for folders
+    /*
+    const xanoApiKey = process.env.XANO_API_KEY
+    const xanoBaseUrl = process.env.XANO_BASE_URL || 'https://xajo-bs7d-cagt.n7e.xano.io/api:pYeQctVX'
+    
+    if (xanoApiKey && folderId) {
+      try {
+        const xanoResponse = await fetch(`${xanoBaseUrl}/folder/${folderId}`, {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${xanoApiKey}`,
+          },
+        })
+        
+        if (!xanoResponse.ok) {
+          console.warn('⚠️ Failed to delete folder from Xano database')
+        }
+      } catch (xanoError) {
+        console.warn('⚠️ Xano deletion error:', xanoError)
+      }
+    }
+    */
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: 'Folder deleted successfully',
+        message: 'Folder deleted successfully from Cloudinary',
+        path: folderPath,
+        cloudinary_path: cloudinaryPath
       }),
       { status: 200, headers }
     )
@@ -83,3 +134,4 @@ export default async (req: Context) => {
     )
   }
 }
+

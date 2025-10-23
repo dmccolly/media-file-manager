@@ -238,6 +238,42 @@ function App() {
     }
   }
 
+  const handleDeleteFolder = async (folderPath: string) => {
+    // Confirm deletion with user
+    const confirmDelete = window.confirm(
+      `Are you sure you want to delete the folder "${folderPath}"?\n\n` +
+      `Note: Cloudinary only allows deleting empty folders. ` +
+      `Please move or delete all files in this folder first.`
+    )
+
+    if (!confirmDelete) {
+      return
+    }
+
+    try {
+      console.log('🗑️ Attempting to delete folder:', folderPath)
+      const result = await folderService.deleteFolder(folderPath)
+      
+      if (result.success) {
+        // Remove folder from state
+        setFolders(prev => prev.filter(f => f.path !== folderPath))
+        console.log('✅ Folder deleted successfully:', folderPath)
+        
+        // If we're currently viewing this folder, switch to root
+        if (currentFolderPath === folderPath) {
+          setCurrentFolderPath('')
+        }
+      } else {
+        // Show error message to user
+        alert(`Failed to delete folder: ${result.error || 'Unknown error'}`)
+        console.error('❌ Folder deletion failed:', result.error)
+      }
+    } catch (error) {
+      console.error('❌ Error deleting folder:', error)
+      alert(`Error deleting folder: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+  }
+
   const getFileIcon = (fileType: string) => {
     if (fileType.startsWith('image/')) return <Image className="w-4 h-4" />
     if (fileType.startsWith('video/')) return <Video className="w-4 h-4" />

@@ -64,24 +64,30 @@ export class FolderService {
   }
 
   /**
-   * Delete a folder
+   * Delete a folder by path
    */
-  async deleteFolder(folderId: number): Promise<boolean> {
+  async deleteFolder(folderPath: string): Promise<{ success: boolean; error?: string }> {
     try {
-      const response = await fetch(`${this.baseUrl}/folder-delete/${folderId}`, {
+      const response = await fetch(`${this.baseUrl}/folder-delete?path=${encodeURIComponent(folderPath)}`, {
         method: 'DELETE',
       })
 
       if (!response.ok) {
         const error = await response.json()
         console.error('Failed to delete folder:', error)
-        return false
+        return { 
+          success: false, 
+          error: error.message || error.error || 'Failed to delete folder' 
+        }
       }
 
-      return true
+      return { success: true }
     } catch (error) {
       console.error('Error deleting folder:', error)
-      return false
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Unknown error' 
+      }
     }
   }
 
