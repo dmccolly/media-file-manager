@@ -1,0 +1,150 @@
+*** Begin Patch
+*** Update File: src/services/WebflowService.ts
+@@ async syncToMediaAssets(fileData: any): Promise<WebflowSyncResult> {
+       console.log('🔄 WebflowService: Syncing to Webflow media assets:', fileData.title);
++
++      // Derive a filename from the URL when available.  Webflow's assets API
++      // requires a `fileName` field for proper indexing, otherwise the
++      // uploaded asset may not appear in the Media Assets library.  Use the
++      // last segment of the URL when it contains an extension, falling back
++      // to the file's title or name.
++      const { url } = fileData;
++      let fileName = fileData.title || fileData.name || 'untitled';
++      if (typeof url === 'string') {
++        const parts = url.split('/');
++        const lastPart = parts[parts.length - 1];
++        if (lastPart && lastPart.includes('.')) {
++          fileName = lastPart.split('?')[0];
++        }
++      }
+@@ async syncToMediaAssets(fileData: any): Promise<WebflowSyncResult> {
+-        body: JSON.stringify({
+-          url: fileData.url,
+-          displayName: fileData.title || fileData.name,
+-          altText: fileData.description || fileData.title || fileData.name
+-        })
++        body: JSON.stringify({
++          url: fileData.url,
++          fileName,
++          displayName: fileData.title || fileData.name,
++          altText: fileData.description || fileData.title || fileData.name
++        })
+*** End Patch
+*** Update File: src/services/WebflowService.js
+@@ syncToMediaAssets(fileData) {
+       console.log('🔄 WebflowService: Syncing to Webflow media assets:', fileData.title);
++
++      // Derive a filename from the URL when available.  Webflow's assets API
++      // requires a `fileName` field for proper indexing, otherwise the
++      // uploaded asset may not appear in the Media Assets library.  Use the
++      // last segment of the URL when it contains an extension, falling back
++      // to the file's title or name.
++      const { url } = fileData;
++      let fileName = fileData.title || fileData.name || 'untitled';
++      if (typeof url === 'string') {
++        const parts = url.split('/');
++        const lastPart = parts[parts.length - 1];
++        if (lastPart && lastPart.includes('.')) {
++          fileName = lastPart.split('?')[0];
++        }
++      }
+@@ syncToMediaAssets(fileData) {
+-        body: JSON.stringify({
+-          url: fileData.url,
+-          displayName: fileData.title || fileData.name,
+-          altText: fileData.description || fileData.title || fileData.name
+-        })
++        body: JSON.stringify({
++          url: fileData.url,
++          fileName,
++          displayName: fileData.title || fileData.name,
++          altText: fileData.description || fileData.title || fileData.name
++        })
+*** End Patch
+*** Update File: netlify/functions/folder-create.mts
+@@ export default async (req: Context) => {
+     // Build full path for database (with leading slash)
+     const fullPath = parent_path === '/' 
+       ? `/${sanitizedName}`
+       : `${parent_path}/${sanitizedName}`
+-
+-    // Return success with folder information
+-    const folder = {
+-      id: Date.now(),
+-      name: sanitizedName,
+-      path: fullPath,
+-      cloudinary_path: cloudinaryPath,
+-      parent_path: parent_path,
+-      created_at: Date.now(),
+-    }
+-
+-    console.log('✅ Folder created successfully:', folder)
+-
+-    return new Response(
+-      JSON.stringify({
+-        success: true,
+-        folder: folder,
+-        message: 'Folder created in Cloudinary successfully'
+-      }),
+-      { status: 201, headers }
+-    )
++
++    // Construct folder record.  We assign a temporary ID here; if Xano
++    // persists the record, it will override this ID with the returned value.
++    const folder = {
++      id: Date.now(),
++      name: sanitizedName,
++      path: fullPath,
++      cloudinary_path: cloudinaryPath,
++      parent_path: parent_path,
++      created_at: Date.now(),
++    }
++
++    // Persist folder details to Xano database. Without this step, the folder
++    // exists only in Cloudinary and will not appear in the UI because the
++    // folders table isn't updated.  Retrieve API key and base URL from
++    // environment variables; skip authorization header if no key is provided.
++    try {
++      const xanoApiKey = (typeof Netlify !== 'undefined' && Netlify.env?.get)
++        ? Netlify.env.get('XANO_API_KEY')
++        : process.env.XANO_API_KEY;
++      const xanoBaseUrl = process.env.XANO_BASE_URL || 'https://xajo-bs7d-cagt.n7e.xano.io/api:pYeQctVX';
++      const xanoResponse = await fetch(`${xanoBaseUrl}/folders`, {
++        method: 'POST',
++        headers: {
++          'Content-Type': 'application/json',
++          ...(xanoApiKey ? { 'Authorization': `Bearer ${xanoApiKey}` } : {})
++        },
++        body: JSON.stringify({
++          name: sanitizedName,
++          path: fullPath,
++          parent_path: parent_path,
++          cloudinary_path: cloudinaryPath
++        })
++      });
++      if (!xanoResponse.ok) {
++        const text = await xanoResponse.text();
++        console.error('❌ Xano folder creation failed:', xanoResponse.status, text);
++      } else {
++        const data = await xanoResponse.json().catch(() => null);
++        console.log('✅ Folder persisted to Xano:', data);
++        if (data && data.id) {
++          folder.id = data.id;
++        }
++      }
++    } catch (xanoError) {
++      console.error('❌ Error creating folder in Xano:', xanoError);
++    }
++
++    console.log('✅ Folder created successfully:', folder)
++
++    return new Response(
++      JSON.stringify({
++        success: true,
++        folder: folder,
++        message: 'Folder created in Cloudinary successfully'
++      }),
++      { status: 201, headers }
++    )
+*** End Patch
+*** End Patch
