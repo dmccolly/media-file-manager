@@ -64,6 +64,45 @@ export default async (req: Request, context: Context) => {
     const savedRecord = await response.json();
     console.log('✅ Netlify Function: File saved to Xano:', savedRecord);
     
+    // Sync to Webflow Media Assets collection
+    try {
+      console.log('🔄 Netlify Function: Syncing to Webflow...');
+      const webflowData = {
+        name: fileData.title,
+        title: fileData.title,
+        url: fileData.url,
+        thumbnail: fileData.thumbnail,
+        description: fileData.description || '',
+        category: fileData.category || 'Files',
+        type: fileData.type || 'file',
+        size: fileData.size || 0,
+        tags: fileData.tags || '',
+        author: fileData.author || 'Unknown',
+        created_at: savedRecord.created_at || new Date().toISOString()
+      };
+      
+      // Call the webflow sync endpoint
+      const webflowSyncUrl = `${new URL(req.url).origin}/api/webflow/sync`;
+      const webflowResponse = await fetch(webflowSyncUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(webflowData)
+      });
+      
+      if (webflowResponse.ok) {
+        const webflowResult = await webflowResponse.json();
+        console.log('✅ Netlify Function: Webflow sync successful:', webflowResult);
+      } else {
+        const webflowError = await webflowResponse.text();
+        console.warn('⚠️ Netlify Function: Webflow sync failed (non-critical):', webflowError);
+      }
+    } catch (webflowError) {
+      console.warn('⚠️ Netlify Function: Webflow sync error (non-critical):', webflowError);
+      // Don't fail the upload if Webflow sync fails
+    }
+    
     return new Response(JSON.stringify({ 
       success: true, 
       record: savedRecord 
