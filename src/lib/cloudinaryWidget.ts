@@ -51,7 +51,9 @@ function thumbFrom(info: any): string {
     return url.replace('/upload/', '/upload/w_300,h_300,c_fill,q_auto,f_auto/');
   }
   if (info.resource_type === 'video') {
-    return url.replace('/upload/', '/upload/so_0,w_300,h_300,c_fill,q_auto,f_jpg/').replace(/\.[^.]+$/, '.jpg');
+    // Use Cloudinary's automatic best-frame selection for video thumbnails
+    // This analyzes the video and picks the most representative frame
+    return url.replace('/upload/', '/upload/so_auto,w_300,h_300,c_fill,q_auto,f_jpg/').replace(/\.[^.]+$/, '.jpg');
   }
   return '';
 }

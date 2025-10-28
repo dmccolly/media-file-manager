@@ -308,8 +308,10 @@ export class XanoService {
         return mediaUrl.replace('/upload/', '/upload/w_150,h_150,c_fill,f_auto,q_auto,g_auto:face/');
       }
       if (resourceType === 'video') {
+        // Use Cloudinary's automatic best-frame selection for video thumbnails
+        // This analyzes the video and picks the most representative frame
         return mediaUrl
-          .replace('/upload/', '/upload/w_150,h_150,c_fill,f_auto,q_auto,g_auto:face,so_0/')
+          .replace('/upload/', '/upload/w_150,h_150,c_fill,f_auto,q_auto,g_auto:face,so_auto/')
           .replace(/\.[^.]+$/, '.jpg');
       }
       if (fileType?.includes('pdf') || mediaUrl.toLowerCase().includes('.pdf')) {
