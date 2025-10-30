@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { Upload, Search, Grid, List, Eye, Edit, Download, FolderOpen, File, Image, Video, Music, FileText, X, Plus } from 'lucide-react'
+import { Upload, Search, Grid, List, Eye, Edit, Download, FolderOpen, File, Image, Video, Music, FileText, X, Plus, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -452,6 +452,18 @@ function App() {
     } catch (error: any) {
       console.error('❌ App: Error updating file:', error)
       alert('Error updating file: ' + (error?.message || 'Unknown error'))
+    }
+  }
+
+  const handleDelete = async (file: MediaFile) => {
+    if (!confirm(`Are you sure you want to delete "${file.title}"?`)) return
+    try {
+      await xanoService.deleteFile(file.id)
+      setFiles(prev => prev.filter(f => f.id !== file.id))
+      alert('File deleted successfully!')
+    } catch (error) {
+      console.error('Error deleting file:', error)
+      alert('Failed to delete file')
     }
   }
 
@@ -978,6 +990,9 @@ function App() {
                           <Download className="w-3 h-3" />
                         </a>
                       </Button>
+                      <Button size="sm" variant="outline" onClick={() => handleDelete(file)}>
+                        <Trash2 className="w-3 h-3" />
+                      </Button>
                     </div>
                   </CardContent>
                 </Card>
@@ -1071,6 +1086,9 @@ function App() {
                               <a href={file.media_url} download={file.title}>
                                 <Download className="w-3 h-3" />
                               </a>
+                            </Button>
+                            <Button size="sm" variant="outline" onClick={() => handleDelete(file)}>
+                              <Trash2 className="w-3 h-3" />
                             </Button>
                           </div>
                         </td>
