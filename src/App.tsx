@@ -1132,7 +1132,7 @@ function App() {
         </Dialog>
         {/* Edit Modal */}
         <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
-          <DialogContent>
+          <DialogContent draggable>
             <DialogHeader>
               <DialogTitle>Edit File</DialogTitle>
             </DialogHeader>
