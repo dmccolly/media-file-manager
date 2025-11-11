@@ -18,6 +18,7 @@ import { PreviewService } from './services/PreviewService'
 import { WebflowService } from './services/WebflowService'
 import { FolderService } from './services/FolderService'
 import { BulkOperationsPanel } from './components/BulkOperationsPanel'
+import { UrlDisplay } from './components/UrlDisplay'
 
 interface MediaFile {
   id: string
@@ -1126,6 +1127,14 @@ function App() {
                     </div>
                   )}
                 </div>
+                   <div className="border-t pt-4">
+                     <UrlDisplay 
+                       url={selectedFile.media_url} 
+                       title="Cloudinary URL"
+                       showCopy={true}
+                       showOpen={true}
+                     />
+                   </div>
               </div>
             )}
           </DialogContent>
@@ -1207,6 +1216,14 @@ function App() {
                     onChange={(e) => setEditingFile({ ...editingFile, author: e.target.value })}
                   />
                 </div>
+                   <div className="border-t pt-4">
+                     <UrlDisplay 
+                       url={editingFile.media_url} 
+                       title="Cloudinary URL"
+                       showCopy={true}
+                       showOpen={true}
+                     />
+                   </div>
                 <div className="flex gap-2 justify-end">
                   <Button variant="outline" onClick={() => setIsEditOpen(false)}>Cancel</Button>
                   <Button onClick={handleSaveEdit}>Save Changes</Button>
