@@ -1,4 +1,9 @@
 // Netlify function to save an uploaded asset to Xano and Webflow
+// This version imports the webflow-sync handler directly instead of
+// making a network call. This avoids cross-domain issues and ensures
+// newly uploaded assets trigger an immediate sync in the same runtime.
+const webflowSync = require('./webflow-sync');
+
 exports.handler = async (event) => {
   try {
     // Only accept POST requests
@@ -7,12 +12,12 @@ exports.handler = async (event) => {
     }
 
     // Set CORS headers for preflight and actual requests
-    const origin = event.headers.origin || '';
     const corsHeaders = {
       'access-control-allow-origin': '*',
       'access-control-allow-headers': 'content-type, authorization',
       'access-control-allow-methods': 'POST, OPTIONS'
     };
+
     if (event.httpMethod === 'OPTIONS') {
       return { statusCode: 204, headers: corsHeaders, body: '' };
     }
@@ -80,16 +85,15 @@ exports.handler = async (event) => {
 
     // ---- Webflow sync (non-blocking, automatic) ----
     // Automatically trigger Webflow sync for the newly created asset.
-    // We no longer rely on a token check here; the webflow-sync function validates
-    // its own environment variables.  Trigger the sync regardless so that
-    // assets always attempt to sync to Webflow when uploaded.
     try {
       console.log('🔄 Triggering Webflow sync for asset:', xanoJson.id);
-      await fetch('/.netlify/functions/webflow-sync', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const syncEvent = {
+        httpMethod: 'POST',
+        headers: {},
         body: JSON.stringify({ fileId: xanoJson.id })
-      });
+      };
+      // Invoke webflow-sync handler directly
+      await webflowSync.handler(syncEvent);
     } catch (err) {
       console.warn('⚠️ Webflow sync trigger failed (non-critical):', err);
     }
@@ -102,8 +106,8 @@ exports.handler = async (event) => {
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error('Save asset error:', msg);
-    return { 
-      statusCode: 500, 
+    return {
+      statusCode: 500,
       headers: {
         'Content-Type': 'application/json',
         'access-control-allow-origin': '*'
