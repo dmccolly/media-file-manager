@@ -426,7 +426,7 @@ async function syncToWebflowCollection(file, apiToken, collectionId, siteId, deb
     fieldData: {
       'name': file.title || file.name || 'Untitled',
       'slug': slug,
-      'media-url': file.media_url,
+      'media-url': file.media_url || file.cloudinary_url || file.file_url || '',
       'description': file.description || '',
       'category': file.category || 'Files',
       'station': file.station || '',
@@ -737,12 +737,12 @@ async function getThumbnailBuffer(file) {
       const cloudName = mediaUrl.match(/https?:\/\/res\.cloudinary\.com\/([^/]+)/)?.[1];
       
       if (fileType.includes('video') || category.includes('video')) {
-        thumbnailUrl = `https://res.cloudinary.com/${cloudName}/video/upload/w_150,h_150,c_fill,f_jpg,q_auto,g_auto,so_0/${publicId}.jpg`;
+        thumbnailUrl = `https://res.cloudinary.com/${cloudName}/video/upload/w_150,h_150,c_fill,f_png,q_auto,g_auto,so_0/${publicId}.png`;
       } else if (fileType.includes('pdf') || category.includes('pdf')) {
-        thumbnailUrl = `https://res.cloudinary.com/${cloudName}/image/upload/w_150,h_150,c_fill,f_jpg,q_auto,g_auto,pg_1/${publicId}.jpg`;
+        thumbnailUrl = `https://res.cloudinary.com/${cloudName}/image/upload/w_150,h_150,c_fill,f_png,q_auto,g_auto,pg_1/${publicId}.png`;
       } else if (fileType.includes('image') || category.includes('image') || category.includes('photo')) {
         // Image: standard thumbnail
-        thumbnailUrl = `https://res.cloudinary.com/${cloudName}/image/upload/w_150,h_150,c_fill,f_jpg,q_auto,g_auto/${publicId}.jpg`;
+        thumbnailUrl = `https://res.cloudinary.com/${cloudName}/image/upload/w_150,h_150,c_fill,f_png,q_auto,g_auto/${publicId}.png`;
       } else {
         console.log('⚠️ Audio/other file type, using fallback transparent PNG');
         const base64PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
@@ -851,14 +851,18 @@ async function uploadImageAssetToWebflow(file, fileName, apiToken, siteId, debug
           success: true
         });
       }
+      
+      console.log(`⏳ Waiting 2 seconds for asset to be ready...`);
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      console.log(`✅ Asset should be ready now`);
     } else {
-      console.log(`⚠️ No uploadUrl/uploadDetails in response, skipping S3 upload`);
+      console.log(`⚠️ No uploadUrl/uploadDetails in response, reusing existing asset (dedupe)`);
       
       if (debugInfo) {
         debugInfo.steps.push({
           step: 's3_upload',
           skipped: true,
-          reason: 'No uploadUrl or uploadDetails'
+          reason: 'No uploadUrl or uploadDetails - asset already exists'
         });
       }
     }
@@ -884,55 +888,48 @@ async function uploadImageAssetToWebflow(file, fileName, apiToken, siteId, debug
  * Upload file to S3 using Webflow's upload details
  */
 async function uploadToS3(uploadUrl, uploadDetails, fileBuffer) {
+  const FormData = require('form-data');
+  const formData = new FormData();
+  
+  for (const [key, value] of Object.entries(uploadDetails)) {
+    formData.append(key, value);
+  }
+  
+  formData.append('file', fileBuffer, {
+    filename: 'thumbnail.png',
+    contentType: 'image/png'
+  });
+  
   return new Promise((resolve, reject) => {
-    // Create multipart form data
-    const boundary = `----WebflowFormBoundary${Date.now()}`;
-    const parts = [];
-    
-    for (const [key, value] of Object.entries(uploadDetails)) {
-      parts.push(
-        `--${boundary}\r\n` +
-        `Content-Disposition: form-data; name="${key}"\r\n\r\n` +
-        `${value}\r\n`
-      );
-    }
-    
-    parts.push(
-      `--${boundary}\r\n` +
-      `Content-Disposition: form-data; name="file"; filename="file"\r\n` +
-      `Content-Type: application/octet-stream\r\n\r\n`
-    );
-    
-    const header = Buffer.from(parts.join(''), 'utf8');
-    const footer = Buffer.from(`\r\n--${boundary}--\r\n`, 'utf8');
-    const body = Buffer.concat([header, fileBuffer, footer]);
-    
     const url = new URL(uploadUrl);
     const options = {
       hostname: url.hostname,
       path: url.pathname + url.search,
       method: 'POST',
-      headers: {
-        'Content-Type': `multipart/form-data; boundary=${boundary}`,
-        'Content-Length': body.length
-      }
+      headers: formData.getHeaders()
     };
     
     const req = https.request(options, (res) => {
       let data = '';
       res.on('data', (chunk) => data += chunk);
       res.on('end', () => {
+        console.log(`📡 S3 upload response: ${res.statusCode}`);
         if (res.statusCode === 201 || res.statusCode === 204) {
+          console.log(`✅ S3 upload successful (${res.statusCode})`);
           resolve();
         } else {
+          console.error(`❌ S3 upload failed: ${res.statusCode} - ${data}`);
           reject(new Error(`S3 upload failed: ${res.statusCode} - ${data}`));
         }
       });
     });
     
-    req.on('error', reject);
-    req.write(body);
-    req.end();
+    req.on('error', (err) => {
+      console.error(`❌ S3 request error: ${err.message}`);
+      reject(err);
+    });
+    
+    formData.pipe(req);
   });
 }
 
