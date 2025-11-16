@@ -647,13 +647,15 @@ async function getThumbnailBuffer(file) {
  */
 async function uploadImageAssetToWebflow(file, fileName, apiToken, siteId) {
   console.log(`📦 Uploading image asset to Webflow: ${fileName}`);
+  console.log(`🔍 File data: media_url=${file.media_url}, file_type=${file.file_type}, category=${file.category}`);
   
   try {
     const imageBuffer = await getThumbnailBuffer(file);
+    console.log(`✅ Got thumbnail buffer, size: ${imageBuffer.length} bytes`);
     
     const md5Hash = crypto.createHash('md5').update(imageBuffer).digest('hex');
+    console.log(`✅ Calculated MD5 hash: ${md5Hash}`);
     
-    // Step 3: Initiate upload to Webflow
     const initResponse = await fetch(`https://api.webflow.com/v2/sites/${siteId}/assets`, {
       method: 'POST',
       headers: {
@@ -666,22 +668,29 @@ async function uploadImageAssetToWebflow(file, fileName, apiToken, siteId) {
       })
     });
     
+    console.log(`📡 Webflow Assets init response status: ${initResponse.status}`);
+    
     if (!initResponse.ok) {
       const errorText = await initResponse.text();
+      console.error(`❌ Webflow Assets init failed: ${errorText}`);
       throw new Error(`Webflow Assets init error: ${initResponse.status} - ${errorText}`);
     }
     
     const initResult = await initResponse.json();
-    console.log(`✅ Asset init successful, ID: ${initResult.id}`);
+    console.log(`✅ Asset init successful, ID: ${initResult.id}, uploadUrl present: ${!!initResult.uploadUrl}`);
     
     if (initResult.uploadUrl && initResult.uploadDetails) {
+      console.log(`📤 Uploading to S3...`);
       await uploadToS3(initResult.uploadUrl, initResult.uploadDetails, imageBuffer);
       console.log(`✅ Asset uploaded to S3`);
+    } else {
+      console.log(`⚠️ No uploadUrl/uploadDetails in response, skipping S3 upload`);
     }
     
     return { assetId: initResult.id, hostedUrl: initResult.hostedUrl };
   } catch (error) {
     console.error(`❌ Failed to upload asset: ${error.message}`);
+    console.error(`❌ Error stack: ${error.stack}`);
     throw error;
   }
 }
