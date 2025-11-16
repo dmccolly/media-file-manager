@@ -79,18 +79,19 @@ exports.handler = async (event) => {
     const xanoJson = await xanoRes.json();
 
     // ---- Webflow sync (non-blocking, automatic) ----
-    // Automatically trigger Webflow sync for the newly created asset
-    const wfToken = process.env.VITE_WEBFLOW_API_TOKEN;
-    if (wfToken) {
+    // Automatically trigger Webflow sync for the newly created asset.
+    // We no longer rely on a token check here; the webflow-sync function validates
+    // its own environment variables.  Trigger the sync regardless so that
+    // assets always attempt to sync to Webflow when uploaded.
+    try {
       console.log('🔄 Triggering Webflow sync for asset:', xanoJson.id);
-      // Trigger Webflow sync but don't wait for it to complete
-      fetch('/.netlify/functions/webflow-sync', {
+      await fetch('/.netlify/functions/webflow-sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ fileId: xanoJson.id })
-      }).catch(err => console.warn('⚠️ Webflow sync failed (non-critical):', err));
-    } else {
-      console.warn('⚠️ Webflow API token not configured, skipping sync');
+      });
+    } catch (err) {
+      console.warn('⚠️ Webflow sync trigger failed (non-critical):', err);
     }
 
     return {
