@@ -398,15 +398,24 @@ function generateThumbnailUrl(file) {
   }
 
   // Fallback placeholders
-  // Determine if this is audio by checking file_type or URL
+  // Determine if this is audio by checking file_type, category, or URL
   const isAudio = (file.file_type && (file.file_type.startsWith('audio/') || file.file_type === 'audio')) ||
+                  (file.category && (file.category === 'audio' || file.category === 'Audio')) ||
                   (file.media_url && /\.(mp3|wav|m4a|aac|ogg|flac)$/i.test(file.media_url));
   
   if (isAudio) {
-    return `https://via.placeholder.com/${width}x${height}/4A90E2/FFFFFF?text=+Audio+File`;
+    return `https://via.placeholder.com/${width}x${height}/4A90E2/FFFFFF?text=Audio+File`;
   }
 
-  return `https://via.placeholder.com/${width}x${height}/6B7280/FFFFFF?text=+${encodeURIComponent(file.file_type || 'File')}`;
+  // Determine file type for final fallback
+  let fileTypeLabel = 'File';
+  if (file.category) {
+    fileTypeLabel = file.category.charAt(0).toUpperCase() + file.category.slice(1);
+  } else if (file.file_type) {
+    fileTypeLabel = file.file_type;
+  }
+
+  return `https://via.placeholder.com/${width}x${height}/6B7280/FFFFFF?text=${encodeURIComponent(fileTypeLabel)}`;
 }
 
 /**
