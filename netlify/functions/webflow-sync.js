@@ -449,8 +449,12 @@ async function syncToWebflowCollection(file, apiToken, collectionId, siteId, deb
   }
   
   console.log(`🔍 DEBUG: thumbnailAssetId type: ${typeof thumbnailAssetId}, value: ${thumbnailAssetId}`);
-  // CRITICAL FIX: Webflow expects asset reference as object {id: assetId}, not string
-  itemData.fieldData['thumbnail'] = { id: thumbnailAssetId };
+  // CRITICAL FIX: Webflow expects asset reference with fileId, url, and alt fields
+  itemData.fieldData['thumbnail'] = {
+    fileId: thumbnailAssetId,
+    url: assetResult.hostedUrl || '',
+    alt: null
+  };
 
   console.log('📤 Sending to Webflow:', JSON.stringify(itemData, null, 2));
 
