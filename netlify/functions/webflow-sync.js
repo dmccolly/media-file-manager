@@ -902,34 +902,46 @@ async function uploadToS3(uploadUrl, uploadDetails, fileBuffer) {
   
   return new Promise((resolve, reject) => {
     const url = new URL(uploadUrl);
-    const options = {
-      hostname: url.hostname,
-      path: url.pathname + url.search,
-      method: 'POST',
-      headers: formData.getHeaders()
-    };
     
-    const req = https.request(options, (res) => {
-      let data = '';
-      res.on('data', (chunk) => data += chunk);
-      res.on('end', () => {
-        console.log(`📡 S3 upload response: ${res.statusCode}`);
-        if (res.statusCode === 201 || res.statusCode === 204) {
-          console.log(`✅ S3 upload successful (${res.statusCode})`);
-          resolve();
-        } else {
-          console.error(`❌ S3 upload failed: ${res.statusCode} - ${data}`);
-          reject(new Error(`S3 upload failed: ${res.statusCode} - ${data}`));
-        }
+    formData.getLength((err, length) => {
+      if (err) {
+        console.error(`❌ Failed to get form data length: ${err.message}`);
+        reject(err);
+        return;
+      }
+      
+      const headers = formData.getHeaders();
+      headers['Content-Length'] = length;
+      
+      const options = {
+        hostname: url.hostname,
+        path: url.pathname + url.search,
+        method: 'POST',
+        headers: headers
+      };
+      
+      const req = https.request(options, (res) => {
+        let data = '';
+        res.on('data', (chunk) => data += chunk);
+        res.on('end', () => {
+          console.log(`📡 S3 upload response: ${res.statusCode}`);
+          if (res.statusCode === 201 || res.statusCode === 204) {
+            console.log(`✅ S3 upload successful (${res.statusCode})`);
+            resolve();
+          } else {
+            console.error(`❌ S3 upload failed: ${res.statusCode} - ${data}`);
+            reject(new Error(`S3 upload failed: ${res.statusCode} - ${data}`));
+          }
+        });
       });
+      
+      req.on('error', (err) => {
+        console.error(`❌ S3 request error: ${err.message}`);
+        reject(err);
+      });
+      
+      formData.pipe(req);
     });
-    
-    req.on('error', (err) => {
-      console.error(`❌ S3 request error: ${err.message}`);
-      reject(err);
-    });
-    
-    formData.pipe(req);
   });
 }
 
