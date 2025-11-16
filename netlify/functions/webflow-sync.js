@@ -450,7 +450,6 @@ async function syncToWebflowCollection(file, apiToken, collectionId, siteId, deb
   
   console.log(`🔍 DEBUG: thumbnailAssetId type: ${typeof thumbnailAssetId}, value: ${thumbnailAssetId}`);
   itemData.fieldData['thumbnail'] = thumbnailAssetId;
-  itemData.fieldData['thumbnail-2'] = thumbnailAssetId;
 
   console.log('📤 Sending to Webflow:', JSON.stringify(itemData, null, 2));
 
