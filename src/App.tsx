@@ -446,7 +446,7 @@ function App() {
         file_type: 'video',
         file_size: 0,
         category: videoUrlData.category,
-        tags: videoUrlData.tags.split(',').map(t => t.trim()).filter(Boolean),
+        tags: videoUrlData.tags,
         station: videoUrlData.station,
         author: videoUrlData.author || 'Unknown',
         folder_path: currentFolderPath
