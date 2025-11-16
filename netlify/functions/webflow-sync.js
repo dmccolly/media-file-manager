@@ -86,6 +86,79 @@ exports.handler = async (event) => {
 
     const action = bodyJson.action || 'upsert';
     const fileId = bodyJson.fileId || null;
+    const debug = bodyJson.debug === true;
+
+    // Handle introspect action - fetch existing items to see thumbnail field format
+    if (action === 'introspect') {
+      console.log('🔍 Introspecting Webflow collection items');
+      try {
+        const response = await fetch(
+          `https://api.webflow.com/v2/collections/${WEBFLOW_COLLECTION_ID}/items?limit=5`,
+          {
+            headers: {
+              'Authorization': `Bearer ${WEBFLOW_API_TOKEN}`,
+              'accept': 'application/json'
+            }
+          }
+        );
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          return {
+            statusCode: response.status,
+            headers: {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*'
+            },
+            body: JSON.stringify({ 
+              success: false, 
+              error: `Failed to fetch items: ${response.status}`,
+              details: errorText
+            })
+          };
+        }
+        
+        const data = await response.json();
+        const items = data.items || [];
+        
+        // Extract thumbnail field info from items that have thumbnails
+        const thumbnailInfo = items.map(item => ({
+          id: item.id,
+          fieldDataKeys: Object.keys(item.fieldData || {}),
+          thumbnailValue: item.fieldData?.thumbnail,
+          thumbnailType: typeof item.fieldData?.thumbnail,
+          thumbnailIsArray: Array.isArray(item.fieldData?.thumbnail),
+          name: item.fieldData?.name || item.fieldData?.title
+        }));
+        
+        return {
+          statusCode: 200,
+          headers: {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*'
+          },
+          body: JSON.stringify({ 
+            success: true, 
+            totalItems: items.length,
+            thumbnailInfo,
+            sampleItem: items[0]?.fieldData || null
+          })
+        };
+      } catch (err) {
+        return {
+          statusCode: 500,
+          headers: {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*'
+          },
+          body: JSON.stringify({ 
+            success: false, 
+            error: err.message,
+            stack: err.stack
+          })
+        };
+      }
+    }
 
     // Handle delete action
     if (action === 'delete' && fileId) {
@@ -123,6 +196,51 @@ exports.handler = async (event) => {
           body: JSON.stringify({ success: false, error: 'File not found in Xano' })
         };
       }
+      
+      if (debug) {
+        try {
+          const debugInfo = {
+            fileData: {
+              id: file.id,
+              title: file.title,
+              media_url: file.media_url,
+              file_type: file.file_type,
+              category: file.category,
+              thumbnail: file.thumbnail
+            },
+            steps: []
+          };
+          
+          const result = await upsertFile(file, WEBFLOW_API_TOKEN, WEBFLOW_SITE_ID, WEBFLOW_COLLECTION_ID, debugInfo);
+          
+          return {
+            statusCode: 200,
+            headers: {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*'
+            },
+            body: JSON.stringify({ 
+              success: true, 
+              result,
+              debug: debugInfo
+            })
+          };
+        } catch (err) {
+          return {
+            statusCode: 500,
+            headers: {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*'
+            },
+            body: JSON.stringify({ 
+              success: false, 
+              error: err.message,
+              stack: err.stack
+            })
+          };
+        }
+      }
+      
       const result = await upsertFile(file, WEBFLOW_API_TOKEN, WEBFLOW_SITE_ID, WEBFLOW_COLLECTION_ID);
       return {
         statusCode: 200,
@@ -221,7 +339,7 @@ async function fetchAllFilesFromXano(baseUrl, apiKey) {
 /**
  * Upsert a file into Webflow
  */
-async function upsertFile(file, apiToken, siteId, collectionId) {
+async function upsertFile(file, apiToken, siteId, collectionId, debugInfo = null) {
   console.log(`📝 Upserting file: ${file.title || file.name}`);
   
   // Try to upload to Webflow Assets (optional, may fail for videos)
@@ -234,7 +352,7 @@ async function upsertFile(file, apiToken, siteId, collectionId) {
   }
   
   // Create/update collection item (this is the important part!)
-  const collectionRes = await syncToWebflowCollection(file, apiToken, collectionId, siteId);
+  const collectionRes = await syncToWebflowCollection(file, apiToken, collectionId, siteId, debugInfo);
   
   return {
     fileId: file.id,
@@ -248,7 +366,7 @@ async function upsertFile(file, apiToken, siteId, collectionId) {
 /**
  * Sync to Webflow CMS Collection (ENHANCED FOR VIDEOS)
  */
-async function syncToWebflowCollection(file, apiToken, collectionId, siteId) {
+async function syncToWebflowCollection(file, apiToken, collectionId, siteId, debugInfo = null) {
   console.log(`📋 Syncing to Webflow Collection: ${file.title || file.name}`);
   
   // Check for existing item
@@ -261,9 +379,18 @@ async function syncToWebflowCollection(file, apiToken, collectionId, siteId) {
   const slug = generateSlug(file.title || file.name || 'untitled');
   const thumbnailUrl = generateThumbnailUrl(file);
   
+  if (debugInfo) {
+    debugInfo.steps.push({
+      step: 'thumbnail_generation',
+      thumbnailUrl,
+      fileType: file.file_type,
+      category: file.category
+    });
+  }
+  
   console.log(`🖼️ Uploading thumbnail for: ${file.title || file.name}`);
   const fileName = `${file.id || 'file'}-thumb.jpg`;
-  const assetResult = await uploadImageAssetToWebflow(file, fileName, apiToken, siteId);
+  const assetResult = await uploadImageAssetToWebflow(file, fileName, apiToken, siteId, debugInfo);
   const thumbnailAssetId = assetResult.assetId;
   console.log(`✅ Thumbnail uploaded, asset ID: ${thumbnailAssetId}`);
   
@@ -645,7 +772,7 @@ async function getThumbnailBuffer(file) {
 /**
  * Upload image to Webflow Assets API (two-step process)
  */
-async function uploadImageAssetToWebflow(file, fileName, apiToken, siteId) {
+async function uploadImageAssetToWebflow(file, fileName, apiToken, siteId, debugInfo = null) {
   console.log(`📦 Uploading image asset to Webflow: ${fileName}`);
   console.log(`🔍 File data: media_url=${file.media_url}, file_type=${file.file_type}, category=${file.category}`);
   
@@ -653,8 +780,23 @@ async function uploadImageAssetToWebflow(file, fileName, apiToken, siteId) {
     const imageBuffer = await getThumbnailBuffer(file);
     console.log(`✅ Got thumbnail buffer, size: ${imageBuffer.length} bytes`);
     
+    if (debugInfo) {
+      debugInfo.steps.push({
+        step: 'thumbnail_buffer',
+        bufferSize: imageBuffer.length,
+        fileName
+      });
+    }
+    
     const md5Hash = crypto.createHash('md5').update(imageBuffer).digest('hex');
     console.log(`✅ Calculated MD5 hash: ${md5Hash}`);
+    
+    if (debugInfo) {
+      debugInfo.steps.push({
+        step: 'md5_hash',
+        hash: md5Hash
+      });
+    }
     
     const initResponse = await fetch(`https://api.webflow.com/v2/sites/${siteId}/assets`, {
       method: 'POST',
@@ -673,24 +815,67 @@ async function uploadImageAssetToWebflow(file, fileName, apiToken, siteId) {
     if (!initResponse.ok) {
       const errorText = await initResponse.text();
       console.error(`❌ Webflow Assets init failed: ${errorText}`);
+      
+      if (debugInfo) {
+        debugInfo.steps.push({
+          step: 'webflow_assets_init',
+          status: initResponse.status,
+          error: errorText
+        });
+      }
+      
       throw new Error(`Webflow Assets init error: ${initResponse.status} - ${errorText}`);
     }
     
     const initResult = await initResponse.json();
     console.log(`✅ Asset init successful, ID: ${initResult.id}, uploadUrl present: ${!!initResult.uploadUrl}`);
     
+    if (debugInfo) {
+      debugInfo.steps.push({
+        step: 'webflow_assets_init',
+        status: initResponse.status,
+        assetId: initResult.id,
+        hasUploadUrl: !!initResult.uploadUrl,
+        hasUploadDetails: !!initResult.uploadDetails
+      });
+    }
+    
     if (initResult.uploadUrl && initResult.uploadDetails) {
       console.log(`📤 Uploading to S3...`);
       await uploadToS3(initResult.uploadUrl, initResult.uploadDetails, imageBuffer);
       console.log(`✅ Asset uploaded to S3`);
+      
+      if (debugInfo) {
+        debugInfo.steps.push({
+          step: 's3_upload',
+          success: true
+        });
+      }
     } else {
       console.log(`⚠️ No uploadUrl/uploadDetails in response, skipping S3 upload`);
+      
+      if (debugInfo) {
+        debugInfo.steps.push({
+          step: 's3_upload',
+          skipped: true,
+          reason: 'No uploadUrl or uploadDetails'
+        });
+      }
     }
     
     return { assetId: initResult.id, hostedUrl: initResult.hostedUrl };
   } catch (error) {
     console.error(`❌ Failed to upload asset: ${error.message}`);
     console.error(`❌ Error stack: ${error.stack}`);
+    
+    if (debugInfo) {
+      debugInfo.steps.push({
+        step: 'upload_error',
+        error: error.message,
+        stack: error.stack
+      });
+    }
+    
     throw error;
   }
 }
