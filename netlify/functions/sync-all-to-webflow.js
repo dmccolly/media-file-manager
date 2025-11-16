@@ -1,9 +1,15 @@
 /**
- * Sync All Assets to Webflow
- * 
- * This function triggers a full sync of all assets from Xano to Webflow.
- * Use this for initial setup or to resync all existing assets.
+ * Sync All Assets to Webflow (Improved)
+ *
+ * This version eliminates the external network call and directly invokes
+ * the webflow-sync Netlify function as a local module. Invoking it with
+ * an event that uses the GET method triggers a full synchronisation of
+ * Xano assets into your Webflow CMS collection. This approach avoids
+ * cross-domain issues on branch deploys and ensures the sync runs in the
+ * same environment with the correct environment variables.
  */
+
+const webflowSync = require('./webflow-sync');
 
 exports.handler = async (event) => {
   // Handle CORS preflight
@@ -19,7 +25,7 @@ exports.handler = async (event) => {
     };
   }
 
-  // Only allow POST requests
+  // Only allow POST requests for this endpoint
   if (event.httpMethod !== 'POST') {
     return {
       statusCode: 405,
@@ -34,22 +40,21 @@ exports.handler = async (event) => {
   try {
     console.log('🔄 Sync All: Starting full sync to Webflow');
 
-    // Call the webflow-sync function with syncAll flag
-    const syncResponse = await fetch(`${event.headers.origin || 'https://eclectic-caramel-34e317.netlify.app'}/.netlify/functions/webflow-sync`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ syncAll: true })
-    });
+    // Build a synthetic event to trigger a full sync in the webflow-sync function
+    const syncEvent = { httpMethod: 'GET', headers: {}, body: '' };
 
-    if (!syncResponse.ok) {
-      const errorText = await syncResponse.text();
-      throw new Error(`Sync failed: ${syncResponse.status} - ${errorText}`);
+    // Invoke the webflow-sync handler directly
+    const syncResult = await webflowSync.handler(syncEvent);
+
+    // The handler returns an object with a body property (stringified JSON)
+    let parsed;
+    try {
+      parsed = JSON.parse(syncResult.body || '{}');
+    } catch (parseErr) {
+      parsed = { success: false, error: 'Invalid JSON returned from sync function' };
     }
 
-    const result = await syncResponse.json();
-    console.log('✅ Sync All: Complete', result);
+    console.log('✅ Sync All: Complete', parsed);
 
     return {
       statusCode: 200,
@@ -60,10 +65,9 @@ exports.handler = async (event) => {
       body: JSON.stringify({
         success: true,
         message: 'Full sync to Webflow completed',
-        ...result
+        result: parsed
       })
     };
-
   } catch (error) {
     console.error('❌ Sync All: Error:', error);
     return {
