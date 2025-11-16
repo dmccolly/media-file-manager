@@ -320,6 +320,8 @@ async function syncToWebflowCollection(file, apiToken, collectionId, siteId) {
   if (!thumbnailAssetId) {
     throw new Error('Thumbnail upload failed - asset ID is null');
   }
+  
+  console.log(`🔍 DEBUG: thumbnailAssetId type: ${typeof thumbnailAssetId}, value: ${thumbnailAssetId}`);
   itemData.fieldData['thumbnail'] = thumbnailAssetId;
 
   console.log('📤 Sending to Webflow:', JSON.stringify(itemData, null, 2));
