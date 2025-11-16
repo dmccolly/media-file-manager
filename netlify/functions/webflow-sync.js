@@ -261,16 +261,12 @@ async function syncToWebflowCollection(file, apiToken, collectionId, siteId) {
   const slug = generateSlug(file.title || file.name || 'untitled');
   const thumbnailUrl = generateThumbnailUrl(file);
   
-  let thumbnailAssetId = null;
-  try {
-    console.log(`🖼️ Uploading thumbnail for: ${file.title || file.name}`);
-    const fileName = `${file.id || 'file'}-thumb.jpg`;
-    const assetResult = await uploadImageAssetToWebflow(thumbnailUrl, fileName, apiToken, siteId);
-    thumbnailAssetId = assetResult.assetId;
-    console.log(`✅ Thumbnail uploaded, asset ID: ${thumbnailAssetId}`);
-  } catch (error) {
-    console.error(`❌ Failed to upload thumbnail: ${error.message}`);
-  }
+  console.log(`🖼️ Uploading thumbnail for: ${file.title || file.name}`);
+  console.log(`📍 Thumbnail URL: ${thumbnailUrl}`);
+  const fileName = `${file.id || 'file'}-thumb.jpg`;
+  const assetResult = await uploadImageAssetToWebflow(thumbnailUrl, fileName, apiToken, siteId);
+  const thumbnailAssetId = assetResult.assetId;
+  console.log(`✅ Thumbnail uploaded, asset ID: ${thumbnailAssetId}`);
   
   // Determine upload date
   let uploadDate = new Date().toISOString();
@@ -322,9 +318,10 @@ async function syncToWebflowCollection(file, apiToken, collectionId, siteId) {
     }
   };
   
-  if (thumbnailAssetId) {
-    itemData.fieldData['thumbnail'] = thumbnailAssetId;
+  if (!thumbnailAssetId) {
+    throw new Error('Thumbnail upload failed - asset ID is null');
   }
+  itemData.fieldData['thumbnail'] = thumbnailAssetId;
 
   console.log('📤 Sending to Webflow:', JSON.stringify(itemData, null, 2));
 
