@@ -128,6 +128,18 @@ function App() {
   
   // Folder Management State
   const [currentFolderPath, setCurrentFolderPath] = useState<string>('')
+  
+  // Add Video URL State
+  const [isAddVideoUrlOpen, setIsAddVideoUrlOpen] = useState(false)
+  const [videoUrlData, setVideoUrlData] = useState({
+    url: '',
+    title: '',
+    description: '',
+    category: 'videos',
+    tags: '',
+    station: '',
+    author: ''
+  })
 
   const cloudinaryService = new CloudinaryService()
   const xanoService = new XanoService()
@@ -411,6 +423,60 @@ function App() {
     } finally {
       setIsUploading(false)
       setUploadProgress({})
+    }
+  }
+
+  // Handler for adding video URL
+  const handleAddVideoUrl = async () => {
+    if (!videoUrlData.url || !videoUrlData.title) {
+      alert('Please provide both URL and Title')
+      return
+    }
+    
+    setIsUploading(true)
+    try {
+      console.log('🔄 App: Adding video URL:', videoUrlData.url)
+      
+      // Create file data object
+      const fileData = {
+        title: videoUrlData.title,
+        name: videoUrlData.title,
+        description: videoUrlData.description,
+        media_url: videoUrlData.url,
+        file_type: 'video',
+        file_size: 0,
+        category: videoUrlData.category,
+        tags: videoUrlData.tags.split(',').map(t => t.trim()).filter(Boolean),
+        station: videoUrlData.station,
+        author: videoUrlData.author || 'Unknown',
+        folder_path: currentFolderPath
+      }
+      
+      // Save to Xano
+      console.log('🔄 App: Saving video URL to Xano')
+      await xanoService.saveFile(fileData)
+      console.log('✅ App: Video URL saved to database')
+      
+      // Reload files
+      await loadFiles()
+      
+      // Reset form and close dialog
+      setVideoUrlData({
+        url: '',
+        title: '',
+        description: '',
+        category: 'videos',
+        tags: '',
+        station: '',
+        author: ''
+      })
+      setIsAddVideoUrlOpen(false)
+      alert('Video URL added successfully!')
+    } catch (error: any) {
+      console.error('❌ App: Failed to add video URL:', error)
+      alert('Failed to add video URL: ' + (error?.message || 'Unknown error'))
+    } finally {
+      setIsUploading(false)
     }
   }
 
@@ -914,6 +980,122 @@ function App() {
                       )}
                     </div>
                   )}
+                </div>
+              </DialogContent>
+            </Dialog>
+            <Dialog open={isAddVideoUrlOpen} onOpenChange={(open) => {
+              setIsAddVideoUrlOpen(open)
+              if (!open) {
+                setVideoUrlData({
+                  url: '',
+                  title: '',
+                  description: '',
+                  category: 'videos',
+                  tags: '',
+                  station: '',
+                  author: ''
+                })
+              }
+            }}>
+              <DialogTrigger asChild>
+                <Button variant="outline">
+                  <Video className="w-4 h-4 mr-2" />
+                  Add Video URL
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Add Video URL (YouTube/Vimeo)</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 p-4">
+                  <div>
+                    <Label htmlFor="video-url">Video URL *</Label>
+                    <Input
+                      id="video-url"
+                      placeholder="https://www.youtube.com/watch?v=... or https://vimeo.com/..."
+                      value={videoUrlData.url}
+                      onChange={(e) => setVideoUrlData({...videoUrlData, url: e.target.value})}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="video-title">Title *</Label>
+                    <Input
+                      id="video-title"
+                      placeholder="Enter video title..."
+                      value={videoUrlData.title}
+                      onChange={(e) => setVideoUrlData({...videoUrlData, title: e.target.value})}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="video-description">Description</Label>
+                    <Textarea
+                      id="video-description"
+                      placeholder="Enter description..."
+                      value={videoUrlData.description}
+                      onChange={(e) => setVideoUrlData({...videoUrlData, description: e.target.value})}
+                      rows={3}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="video-category">Category</Label>
+                    <Select
+                      value={videoUrlData.category}
+                      onValueChange={(value) => setVideoUrlData({...videoUrlData, category: value})}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="videos">Videos</SelectItem>
+                        <SelectItem value="images">Images</SelectItem>
+                        <SelectItem value="documents">Documents</SelectItem>
+                        <SelectItem value="audio">Audio</SelectItem>
+                        <SelectItem value="other">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="video-station">Station</Label>
+                    <Input
+                      id="video-station"
+                      placeholder="e.g., KRVB, KIDO..."
+                      value={videoUrlData.station}
+                      onChange={(e) => setVideoUrlData({...videoUrlData, station: e.target.value})}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="video-tags">Tags (comma-separated)</Label>
+                    <Input
+                      id="video-tags"
+                      placeholder="e.g., interview, news, demo"
+                      value={videoUrlData.tags}
+                      onChange={(e) => setVideoUrlData({...videoUrlData, tags: e.target.value})}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="video-author">Author/Submitted By</Label>
+                    <Input
+                      id="video-author"
+                      placeholder="Enter author name..."
+                      value={videoUrlData.author}
+                      onChange={(e) => setVideoUrlData({...videoUrlData, author: e.target.value})}
+                    />
+                  </div>
+                  <div className="flex justify-end gap-2 pt-4">
+                    <Button
+                      variant="outline"
+                      onClick={() => setIsAddVideoUrlOpen(false)}
+                      disabled={isUploading}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      onClick={handleAddVideoUrl}
+                      disabled={!videoUrlData.url || !videoUrlData.title || isUploading}
+                    >
+                      {isUploading ? 'Adding...' : 'Add Video'}
+                    </Button>
+                  </div>
                 </div>
               </DialogContent>
             </Dialog>
