@@ -649,35 +649,52 @@ function convertToISODate(value) {
  */
 async function checkForExistingItem(file, apiToken, collectionId) {
   try {
+    console.log(`🔍 Checking for existing item with file-id: ${file.id}`);
+    
     const res = await fetch(`https://api.webflow.com/v2/collections/${collectionId}/items`, {
       headers: { 'Authorization': `Bearer ${apiToken}` }
     });
-    if (!res.ok) return null;
+    
+    if (!res.ok) {
+      console.warn(`⚠️ Failed to fetch existing items: ${res.status}`);
+      return null;
+    }
+    
     const data = await res.json();
     const items = data.items || [];
     
-    // Check by file ID first (most reliable)
-    if (file.id) {
-      const existingById = items.find(it => it.fieldData && String(it.fieldData['file-id']) === String(file.id));
-      if (existingById) return existingById;
+    console.log(`📊 Collection has ${items.length} total items`);
+    
+    // CRITICAL FIX: ONLY check by file-id field
+    // Do NOT check by name or URL - those cause false positives
+    if (!file.id) {
+      console.warn(`⚠️ File has no ID, cannot check for existing item`);
+      return null;
     }
     
-    // Check by media URL
-    if (file.media_url) {
-      const existingByUrl = items.find(it => it.fieldData && it.fieldData['media-url'] === file.media_url);
-      if (existingByUrl) return existingByUrl;
+    const existingById = items.find(it => {
+      const fieldData = it.fieldData || {};
+      const webflowFileId = fieldData['file-id'];
+      
+      // Must have file-id AND it must match
+      if (!webflowFileId) {
+        return false;
+      }
+      
+      return String(webflowFileId) === String(file.id);
+    });
+    
+    if (existingById) {
+      console.log(`✅ Found existing item by file-id: ${existingById.id}`);
+      console.log(`   Name: ${existingById.fieldData?.name}`);
+      return existingById;
     }
     
-    // Check by name
-    const fname = file.title || file.name;
-    if (fname) {
-      const existingByName = items.find(it => it.fieldData && it.fieldData.name === fname);
-      if (existingByName) return existingByName;
-    }
-    
+    console.log(`🆕 No existing item found for file-id ${file.id} - will create new`);
     return null;
+    
   } catch (err) {
-    console.warn(`Existing item check failed: ${err.message}`);
+    console.error(`❌ Existing item check failed: ${err.message}`);
     return null;
   }
 }
