@@ -437,12 +437,38 @@ function App() {
     try {
       console.log('🔄 App: Adding video URL:', videoUrlData.url)
       
-      // Create file data object
+      // Generate thumbnail URL based on video platform
+      let thumbnailUrl = ''
+      const url = videoUrlData.url
+      
+      if (url.includes('youtube.com') || url.includes('youtu.be')) {
+        // Extract YouTube video ID
+        let videoId = ''
+        if (url.includes('youtube.com/watch?v=')) {
+          videoId = url.split('v=')[1]?.split('&')[0]
+        } else if (url.includes('youtu.be/')) {
+          videoId = url.split('youtu.be/')[1]?.split('?')[0]
+        } else if (url.includes('youtube.com/embed/')) {
+          videoId = url.split('embed/')[1]?.split('?')[0]
+        }
+        if (videoId) {
+          thumbnailUrl = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`
+        }
+      } else if (url.includes('vimeo.com')) {
+        // Extract Vimeo video ID
+        const match = url.match(/vimeo\.com\/(\d+)/)
+        if (match && match[1]) {
+          thumbnailUrl = `https://vumbnail.com/${match[1]}.jpg`
+        }
+      }
+      
+      // Create file data object with thumbnail
       const fileData = {
         title: videoUrlData.title,
         name: videoUrlData.title,
         description: videoUrlData.description,
         media_url: videoUrlData.url,
+        thumbnail: thumbnailUrl || undefined,
         file_type: 'video',
         file_size: 0,
         category: videoUrlData.category,
