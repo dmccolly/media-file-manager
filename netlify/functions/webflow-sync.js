@@ -262,9 +262,8 @@ async function syncToWebflowCollection(file, apiToken, collectionId, siteId) {
   const thumbnailUrl = generateThumbnailUrl(file);
   
   console.log(`🖼️ Uploading thumbnail for: ${file.title || file.name}`);
-  console.log(`📍 Thumbnail URL: ${thumbnailUrl}`);
   const fileName = `${file.id || 'file'}-thumb.jpg`;
-  const assetResult = await uploadImageAssetToWebflow(thumbnailUrl, fileName, apiToken, siteId);
+  const assetResult = await uploadImageAssetToWebflow(file, fileName, apiToken, siteId);
   const thumbnailAssetId = assetResult.assetId;
   console.log(`✅ Thumbnail uploaded, asset ID: ${thumbnailAssetId}`);
   
@@ -580,13 +579,75 @@ async function downloadImage(url) {
 }
 
 /**
+ * Get thumbnail buffer for a file - uses Cloudinary transformations or fallback
+ */
+async function getThumbnailBuffer(file) {
+  const mediaUrl = file.media_url || file.cloudinary_url || file.file_url;
+  
+  // Fallback: base64-encoded 1x1 transparent PNG for files without media_url
+  if (!mediaUrl) {
+    console.log('⚠️ No media URL, using fallback transparent PNG');
+    const base64PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+    return Buffer.from(base64PNG, 'base64');
+  }
+  
+  // Determine file type
+  const fileType = file.file_type || '';
+  const category = (file.category || '').toLowerCase();
+  
+  let thumbnailUrl;
+  
+  const isCloudinary = mediaUrl.includes('cloudinary.com');
+  
+  if (isCloudinary) {
+    // Extract public ID and build transformation URL
+    const publicIdMatch = mediaUrl.match(/\/upload\/(?:v\d+\/)?(.+?)(?:\.[^.]+)?$/);
+    const publicId = publicIdMatch ? publicIdMatch[1] : null;
+    
+    if (publicId) {
+      const cloudName = mediaUrl.match(/https?:\/\/res\.cloudinary\.com\/([^/]+)/)?.[1];
+      
+      if (fileType.includes('video') || category.includes('video')) {
+        thumbnailUrl = `https://res.cloudinary.com/${cloudName}/video/upload/w_150,h_150,c_fill,f_jpg,q_auto,g_auto,so_0/${publicId}.jpg`;
+      } else if (fileType.includes('pdf') || category.includes('pdf')) {
+        thumbnailUrl = `https://res.cloudinary.com/${cloudName}/image/upload/w_150,h_150,c_fill,f_jpg,q_auto,g_auto,pg_1/${publicId}.jpg`;
+      } else if (fileType.includes('image') || category.includes('image') || category.includes('photo')) {
+        // Image: standard thumbnail
+        thumbnailUrl = `https://res.cloudinary.com/${cloudName}/image/upload/w_150,h_150,c_fill,f_jpg,q_auto,g_auto/${publicId}.jpg`;
+      } else {
+        console.log('⚠️ Audio/other file type, using fallback transparent PNG');
+        const base64PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+        return Buffer.from(base64PNG, 'base64');
+      }
+    } else {
+      console.log('⚠️ Could not extract Cloudinary public ID, using fallback');
+      const base64PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+      return Buffer.from(base64PNG, 'base64');
+    }
+  } else {
+    thumbnailUrl = mediaUrl;
+  }
+  
+  // Download the thumbnail
+  try {
+    console.log(`📥 Downloading thumbnail from: ${thumbnailUrl}`);
+    return await downloadImage(thumbnailUrl);
+  } catch (error) {
+    console.error(`❌ Failed to download thumbnail: ${error.message}`);
+    // Fallback to transparent PNG
+    const base64PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+    return Buffer.from(base64PNG, 'base64');
+  }
+}
+
+/**
  * Upload image to Webflow Assets API (two-step process)
  */
-async function uploadImageAssetToWebflow(imageUrl, fileName, apiToken, siteId) {
+async function uploadImageAssetToWebflow(file, fileName, apiToken, siteId) {
   console.log(`📦 Uploading image asset to Webflow: ${fileName}`);
   
   try {
-    const imageBuffer = await downloadImage(imageUrl);
+    const imageBuffer = await getThumbnailBuffer(file);
     
     const md5Hash = crypto.createHash('md5').update(imageBuffer).digest('hex');
     
