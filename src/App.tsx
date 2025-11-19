@@ -127,7 +127,7 @@ function App() {
   })
   
   // Folder Management State
-  const [currentFolderPath, setCurrentFolderPath] = useState<string>('')
+  const [currentFolderPath, setCurrentFolderPath] = useState<string>('all')
   
   // Add Video URL State
   const [isAddVideoUrlOpen, setIsAddVideoUrlOpen] = useState(false)
@@ -155,11 +155,8 @@ function App() {
     let filtered = files
 
     // Filter by current folder path
-    if (currentFolderPath !== '') {
+    if (currentFolderPath !== '' && currentFolderPath !== 'all') {
       filtered = filtered.filter(file => file.folder_path === currentFolderPath)
-    } else {
-      // Show Uncategorized files (those without folder_path or with empty folder_path)
-      filtered = filtered.filter(file => !file.folder_path || file.folder_path === '' || file.folder_path === '/')
     }
 
     if (selectedCategory !== 'all') {
@@ -720,13 +717,8 @@ function App() {
               />
             </div>
             <Select
-              // Convert an empty folder path to the sentinel so Radix
-              // Select doesn’t treat it as a clearing value. See
-              // UNCATEGORIZED_VALUE definition above.
               value={currentFolderPath === '' ? UNCATEGORIZED_VALUE : currentFolderPath}
               onValueChange={(value) => {
-                // Map the sentinel back to an empty string when the user
-                // selects the "Uncategorized" option.
                 if (value === UNCATEGORIZED_VALUE) {
                   setCurrentFolderPath('');
                 } else {
@@ -738,18 +730,21 @@ function App() {
                 <SelectValue placeholder="Select folder" />
               </SelectTrigger>
               <SelectContent>
-                {/* Use a non‑empty sentinel value for the Uncategorized option */}
+                <SelectItem value="all">📁 All Folders</SelectItem>
                 <SelectItem value={UNCATEGORIZED_VALUE}>📁 Uncategorized</SelectItem>
                   {folders && folders.length > 0 && folders.map(folder => (
                     <SelectItem key={folder.id} value={folder.path}>
                       📁 {folder.name}
                     </SelectItem>
                   ))}
-                  {(!folders || folders.length === 0) && files && files.length > 0 && Array.from(new Set(files.map(f => f.folder_path).filter(Boolean))).map(path => (
-                    <SelectItem key={path} value={path!}>
-                      📁 {path?.split("/").pop() || path}
-                    </SelectItem>
-                  ))}
+                  {(!folders || folders.length === 0) && files && files.length > 0 && Array.from(new Set(files.map(f => f.folder_path).filter(Boolean))).map(path => {
+                    const displayName = path?.includes('/') ? path.split("/").filter(Boolean).pop() || path : path;
+                    return (
+                      <SelectItem key={path} value={path!}>
+                        📁 {displayName}
+                      </SelectItem>
+                    );
+                  })}
                  </SelectContent>
             </Select>
             <Select value={selectedCategory} onValueChange={setSelectedCategory}>
