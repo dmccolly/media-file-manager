@@ -34,6 +34,26 @@ export class FolderService {
   }
 
   /**
+   * Fetch folders from Cloudinary
+   */
+  async fetchCloudinaryFolders(): Promise<Folder[]> {
+    try {
+      const response = await fetch(`${this.baseUrl}/folder-list?source=cloudinary`)
+      
+      if (!response.ok) {
+        console.error('Failed to fetch Cloudinary folders:', response.status)
+        return []
+      }
+
+      const folders = await response.json()
+      return Array.isArray(folders) ? folders : []
+    } catch (error) {
+      console.error('Error fetching Cloudinary folders:', error)
+      return []
+    }
+  }
+
+  /**
    * Create a new folder
    */
   async createFolder(name: string, parentPath: string = '/'): Promise<Folder | null> {
