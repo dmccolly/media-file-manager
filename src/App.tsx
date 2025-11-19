@@ -74,15 +74,18 @@ const mockFiles: MediaFile[] = [
   }
 ]
 
-const categories = [
-  { value: 'all', label: 'All Categories' },
-  { value: 'images', label: 'Images' },
-  { value: 'videos', label: 'Videos' },
-  { value: 'audio', label: 'Audio' },
-  { value: 'documents', label: 'Documents' },
-  { value: 'pdf', label: 'PDFs' },
-  { value: 'other', label: 'Other' }
-]
+type CategoryKey = 'all' | 'images' | 'videos' | 'documents' | 'audio' | 'other'
+
+const categories: CategoryKey[] = ['all', 'images', 'videos', 'documents', 'audio', 'other']
+
+const categoryLabel: Record<CategoryKey, string> = {
+  all: 'All Categories',
+  images: 'Images',
+  videos: 'Videos',
+  documents: 'Documents',
+  audio: 'Audio',
+  other: 'Other'
+}
 
 const extractCloudinaryFolder = (mediaUrl: string): string | null => {
   if (!mediaUrl) return null
@@ -786,8 +789,8 @@ function App() {
               </SelectTrigger>
               <SelectContent>
                 {categories.map(category => (
-                  <SelectItem key={category.value} value={category.value}>
-                    {category.label}
+                  <SelectItem key={category} value={category}>
+                    {categoryLabel[category]}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -967,7 +970,7 @@ function App() {
                           <SelectContent>
                             {categories.filter(cat => cat !== 'all').map(category => (
                               <SelectItem key={category} value={category}>
-                                {category.charAt(0).toUpperCase() + category.slice(1)}
+                                {categoryLabel[category]}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -1408,7 +1411,7 @@ function App() {
                     <SelectContent>
                       {categories.filter(cat => cat !== 'all').map(category => (
                         <SelectItem key={category} value={category}>
-                          {category.charAt(0).toUpperCase() + category.slice(1)}
+                          {categoryLabel[category]}
                         </SelectItem>
                       ))}
                     </SelectContent>
