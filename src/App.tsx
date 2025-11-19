@@ -74,7 +74,31 @@ const mockFiles: MediaFile[] = [
   }
 ]
 
-const categories = ['all', 'images', 'videos', 'documents', 'audio', 'other']
+type CategoryKey = 'all' | 'images' | 'videos' | 'documents' | 'audio' | 'other'
+
+const categories: CategoryKey[] = ['all', 'images', 'videos', 'documents', 'audio', 'other']
+
+const categoryLabel: Record<CategoryKey, string> = {
+  all: 'All Categories',
+  images: 'Images',
+  videos: 'Videos',
+  documents: 'Documents',
+  audio: 'Audio',
+  other: 'Other'
+}
+
+const extractCloudinaryFolder = (mediaUrl: string): string | null => {
+  if (!mediaUrl) return null
+  try {
+    const match = mediaUrl.match(/\/upload\/(?:v\d+\/)?([^\/]+(?:\/[^\/]+)*)\/[^\/]+$/)
+    if (match && match[1]) {
+      return match[1]
+    }
+  } catch (error) {
+    console.error('Error extracting Cloudinary folder:', error)
+  }
+  return null
+}
 
 // Radix Select treats an empty string as a special clearing value. If an
 // option’s value is '' then selecting it will clear the Select and show the
@@ -154,9 +178,13 @@ function App() {
   useEffect(() => {
     let filtered = files
 
-    // Filter by current folder path
+    // Filter by current folder path - check both folder_path and extract from media_url
     if (currentFolderPath !== '' && currentFolderPath !== 'all') {
-      filtered = filtered.filter(file => file.folder_path === currentFolderPath)
+      filtered = filtered.filter(file => {
+        if (file.folder_path === currentFolderPath) return true
+        const cloudinaryFolder = extractCloudinaryFolder(file.media_url)
+        return cloudinaryFolder === currentFolderPath
+      })
     }
 
     if (selectedCategory !== 'all') {
@@ -218,9 +246,9 @@ function App() {
 
   const loadFolders = async () => {
     try {
-      console.log('🔄 App: Loading folders from Xano...')
-      const loadedFolders = await folderService.fetchAllFolders()
-      console.log('✅ App: Loaded folders:', loadedFolders)
+      console.log('🔄 App: Loading folders from Cloudinary...')
+      const loadedFolders = await folderService.fetchCloudinaryFolders()
+      console.log('✅ App: Loaded Cloudinary folders:', loadedFolders)
       setFolders(loadedFolders)
     } catch (error) {
       console.error('❌ App: Error loading folders:', error)
@@ -733,28 +761,36 @@ function App() {
                 <SelectItem value="all">📁 All Folders</SelectItem>
                 <SelectItem value={UNCATEGORIZED_VALUE}>📁 Uncategorized</SelectItem>
                   {folders && folders.length > 0 && folders.map(folder => (
-                    <SelectItem key={folder.id} value={folder.path}>
+                    <SelectItem key={folder.id || folder.path} value={folder.path}>
                       📁 {folder.name}
                     </SelectItem>
                   ))}
-                  {(!folders || folders.length === 0) && files && files.length > 0 && Array.from(new Set(files.map(f => f.folder_path).filter(Boolean))).map(path => {
-                    const displayName = path?.includes('/') ? path.split("/").filter(Boolean).pop() || path : path;
-                    return (
-                      <SelectItem key={path} value={path!}>
-                        📁 {displayName}
-                      </SelectItem>
-                    );
-                  })}
+                  {(!folders || folders.length === 0) && files && files.length > 0 && (() => {
+                    // Extract unique Cloudinary folders from media_url
+                    const cloudinaryFolders = new Set<string>()
+                    files.forEach(f => {
+                      const folder = extractCloudinaryFolder(f.media_url)
+                      if (folder) cloudinaryFolders.add(folder)
+                    })
+                    return Array.from(cloudinaryFolders).map(folderPath => {
+                      const displayName = folderPath.includes('/') ? folderPath.split("/").pop() || folderPath : folderPath
+                      return (
+                        <SelectItem key={folderPath} value={folderPath}>
+                          📁 {displayName}
+                        </SelectItem>
+                      )
+                    })
+                  })()}
                  </SelectContent>
             </Select>
             <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-              <SelectTrigger className="w-40">
+              <SelectTrigger className="w-48">
                 <SelectValue placeholder="Category" />
               </SelectTrigger>
               <SelectContent>
                 {categories.map(category => (
                   <SelectItem key={category} value={category}>
-                    {category.charAt(0).toUpperCase() + category.slice(1)}
+                    {categoryLabel[category]}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -934,7 +970,7 @@ function App() {
                           <SelectContent>
                             {categories.filter(cat => cat !== 'all').map(category => (
                               <SelectItem key={category} value={category}>
-                                {category.charAt(0).toUpperCase() + category.slice(1)}
+                                {categoryLabel[category]}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -1375,7 +1411,7 @@ function App() {
                     <SelectContent>
                       {categories.filter(cat => cat !== 'all').map(category => (
                         <SelectItem key={category} value={category}>
-                          {category.charAt(0).toUpperCase() + category.slice(1)}
+                          {categoryLabel[category]}
                         </SelectItem>
                       ))}
                     </SelectContent>
