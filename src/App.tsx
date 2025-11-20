@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import { Upload, Search, Grid, List, Eye, Edit, Download, FolderOpen, File, Image, Video, Music, FileText, X, Plus, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -35,6 +35,7 @@ interface MediaFile {
   station?: string
   author?: string
   folder_path?: string
+  searchIndex?: string  // Precomputed search string for performance
 }
 
 const mockFiles: MediaFile[] = [
@@ -182,10 +183,29 @@ const ThumbnailCell: React.FC<{ file: MediaFile }> = ({ file }) => {
 // updating the state.
 const UNCATEGORIZED_VALUE = '__UNCATEGORIZED__';
 
+const normalizeForSearch = (value: any): string => {
+  if (!value) return '';
+  if (Array.isArray(value)) return value.map(v => String(v || '').toLowerCase()).join(' ');
+  return String(value).toLowerCase();
+};
+
+const computeSearchIndex = (file: MediaFile): string => {
+  return [
+    file.title,
+    file.description,
+    file.author,
+    file.category,
+    file.station,
+    file.file_type,
+    normalizeForSearch(file.tags)
+  ].map(normalizeForSearch).join(' ');
+};
+
 function App() {
   const [files, setFiles] = useState<MediaFile[]>([])
   const [filteredFiles, setFilteredFiles] = useState<MediaFile[]>([])
   const [searchTerm, setSearchTerm] = useState('')
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('all')
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   const [selectedFile, setSelectedFile] = useState<MediaFile | null>(null)
@@ -250,9 +270,23 @@ function App() {
   }, [])
 
   useEffect(() => {
-    let filtered = files
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm)
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [searchTerm])
 
-    // Filter by current folder path - check both folder_path and extract from media_url
+  const filesWithSearchIndex = useMemo(() => {
+    return files.map(file => ({
+      ...file,
+      searchIndex: file.searchIndex || computeSearchIndex(file)
+    }))
+  }, [files])
+
+  useEffect(() => {
+    let filtered = filesWithSearchIndex
+
+    // Filter by current folder path
     if (currentFolderPath !== '' && currentFolderPath !== 'all') {
       filtered = filtered.filter(file => {
         if (file.folder_path === currentFolderPath) return true
@@ -261,25 +295,33 @@ function App() {
       })
     }
 
+    // Filter by category
     if (selectedCategory !== 'all') {
       filtered = filtered.filter(file => file.category === selectedCategory)
     }
 
-    if (searchTerm) {
-      filtered = filtered.filter(file =>
-        file.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        file.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (file.author && file.author.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        file.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()))
+    // Filter by search term using precomputed search index
+    if (debouncedSearchTerm) {
+      const searchLower = debouncedSearchTerm.toLowerCase()
+      filtered = filtered.filter(file => 
+        file.searchIndex && file.searchIndex.includes(searchLower)
       )
     }
 
-    // Only filter by type if a specific type (not 'all') is selected
+    // Filter by file type
     if (searchFilters.type && searchFilters.type !== 'all') {
       filtered = filtered.filter(file => file.file_type === searchFilters.type)
     }
-    if (searchFilters.dateFrom) filtered = filtered.filter(file => new Date(file.created_at) >= new Date(searchFilters.dateFrom))
-    if (searchFilters.dateTo) filtered = filtered.filter(file => new Date(file.created_at) <= new Date(searchFilters.dateTo))
+
+    // Filter by date range
+    if (searchFilters.dateFrom) {
+      const fromDate = new Date(searchFilters.dateFrom)
+      filtered = filtered.filter(file => new Date(file.created_at) >= fromDate)
+    }
+    if (searchFilters.dateTo) {
+      const toDate = new Date(searchFilters.dateTo)
+      filtered = filtered.filter(file => new Date(file.created_at) <= toDate)
+    }
 
     const sortedFiles = [...filtered].sort((a, b) => {
       let aValue: any = a[sortField]
@@ -291,8 +333,8 @@ function App() {
         aValue = new Date(aValue as string).getTime()
         bValue = new Date(bValue as string).getTime()
       } else {
-        aValue = String(aValue).toLowerCase()
-        bValue = String(bValue).toLowerCase()
+        aValue = String(aValue || '').toLowerCase()
+        bValue = String(bValue || '').toLowerCase()
       }
       if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1
       if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1
@@ -305,7 +347,7 @@ function App() {
     })
     
     setFilteredFiles(sortedFiles)
-  }, [files, searchTerm, selectedCategory, searchFilters, sortField, sortDirection, currentFolderPath])
+  }, [filesWithSearchIndex, debouncedSearchTerm, selectedCategory, searchFilters, sortField, sortDirection, currentFolderPath])
 
   const loadFiles = async () => {
     try {
