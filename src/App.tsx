@@ -216,6 +216,13 @@ function App() {
   useEffect(() => {
     let filtered = files
 
+    console.log('📊 Filter Debug:', {
+      totalFiles: files.length,
+      currentFolderPath,
+      selectedCategory,
+      searchTerm: searchTerm ? `"${searchTerm}"` : 'none'
+    })
+
     // Filter by current folder path - check both folder_path and extract from media_url
     if (currentFolderPath !== '' && currentFolderPath !== 'all') {
       filtered = filtered.filter(file => {
@@ -262,6 +269,12 @@ function App() {
       if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1
       return 0
     })
+    
+    console.log('📊 Filtered Result:', {
+      filteredCount: sortedFiles.length,
+      showing: sortedFiles.length > 0 ? 'files visible' : 'NO FILES - check filters!'
+    })
+    
     setFilteredFiles(sortedFiles)
   }, [files, searchTerm, selectedCategory, searchFilters, sortField, sortDirection, currentFolderPath])
 
@@ -772,17 +785,17 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className="min-h-[100dvh] overflow-y-auto bg-gray-50 p-4 sm:p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Media File Manager</h1>
-          <p className="text-gray-600">Upload, organize, and manage your media files</p>
+        <div className="mb-6 sm:mb-8">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Media File Manager</h1>
+          <p className="text-sm sm:text-base text-gray-600">Upload, organize, and manage your media files</p>
         </div>
         {/* Controls */}
-        <div className="mb-6 flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-          <div className="flex flex-col sm:flex-row gap-4 flex-1">
-            <div className="relative flex-1 max-w-md">
+        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-4 sm:flex-row sm:flex-1">
+            <div className="relative w-full sm:flex-1 sm:max-w-md">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
               <Input
                 placeholder="Search files..."
@@ -801,7 +814,7 @@ function App() {
                 }
               }}
             >
-              <SelectTrigger className="w-48">
+              <SelectTrigger className="w-full sm:w-48">
                 <SelectValue placeholder="Select folder" />
               </SelectTrigger>
               <SelectContent>
@@ -838,7 +851,7 @@ function App() {
                  </SelectContent>
             </Select>
             <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-              <SelectTrigger className="w-48">
+              <SelectTrigger className="w-full sm:w-48">
                 <SelectValue placeholder="Category" />
               </SelectTrigger>
               <SelectContent>
@@ -850,7 +863,7 @@ function App() {
               </SelectContent>
             </Select>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button
               variant={viewMode === 'grid' ? 'default' : 'outline'}
               size="sm"
@@ -867,9 +880,10 @@ function App() {
             </Button>
               <Dialog open={isCreateFolderOpen} onOpenChange={setIsCreateFolderOpen}>
                 <DialogTrigger asChild>
-                  <Button variant="outline">
+                  <Button variant="outline" size="sm">
                     <FolderOpen className="w-4 h-4 mr-2" />
-                    New Folder
+                    <span className="hidden sm:inline">New Folder</span>
+                    <span className="sm:hidden">New</span>
                   </Button>
                 </DialogTrigger>
                 <DialogContent className="max-w-md">
