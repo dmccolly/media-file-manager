@@ -285,11 +285,12 @@ function App() {
   const loadFolders = async () => {
     try {
       console.log('🔄 App: Loading folders from Cloudinary...')
-      const loadedFolders = await folderService.fetchCloudinaryFolders()
-      console.log('✅ App: Loaded Cloudinary folders:', loadedFolders)
-      setFolders(loadedFolders)
+      const cloudinaryFolders = await folderService.fetchCloudinaryFolders()
+      console.log('✅ App: Loaded Cloudinary folders:', cloudinaryFolders)
+      setFolders(cloudinaryFolders)
     } catch (error) {
       console.error('❌ App: Error loading folders:', error)
+      setFolders([])
     }
   }
 
@@ -301,12 +302,13 @@ function App() {
 
     try {
       setFolderError(null)
-      const folder = await folderService.createFolder(newFolderName, currentFolderPath)
+      const parentPath = currentFolderPath && currentFolderPath !== 'all' ? currentFolderPath : '/'
+      const folder = await folderService.createFolder(newFolderName, parentPath)
       if (folder) {
-        setFolders(prev => [...prev, folder])
+        await loadFolders()
         setNewFolderName('')
         setIsCreateFolderOpen(false)
-        console.log('✅ Folder created:', folder)
+        alert('Folder created successfully in Cloudinary!')
       }
     } catch (error) {
       console.error('❌ Error creating folder:', error)
@@ -427,6 +429,8 @@ function App() {
     setUploadProgress({})
     try {
       console.log('🔄 App: Starting batch upload for', selectedFiles.length, 'files')
+      const targetFolder = currentFolderPath && currentFolderPath !== 'all' ? currentFolderPath : undefined
+      console.log('📁 App: Uploading to folder:', targetFolder || 'HIBF_assets (default)')
       const result = await cloudinaryService.uploadMultipleFiles(
         selectedFiles,
         sharedMetadata,
@@ -435,13 +439,18 @@ function App() {
             ...prev,
             [fileName]: progress
           }))
-        }
+        },
+        targetFolder
       )
       console.log('✅ App: Cloudinary upload complete:', result)
       const savePromises = result.successful.map(async (fileData: any) => {
         try {
           console.log('🔄 App: Saving file to Xano:', fileData.title)
-          await xanoService.saveFile(fileData)
+          const fileDataWithFolder = {
+            ...fileData,
+            folder_path: targetFolder || ''
+          }
+          await xanoService.saveFile(fileDataWithFolder)
             
             // Sync to Webflow
             console.log("Syncing to Webflow:", fileData.title)
