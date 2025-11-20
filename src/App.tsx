@@ -140,6 +140,14 @@ const getThumbnailUrl = (file: MediaFile): string | null => {
   return null
 }
 
+const getFileIcon = (fileType: string) => {
+  if (fileType.startsWith('image/')) return <Image className="w-4 h-4" />
+  if (fileType.startsWith('video/')) return <Video className="w-4 h-4" />
+  if (fileType.startsWith('audio/')) return <Music className="w-4 h-4" />
+  if (fileType.includes('pdf') || fileType.includes('document')) return <FileText className="w-4 h-4" />
+  return <File className="w-4 h-4" />
+}
+
 const ThumbnailCell: React.FC<{ file: MediaFile }> = ({ file }) => {
   const [failed, setFailed] = React.useState(false)
   const thumbnailUrl = getThumbnailUrl(file)
@@ -391,14 +399,6 @@ function App() {
       console.error('❌ Error deleting folder:', error)
       alert(`Error deleting folder: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
-  }
-
-  const getFileIcon = (fileType: string) => {
-    if (fileType.startsWith('image/')) return <Image className="w-4 h-4" />
-    if (fileType.startsWith('video/')) return <Video className="w-4 h-4" />
-    if (fileType.startsWith('audio/')) return <Music className="w-4 h-4" />
-    if (fileType.includes('pdf') || fileType.includes('document')) return <FileText className="w-4 h-4" />
-    return <File className="w-4 h-4" />
   }
 
   const formatFileSize = (bytes: number) => {
