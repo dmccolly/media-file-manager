@@ -1394,7 +1394,7 @@ function App() {
                     >
                       Date {getSortIcon('created_at')}
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    <th className="sticky right-0 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50 shadow-[-4px_0_6px_-1px_rgba(0,0,0,0.1)]">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
@@ -1433,7 +1433,7 @@ function App() {
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{file.file_type}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatFileSize(file.file_size)}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatDate(file.created_at)}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <td className="sticky right-0 px-6 py-4 whitespace-nowrap text-sm font-medium bg-white shadow-[-4px_0_6px_-1px_rgba(0,0,0,0.1)]">
                           <div className="flex gap-2">
                             <Button size="sm" variant="outline" onClick={() => handlePreview(file)}>
                               <Eye className="w-3 h-3" />
@@ -1592,7 +1592,7 @@ function App() {
         </Dialog>
         {/* Batch Operations Panel */}
 {showBatchPanel && selectedMediaFiles.length > 0 && (
-            <div className="fixed bottom-4 right-4 bg-white border border-gray-300 rounded-lg shadow-xl p-4 w-96 z-40">
+            <div className="fixed bottom-4 right-4 bg-white border border-gray-300 rounded-lg shadow-xl p-4 w-96 z-50">
               <BulkOperationsPanel
                 selectedFiles={selectedMediaFiles}
                 folders={folders}
