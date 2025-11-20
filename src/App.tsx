@@ -341,11 +341,6 @@ function App() {
       return 0
     })
     
-    console.log('📊 Filtered Result:', {
-      filteredCount: sortedFiles.length,
-      showing: sortedFiles.length > 0 ? 'files visible' : 'NO FILES - check filters!'
-    })
-    
     setFilteredFiles(sortedFiles)
   }, [filesWithSearchIndex, debouncedSearchTerm, selectedCategory, searchFilters, sortField, sortDirection, currentFolderPath])
 
@@ -353,9 +348,7 @@ function App() {
     try {
       setLoading(true)
       setError(null)
-      console.log('🔄 App: Loading files from Xano...')
       const loadedFiles = await xanoService.fetchAllFiles()
-      console.log('✅ App: Loaded files:', loadedFiles)
       setFiles(loadedFiles)
     } catch (error) {
       console.error('❌ App: Error loading files:', error)
@@ -368,9 +361,7 @@ function App() {
 
   const loadFolders = async () => {
     try {
-      console.log('🔄 App: Loading folders from Cloudinary...')
       const cloudinaryFolders = await folderService.fetchCloudinaryFolders()
-      console.log('✅ App: Loaded Cloudinary folders:', cloudinaryFolders)
       setFolders(cloudinaryFolders)
     } catch (error) {
       console.error('❌ App: Error loading folders:', error)
