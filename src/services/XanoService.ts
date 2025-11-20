@@ -50,7 +50,6 @@ export class XanoService {
         console.error('Xano /api/media JSON parse failed', e);
         return [];
       });
-      console.log('🔄 XanoService: Raw response data:', data);
       const records = Array.isArray(data) ? data : (data.records || []);
       console.log('✅ XanoService: Fetched', records.length, 'files');
       return this.processRecords(records);
@@ -67,10 +66,7 @@ export class XanoService {
    * compatibility and filters out entries without a media URL.
    */
   processRecords(records: any[]): XanoFileRecord[] {
-    console.log(' XanoService: Processing records...', records);
-
     const processedFiles: XanoFileRecord[] = records.map(record => {
-      console.log(' DEBUG: Available fields for record:', record.id, Object.keys(record));
 
       const mediaUrl = record.media_url || record.URL || record.url || '';
       const detectedFileType = this.detectFileTypeFromUrl(mediaUrl);
@@ -227,6 +223,67 @@ export class XanoService {
     } catch (error) {
       console.error('❌ XanoService: Error batch deleting files:', error);
       throw error;
+    }
+  }
+
+  /**
+   * Search the entire Xano database for files matching the query.
+   * Searches across all fields: title, description, author, tags, category, station, file_type.
+   * Returns paginated results from the server.
+   */
+  async searchFiles(query: string, page: number = 1, pageSize: number = 100, signal?: AbortSignal): Promise<{ items: XanoFileRecord[], total: number, page: number, pageSize: number }> {
+    console.log(`🔍 XanoService: Searching database for: "${query}"`);
+    try {
+      const params = new URLSearchParams({
+        q: query,
+        page: page.toString(),
+        pageSize: pageSize.toString()
+      });
+      
+      const response = await fetch(`${this.baseUrl}/media?${params}`, {
+        credentials: 'same-origin',
+        signal
+      });
+      
+      if (!response.ok) {
+        const text = await response.text().catch(() => '');
+        console.error('Xano /api/media search failed', response.status, text);
+        return { items: [], total: 0, page, pageSize };
+      }
+      
+      const data = await response.json().catch((e) => {
+        console.error('Xano /api/media JSON parse failed', e);
+        return { items: [], total: 0, page, pageSize };
+      });
+      
+      if (data.items && Array.isArray(data.items)) {
+        const processedItems = this.processRecords(data.items);
+        console.log(`✅ XanoService: Search found ${data.total} total matches, returning ${processedItems.length} items`);
+        
+        return {
+          items: processedItems,
+          total: data.total || 0,
+          page: data.page || page,
+          pageSize: data.pageSize || pageSize
+        };
+      } else if (Array.isArray(data)) {
+        const processedItems = this.processRecords(data);
+        return {
+          items: processedItems,
+          total: processedItems.length,
+          page: 1,
+          pageSize: processedItems.length
+        };
+      }
+      
+      return { items: [], total: 0, page, pageSize };
+    } catch (error: any) {
+      if (error.name === 'AbortError') {
+        console.log('🚫 XanoService: Search request aborted');
+        throw error;
+      }
+      console.error('❌ XanoService: Error searching files:', error);
+      return { items: [], total: 0, page, pageSize };
     }
   }
 

@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo, useCallback, useDeferredValue, useRef, memo, startTransition } from 'react'
+import { useWindowVirtualizer } from '@tanstack/react-virtual'
 import { Upload, Search, Grid, List, Eye, Edit, Download, FolderOpen, File, Image, Video, Music, FileText, X, Plus, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -35,6 +36,7 @@ interface MediaFile {
   station?: string
   author?: string
   folder_path?: string
+  searchIndex?: string  // Precomputed search string for performance
 }
 
 const mockFiles: MediaFile[] = [
@@ -182,10 +184,29 @@ const ThumbnailCell: React.FC<{ file: MediaFile }> = ({ file }) => {
 // updating the state.
 const UNCATEGORIZED_VALUE = '__UNCATEGORIZED__';
 
+const normalizeForSearch = (value: any): string => {
+  if (!value) return '';
+  if (Array.isArray(value)) return value.map(v => String(v || '').toLowerCase()).join(' ');
+  return String(value).toLowerCase();
+};
+
+const computeSearchIndex = (file: MediaFile): string => {
+  return [
+    file.title,
+    file.description,
+    file.author,
+    file.category,
+    file.station,
+    file.file_type,
+    normalizeForSearch(file.tags)
+  ].map(normalizeForSearch).join(' ');
+};
+
 function App() {
   const [files, setFiles] = useState<MediaFile[]>([])
   const [filteredFiles, setFilteredFiles] = useState<MediaFile[]>([])
   const [searchTerm, setSearchTerm] = useState('')
+  const deferredSearchTerm = useDeferredValue(searchTerm)
   const [selectedCategory, setSelectedCategory] = useState('all')
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   const [selectedFile, setSelectedFile] = useState<MediaFile | null>(null)
@@ -238,89 +259,148 @@ function App() {
     station: '',
     author: ''
   })
+  const [isSearching, setIsSearching] = useState(false)
+  const [searchTotal, setSearchTotal] = useState(0)
 
-  const cloudinaryService = new CloudinaryService()
-  const xanoService = new XanoService()
-  const webflowService = new WebflowService()
-  const folderService = new FolderService()
+  const listContainerRef = useRef<HTMLDivElement>(null)
+  const searchAbortController = useRef<AbortController | null>(null)
+
+  const cloudinaryService = useMemo(() => new CloudinaryService(), [])
+  const xanoService = useMemo(() => new XanoService(), [])
+  const webflowService = useMemo(() => new WebflowService(), [])
+  const folderService = useMemo(() => new FolderService(), [])
+  
+  // Create Set for O(1) selected file lookups
+  const selectedFileIds = useMemo(() => {
+    return new Set(selectedMediaFiles.map(f => f.id))
+  }, [selectedMediaFiles])
 
   useEffect(() => {
     loadFiles()
     loadFolders()
   }, [])
 
-  useEffect(() => {
-    let filtered = files
+  const filesWithSearchIndex = useMemo(() => {
+    return files.map(file => ({
+      ...file,
+      searchIndex: file.searchIndex || computeSearchIndex(file)
+    }))
+  }, [files])
 
-    console.log('📊 Filter Debug:', {
-      totalFiles: files.length,
-      currentFolderPath,
-      selectedCategory,
-      searchTerm: searchTerm ? `"${searchTerm}"` : 'none'
+  const fallbackFolders = useMemo(() => {
+    if (folders && folders.length > 0) return []
+    if (!files || files.length === 0) return []
+    
+    const cloudinaryFolders = new Set<string>()
+    files.forEach(f => {
+      const folder = extractCloudinaryFolder(f.media_url)
+      if (folder) cloudinaryFolders.add(folder)
     })
+    
+    const isLikelyVersion = (s: string) => /^v\d{6,}$/.test(s)
+    return Array.from(cloudinaryFolders).filter(fp => {
+      const leaf = fp.split('/').pop() || ''
+      return !isLikelyVersion(leaf)
+    })
+  }, [folders, files])
 
-    // Filter by current folder path - check both folder_path and extract from media_url
-    if (currentFolderPath !== '' && currentFolderPath !== 'all') {
-      filtered = filtered.filter(file => {
-        if (file.folder_path === currentFolderPath) return true
-        const cloudinaryFolder = extractCloudinaryFolder(file.media_url)
-        return cloudinaryFolder === currentFolderPath
+  useEffect(() => {
+    if (searchTerm && viewMode === 'grid') {
+      setViewMode('list')
+    }
+  }, [searchTerm, viewMode])
+
+  useEffect(() => {
+    const performSearch = async () => {
+      if (deferredSearchTerm && deferredSearchTerm.trim().length >= 2) {
+        if (searchAbortController.current) {
+          searchAbortController.current.abort()
+        }
+        
+        searchAbortController.current = new AbortController()
+        setIsSearching(true)
+        
+        try {
+          const result = await xanoService.searchFiles(
+            deferredSearchTerm,
+            1,
+            100,
+            searchAbortController.current.signal
+          )
+          
+          startTransition(() => {
+            setFilteredFiles(result.items)
+            setSearchTotal(result.total)
+          })
+        } catch (error: any) {
+          if (error.name !== 'AbortError') {
+            console.error('Search error:', error)
+          }
+        } finally {
+          setIsSearching(false)
+        }
+        return
+      }
+      
+      let filtered = filesWithSearchIndex
+
+      if (currentFolderPath !== '' && currentFolderPath !== 'all') {
+        filtered = filtered.filter(file => {
+          if (file.folder_path === currentFolderPath) return true
+          const cloudinaryFolder = extractCloudinaryFolder(file.media_url)
+          return cloudinaryFolder === currentFolderPath
+        })
+      }
+
+      if (selectedCategory !== 'all') {
+        filtered = filtered.filter(file => file.category === selectedCategory)
+      }
+
+      if (searchFilters.type && searchFilters.type !== 'all') {
+        filtered = filtered.filter(file => file.file_type === searchFilters.type)
+      }
+
+      if (searchFilters.dateFrom) {
+        const fromDate = new Date(searchFilters.dateFrom)
+        filtered = filtered.filter(file => new Date(file.created_at) >= fromDate)
+      }
+      if (searchFilters.dateTo) {
+        const toDate = new Date(searchFilters.dateTo)
+        filtered = filtered.filter(file => new Date(file.created_at) <= toDate)
+      }
+
+      const sortedFiles = [...filtered].sort((a, b) => {
+        let aValue: any = a[sortField]
+        let bValue: any = b[sortField]
+        if (sortField === 'file_size') {
+          aValue = Number(aValue) || 0
+          bValue = Number(bValue) || 0
+        } else if (sortField === 'created_at') {
+          aValue = new Date(aValue as string).getTime()
+          bValue = new Date(bValue as string).getTime()
+        } else {
+          aValue = String(aValue || '').toLowerCase()
+          bValue = String(bValue || '').toLowerCase()
+        }
+        if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1
+        if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1
+        return 0
+      })
+      
+      startTransition(() => {
+        setFilteredFiles(sortedFiles)
+        setSearchTotal(0)
       })
     }
-
-    if (selectedCategory !== 'all') {
-      filtered = filtered.filter(file => file.category === selectedCategory)
-    }
-
-    if (searchTerm) {
-      filtered = filtered.filter(file =>
-        file.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        file.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (file.author && file.author.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        file.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()))
-      )
-    }
-
-    // Only filter by type if a specific type (not 'all') is selected
-    if (searchFilters.type && searchFilters.type !== 'all') {
-      filtered = filtered.filter(file => file.file_type === searchFilters.type)
-    }
-    if (searchFilters.dateFrom) filtered = filtered.filter(file => new Date(file.created_at) >= new Date(searchFilters.dateFrom))
-    if (searchFilters.dateTo) filtered = filtered.filter(file => new Date(file.created_at) <= new Date(searchFilters.dateTo))
-
-    const sortedFiles = [...filtered].sort((a, b) => {
-      let aValue: any = a[sortField]
-      let bValue: any = b[sortField]
-      if (sortField === 'file_size') {
-        aValue = Number(aValue) || 0
-        bValue = Number(bValue) || 0
-      } else if (sortField === 'created_at') {
-        aValue = new Date(aValue as string).getTime()
-        bValue = new Date(bValue as string).getTime()
-      } else {
-        aValue = String(aValue).toLowerCase()
-        bValue = String(bValue).toLowerCase()
-      }
-      if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1
-      if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1
-      return 0
-    })
     
-    console.log('📊 Filtered Result:', {
-      filteredCount: sortedFiles.length,
-      showing: sortedFiles.length > 0 ? 'files visible' : 'NO FILES - check filters!'
-    })
-    
-    setFilteredFiles(sortedFiles)
-  }, [files, searchTerm, selectedCategory, searchFilters, sortField, sortDirection, currentFolderPath])
+    performSearch()
+  }, [filesWithSearchIndex, deferredSearchTerm, selectedCategory, searchFilters, sortField, sortDirection, currentFolderPath, xanoService])
 
   const loadFiles = async () => {
     try {
       setLoading(true)
       setError(null)
-      console.log('🔄 App: Loading files from Xano...')
       const loadedFiles = await xanoService.fetchAllFiles()
-      console.log('✅ App: Loaded files:', loadedFiles)
       setFiles(loadedFiles)
     } catch (error) {
       console.error('❌ App: Error loading files:', error)
@@ -333,9 +413,7 @@ function App() {
 
   const loadFolders = async () => {
     try {
-      console.log('🔄 App: Loading folders from Cloudinary...')
       const cloudinaryFolders = await folderService.fetchCloudinaryFolders()
-      console.log('✅ App: Loaded Cloudinary folders:', cloudinaryFolders)
       setFolders(cloudinaryFolders)
     } catch (error) {
       console.error('❌ App: Error loading folders:', error)
@@ -619,11 +697,7 @@ function App() {
     }
   }
 
-  // Modified to default tags to an empty array if undefined
-  const handleEditFile = (file: MediaFile) => {
-    // When editing a file, ensure optional properties are always defined. Without
-    // these defaults, undefined values (particularly tags) can cause runtime
-    // errors when the edit dialog attempts to join arrays or bind inputs.
+  const handleEditFile = useCallback((file: MediaFile) => {
     setEditingFile({
       ...file,
       tags: Array.isArray(file.tags) ? file.tags : [],
@@ -632,7 +706,7 @@ function App() {
       author: file.author ?? ''
     })
     setIsEditOpen(true)
-  }
+  }, [])
 
   // Safely join tags and handle undefined
   const handleSaveEdit = async () => {
@@ -661,7 +735,7 @@ function App() {
     }
   }
 
-  const handleDelete = async (file: MediaFile) => {
+  const handleDelete = useCallback(async (file: MediaFile) => {
     if (!confirm(`Are you sure you want to delete "${file.title}"?`)) return
     try {
       await xanoService.deleteFile(file.id)
@@ -671,28 +745,28 @@ function App() {
       console.error('Error deleting file:', error)
       alert('Failed to delete file')
     }
-  }
+  }, [xanoService])
 
-  const handlePreview = (file: MediaFile) => {
+  const handlePreview = useCallback((file: MediaFile) => {
     setSelectedFile(file)
     setIsPreviewOpen(true)
-  }
+  }, [])
 
-  const handleSort = (field: 'title' | 'file_type' | 'file_size' | 'created_at') => {
+  const handleSort = useCallback((field: 'title' | 'file_type' | 'file_size' | 'created_at') => {
     if (sortField === field) {
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')
     } else {
       setSortField(field)
       setSortDirection('asc')
     }
-  }
+  }, [sortField, sortDirection])
 
-  const getSortIcon = (field: string) => {
+  const getSortIcon = useCallback((field: string) => {
     if (sortField !== field) return '↕️'
     return sortDirection === 'asc' ? '↑' : '↓'
-  }
+  }, [sortField, sortDirection])
 
-  const handleFileSelect = (file: MediaFile) => {
+  const handleFileSelect = useCallback((file: MediaFile) => {
     setSelectedMediaFiles(prev => {
       const isSelected = prev.some(f => f.id === file.id)
       const newSelection = isSelected
@@ -701,19 +775,19 @@ function App() {
       setShowBatchPanel(newSelection.length > 0)
       return newSelection
     })
-  }
+  }, [])
 
-  const handleSelectAll = () => {
+  const handleSelectAll = useCallback(() => {
     setSelectedMediaFiles(filteredFiles)
     setShowBatchPanel(true)
-  }
+  }, [filteredFiles])
 
-  const handleClearSelection = () => {
+  const handleClearSelection = useCallback(() => {
     setSelectedMediaFiles([])
     setShowBatchPanel(false)
-  }
+  }, [])
 
-  const handleContextMenu = (e: React.MouseEvent, file: MediaFile) => {
+  const handleContextMenu = useCallback((e: React.MouseEvent, file: MediaFile) => {
     e.preventDefault()
     setContextMenu({
       show: true,
@@ -721,7 +795,7 @@ function App() {
       y: e.clientY,
       file
     })
-  }
+  }, [])
 
   const handleContextAction = async (action: string, file: MediaFile) => {
     setContextMenu({ show: false, x: 0, y: 0, file: null })
@@ -784,6 +858,67 @@ function App() {
     return PreviewService.renderPreview(file)
   }
 
+  const rowVirtualizer = useWindowVirtualizer({
+    count: filteredFiles.length,
+    estimateSize: () => 80,
+    overscan: 5,
+  })
+
+  const VirtualListRow = memo(({ file, style }: { file: MediaFile; style: React.CSSProperties }) => {
+    const isSelected = selectedFileIds.has(file.id)
+    
+    return (
+      <div
+        style={style}
+        className={`grid grid-cols-[auto_100px_1fr_100px_100px_120px_200px] gap-4 px-6 py-4 border-b border-gray-200 hover:bg-gray-50 cursor-pointer ${
+          isSelected ? 'bg-blue-50' : 'bg-white'
+        }`}
+        onClick={() => handlePreview(file)}
+        onContextMenu={(e) => handleContextMenu(e, file)}
+      >
+        <div className="flex items-center" onClick={(e) => e.stopPropagation()}>
+          <input
+            type="checkbox"
+            checked={isSelected}
+            onChange={() => handleFileSelect(file)}
+            className="rounded"
+          />
+        </div>
+        <div className="flex items-center">
+          <ThumbnailCell file={file} />
+        </div>
+        <div className="flex items-center">
+          <div>
+            <div className="text-sm font-medium text-gray-900">{file.title}</div>
+            <div className="text-sm text-gray-500 line-clamp-2">{file.description}</div>
+            {file.author && (
+              <div className="text-xs text-gray-400">By: {file.author}</div>
+            )}
+          </div>
+        </div>
+        <div className="flex items-center text-sm text-gray-500">{file.file_type}</div>
+        <div className="flex items-center text-sm text-gray-500">{formatFileSize(file.file_size)}</div>
+        <div className="flex items-center text-sm text-gray-500">{formatDate(file.created_at)}</div>
+        <div className="flex items-center gap-2 sticky right-0 bg-inherit" onClick={(e) => e.stopPropagation()}>
+          <Button size="sm" variant="outline" onClick={() => handlePreview(file)}>
+            <Eye className="w-3 h-3" />
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => handleEditFile(file)}>
+            <Edit className="w-3 h-3" />
+          </Button>
+          <Button size="sm" variant="outline" asChild>
+            <a href={file.media_url} download={file.title}>
+              <Download className="w-3 h-3" />
+            </a>
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => handleDelete(file)}>
+            <Trash2 className="w-3 h-3" />
+          </Button>
+        </div>
+      </div>
+    )
+  })
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -821,16 +956,26 @@ function App() {
           <p className="text-sm sm:text-base text-gray-600">Upload, organize, and manage your media files</p>
         </div>
         {/* Controls */}
-        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="sticky top-0 z-40 bg-gray-50 pb-4 mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-col gap-4 sm:flex-row sm:flex-1">
             <div className="relative w-full sm:flex-1 sm:max-w-md">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
               <Input
-                placeholder="Search files..."
+                placeholder="Search entire database..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
               />
+              {isSearching && (
+                <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                </div>
+              )}
+              {searchTotal > 0 && (
+                <div className="text-xs text-gray-600 mt-1">
+                  Found {searchTotal} result{searchTotal !== 1 ? 's' : ''} across entire database
+                </div>
+              )}
             </div>
             <Select
               value={currentFolderPath === '' ? UNCATEGORIZED_VALUE : currentFolderPath}
@@ -853,29 +998,14 @@ function App() {
                       📁 {folder.name}
                     </SelectItem>
                   ))}
-                  {(!folders || folders.length === 0) && files && files.length > 0 && (() => {
-                    // Extract unique Cloudinary folders from media_url
-                    const cloudinaryFolders = new Set<string>()
-                    files.forEach(f => {
-                      const folder = extractCloudinaryFolder(f.media_url)
-                      if (folder) cloudinaryFolders.add(folder)
-                    })
-                    
-                    const isLikelyVersion = (s: string) => /^v\d{6,}$/.test(s)
-                    const cleanedFolders = Array.from(cloudinaryFolders).filter(fp => {
-                      const leaf = fp.split('/').pop() || ''
-                      return !isLikelyVersion(leaf)
-                    })
-                    
-                    return cleanedFolders.map(folderPath => {
-                      const displayName = folderPath.includes('/') ? folderPath.split("/").pop() || folderPath : folderPath
-                      return (
-                        <SelectItem key={folderPath} value={folderPath}>
-                          📁 {displayName}
-                        </SelectItem>
-                      )
-                    })
-                  })()}
+                  {fallbackFolders.map(folderPath => {
+                    const displayName = folderPath.includes('/') ? folderPath.split("/").pop() || folderPath : folderPath
+                    return (
+                      <SelectItem key={folderPath} value={folderPath}>
+                        📁 {displayName}
+                      </SelectItem>
+                    )
+                  })}
                  </SelectContent>
             </Select>
             <Select value={selectedCategory} onValueChange={setSelectedCategory}>
@@ -1305,10 +1435,10 @@ function App() {
                           <img 
                             src={thumbnailUrl} 
                             alt={file.title} 
+                            loading="lazy"
                             className="w-full h-32 object-cover rounded"
                             onError={(e) => {
                               e.currentTarget.style.display = 'none'
-                              console.warn('Failed to load image:', file.id, thumbnailUrl)
                             }}
                           />
                         )
@@ -1362,107 +1492,54 @@ function App() {
           </div>
         ) : (
           <div className="bg-white rounded-lg shadow">
-            <div className="overflow-x-auto">
-              <table className="min-w-[1100px] w-full">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      <input
-                        type="checkbox"
-                        checked={selectedMediaFiles.length === filteredFiles.length && filteredFiles.length > 0}
-                        onChange={selectedMediaFiles.length === filteredFiles.length ? handleClearSelection : handleSelectAll}
-                        className="rounded"
-                      />
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Thumbnail
-                    </th>
-                    <th
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                      onClick={() => handleSort('title')}
-                    >
-                      Name {getSortIcon('title')}
-                    </th>
-                    <th
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                      onClick={() => handleSort('file_type')}
-                    >
-                      Type {getSortIcon('file_type')}
-                    </th>
-                    <th
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                      onClick={() => handleSort('file_size')}
-                    >
-                      Size {getSortIcon('file_size')}
-                    </th>
-                    <th
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                      onClick={() => handleSort('created_at')}
-                    >
-                      Date {getSortIcon('created_at')}
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredFiles.map((file) => {
-                    const isSelected = selectedMediaFiles.some((f: MediaFile) => f.id === file.id)
-                    return (
-                      <tr
-                        key={file.id}
-                        className={`hover:bg-gray-50 cursor-pointer ${
-                          isSelected ? 'bg-blue-50' : ''
-                        }`}
-                        onContextMenu={(e) => handleContextMenu(e, file)}
-                      >
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <input
-                            type="checkbox"
-                            checked={isSelected}
-                            onChange={() => handleFileSelect(file)}
-                            className="rounded"
-                          />
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <ThumbnailCell file={file} />
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="flex items-center">
-                            <div>
-                              <div className="text-sm font-medium text-gray-900">{file.title}</div>
-                              <div className="text-sm text-gray-500 line-clamp-2">{file.description}</div>
-                              {file.author && (
-                                <div className="text-xs text-gray-400">By: {file.author}</div>
-                              )}
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{file.file_type}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatFileSize(file.file_size)}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatDate(file.created_at)}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                          <div className="flex gap-2">
-                            <Button size="sm" variant="outline" onClick={() => handlePreview(file)}>
-                              <Eye className="w-3 h-3" />
-                            </Button>
-                            <Button size="sm" variant="outline" onClick={() => handleEditFile(file)}>
-                              <Edit className="w-3 h-3" />
-                            </Button>
-                            <Button size="sm" variant="outline" asChild>
-                              <a href={file.media_url} download={file.title}>
-                                <Download className="w-3 h-3" />
-                              </a>
-                            </Button>
-                            <Button size="sm" variant="outline" onClick={() => handleDelete(file)}>
-                              <Trash2 className="w-3 h-3" />
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
+            <div className="grid grid-cols-[auto_100px_1fr_100px_100px_120px_200px] gap-4 px-6 py-3 bg-gray-50 border-b border-gray-200 text-xs font-medium text-gray-500 uppercase tracking-wider sticky top-[120px] z-30">
+              <div>
+                <input
+                  type="checkbox"
+                  checked={selectedMediaFiles.length === filteredFiles.length && filteredFiles.length > 0}
+                  onChange={selectedMediaFiles.length === filteredFiles.length ? handleClearSelection : handleSelectAll}
+                  className="rounded"
+                />
+              </div>
+              <div>Thumbnail</div>
+              <div className="cursor-pointer hover:bg-gray-100 px-2 py-1 rounded" onClick={() => handleSort('title')}>
+                Name {getSortIcon('title')}
+              </div>
+              <div className="cursor-pointer hover:bg-gray-100 px-2 py-1 rounded" onClick={() => handleSort('file_type')}>
+                Type {getSortIcon('file_type')}
+              </div>
+              <div className="cursor-pointer hover:bg-gray-100 px-2 py-1 rounded" onClick={() => handleSort('file_size')}>
+                Size {getSortIcon('file_size')}
+              </div>
+              <div className="cursor-pointer hover:bg-gray-100 px-2 py-1 rounded" onClick={() => handleSort('created_at')}>
+                Date {getSortIcon('created_at')}
+              </div>
+              <div className="sticky right-0 bg-gray-50">Actions</div>
+            </div>
+            <div
+              ref={listContainerRef}
+              style={{
+                height: `${rowVirtualizer.getTotalSize()}px`,
+                width: '100%',
+                position: 'relative',
+              }}
+            >
+              {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+                const file = filteredFiles[virtualRow.index]
+                return (
+                  <VirtualListRow
+                    key={file.id}
+                    file={file}
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      width: '100%',
+                      transform: `translateY(${virtualRow.start}px)`,
+                    }}
+                  />
+                )
+              })}
             </div>
           </div>
         )}
@@ -1599,7 +1676,7 @@ function App() {
         </Dialog>
         {/* Batch Operations Panel */}
 {showBatchPanel && selectedMediaFiles.length > 0 && (
-            <div className="fixed bottom-4 right-4 bg-white border border-gray-300 rounded-lg shadow-xl p-4 w-96 z-40">
+            <div className="fixed top-20 right-4 bg-white border border-gray-300 rounded-lg shadow-xl p-4 w-96 z-50 max-h-[calc(100vh-6rem)] overflow-y-auto">
               <BulkOperationsPanel
                 selectedFiles={selectedMediaFiles}
                 folders={folders}
