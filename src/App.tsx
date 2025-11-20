@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useDeferredValue, useRef, memo, startTransition } from 'react'
-import { useVirtualizer } from '@tanstack/react-virtual'
+import { useWindowVirtualizer } from '@tanstack/react-virtual'
 import { Upload, Search, Grid, List, Eye, Edit, Download, FolderOpen, File, Image, Video, Music, FileText, X, Plus, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -262,10 +262,10 @@ function App() {
 
   const listContainerRef = useRef<HTMLDivElement>(null)
 
-  const cloudinaryService = new CloudinaryService()
-  const xanoService = new XanoService()
-  const webflowService = new WebflowService()
-  const folderService = new FolderService()
+  const cloudinaryService = useMemo(() => new CloudinaryService(), [])
+  const xanoService = useMemo(() => new XanoService(), [])
+  const webflowService = useMemo(() => new WebflowService(), [])
+  const folderService = useMemo(() => new FolderService(), [])
   
   // Create Set for O(1) selected file lookups
   const selectedFileIds = useMemo(() => {
@@ -826,9 +826,8 @@ function App() {
     return PreviewService.renderPreview(file)
   }
 
-  const rowVirtualizer = useVirtualizer({
+  const rowVirtualizer = useWindowVirtualizer({
     count: filteredFiles.length,
-    getScrollElement: () => listContainerRef.current,
     estimateSize: () => 80,
     overscan: 5,
   })
@@ -1394,10 +1393,10 @@ function App() {
                           <img 
                             src={thumbnailUrl} 
                             alt={file.title} 
+                            loading="lazy"
                             className="w-full h-32 object-cover rounded"
                             onError={(e) => {
                               e.currentTarget.style.display = 'none'
-                              console.warn('Failed to load image:', file.id, thumbnailUrl)
                             }}
                           />
                         )
@@ -1451,7 +1450,7 @@ function App() {
           </div>
         ) : (
           <div className="bg-white rounded-lg shadow">
-            <div className="grid grid-cols-[auto_100px_1fr_100px_100px_120px_200px] gap-4 px-6 py-3 bg-gray-50 border-b border-gray-200 text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <div className="grid grid-cols-[auto_100px_1fr_100px_100px_120px_200px] gap-4 px-6 py-3 bg-gray-50 border-b border-gray-200 text-xs font-medium text-gray-500 uppercase tracking-wider sticky top-[120px] z-30">
               <div>
                 <input
                   type="checkbox"
@@ -1477,33 +1476,28 @@ function App() {
             </div>
             <div
               ref={listContainerRef}
-              className="overflow-auto"
-              style={{ height: '600px' }}
+              style={{
+                height: `${rowVirtualizer.getTotalSize()}px`,
+                width: '100%',
+                position: 'relative',
+              }}
             >
-              <div
-                style={{
-                  height: `${rowVirtualizer.getTotalSize()}px`,
-                  width: '100%',
-                  position: 'relative',
-                }}
-              >
-                {rowVirtualizer.getVirtualItems().map((virtualRow) => {
-                  const file = filteredFiles[virtualRow.index]
-                  return (
-                    <VirtualListRow
-                      key={file.id}
-                      file={file}
-                      style={{
-                        position: 'absolute',
-                        top: 0,
-                        left: 0,
-                        width: '100%',
-                        transform: `translateY(${virtualRow.start}px)`,
-                      }}
-                    />
-                  )
-                })}
-              </div>
+              {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+                const file = filteredFiles[virtualRow.index]
+                return (
+                  <VirtualListRow
+                    key={file.id}
+                    file={file}
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      width: '100%',
+                      transform: `translateY(${virtualRow.start}px)`,
+                    }}
+                  />
+                )
+              })}
             </div>
           </div>
         )}
