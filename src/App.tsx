@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useDeferredValue, useRef, memo, startTransition } from 'react'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import { Upload, Search, Grid, List, Eye, Edit, Download, FolderOpen, File, Image, Video, Music, FileText, X, Plus, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -259,10 +260,17 @@ function App() {
     author: ''
   })
 
+  const listContainerRef = useRef<HTMLDivElement>(null)
+
   const cloudinaryService = new CloudinaryService()
   const xanoService = new XanoService()
   const webflowService = new WebflowService()
   const folderService = new FolderService()
+  
+  // Create Set for O(1) selected file lookups
+  const selectedFileIds = useMemo(() => {
+    return new Set(selectedMediaFiles.map(f => f.id))
+  }, [selectedMediaFiles])
 
   useEffect(() => {
     loadFiles()
@@ -657,11 +665,7 @@ function App() {
     }
   }
 
-  // Modified to default tags to an empty array if undefined
-  const handleEditFile = (file: MediaFile) => {
-    // When editing a file, ensure optional properties are always defined. Without
-    // these defaults, undefined values (particularly tags) can cause runtime
-    // errors when the edit dialog attempts to join arrays or bind inputs.
+  const handleEditFile = useCallback((file: MediaFile) => {
     setEditingFile({
       ...file,
       tags: Array.isArray(file.tags) ? file.tags : [],
@@ -670,7 +674,7 @@ function App() {
       author: file.author ?? ''
     })
     setIsEditOpen(true)
-  }
+  }, [])
 
   // Safely join tags and handle undefined
   const handleSaveEdit = async () => {
@@ -699,7 +703,7 @@ function App() {
     }
   }
 
-  const handleDelete = async (file: MediaFile) => {
+  const handleDelete = useCallback(async (file: MediaFile) => {
     if (!confirm(`Are you sure you want to delete "${file.title}"?`)) return
     try {
       await xanoService.deleteFile(file.id)
@@ -709,28 +713,28 @@ function App() {
       console.error('Error deleting file:', error)
       alert('Failed to delete file')
     }
-  }
+  }, [xanoService])
 
-  const handlePreview = (file: MediaFile) => {
+  const handlePreview = useCallback((file: MediaFile) => {
     setSelectedFile(file)
     setIsPreviewOpen(true)
-  }
+  }, [])
 
-  const handleSort = (field: 'title' | 'file_type' | 'file_size' | 'created_at') => {
+  const handleSort = useCallback((field: 'title' | 'file_type' | 'file_size' | 'created_at') => {
     if (sortField === field) {
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')
     } else {
       setSortField(field)
       setSortDirection('asc')
     }
-  }
+  }, [sortField, sortDirection])
 
-  const getSortIcon = (field: string) => {
+  const getSortIcon = useCallback((field: string) => {
     if (sortField !== field) return '↕️'
     return sortDirection === 'asc' ? '↑' : '↓'
-  }
+  }, [sortField, sortDirection])
 
-  const handleFileSelect = (file: MediaFile) => {
+  const handleFileSelect = useCallback((file: MediaFile) => {
     setSelectedMediaFiles(prev => {
       const isSelected = prev.some(f => f.id === file.id)
       const newSelection = isSelected
@@ -739,19 +743,19 @@ function App() {
       setShowBatchPanel(newSelection.length > 0)
       return newSelection
     })
-  }
+  }, [])
 
-  const handleSelectAll = () => {
+  const handleSelectAll = useCallback(() => {
     setSelectedMediaFiles(filteredFiles)
     setShowBatchPanel(true)
-  }
+  }, [filteredFiles])
 
-  const handleClearSelection = () => {
+  const handleClearSelection = useCallback(() => {
     setSelectedMediaFiles([])
     setShowBatchPanel(false)
-  }
+  }, [])
 
-  const handleContextMenu = (e: React.MouseEvent, file: MediaFile) => {
+  const handleContextMenu = useCallback((e: React.MouseEvent, file: MediaFile) => {
     e.preventDefault()
     setContextMenu({
       show: true,
@@ -759,7 +763,7 @@ function App() {
       y: e.clientY,
       file
     })
-  }
+  }, [])
 
   const handleContextAction = async (action: string, file: MediaFile) => {
     setContextMenu({ show: false, x: 0, y: 0, file: null })
@@ -821,6 +825,67 @@ function App() {
   const renderPreview = (file: MediaFile) => {
     return PreviewService.renderPreview(file)
   }
+
+  const rowVirtualizer = useVirtualizer({
+    count: filteredFiles.length,
+    getScrollElement: () => listContainerRef.current,
+    estimateSize: () => 80,
+    overscan: 5,
+  })
+
+  const VirtualListRow = memo(({ file, style }: { file: MediaFile; style: React.CSSProperties }) => {
+    const isSelected = selectedFileIds.has(file.id)
+    
+    return (
+      <div
+        style={style}
+        className={`grid grid-cols-[auto_100px_1fr_100px_100px_120px_200px] gap-4 px-6 py-4 border-b border-gray-200 hover:bg-gray-50 ${
+          isSelected ? 'bg-blue-50' : 'bg-white'
+        }`}
+        onContextMenu={(e) => handleContextMenu(e, file)}
+      >
+        <div className="flex items-center">
+          <input
+            type="checkbox"
+            checked={isSelected}
+            onChange={() => handleFileSelect(file)}
+            className="rounded"
+          />
+        </div>
+        <div className="flex items-center">
+          <ThumbnailCell file={file} />
+        </div>
+        <div className="flex items-center">
+          <div>
+            <div className="text-sm font-medium text-gray-900">{file.title}</div>
+            <div className="text-sm text-gray-500 line-clamp-2">{file.description}</div>
+            {file.author && (
+              <div className="text-xs text-gray-400">By: {file.author}</div>
+            )}
+          </div>
+        </div>
+        <div className="flex items-center text-sm text-gray-500">{file.file_type}</div>
+        <div className="flex items-center text-sm text-gray-500">{formatFileSize(file.file_size)}</div>
+        <div className="flex items-center text-sm text-gray-500">{formatDate(file.created_at)}</div>
+        <div className="flex items-center gap-2 sticky right-0 bg-inherit">
+          <Button size="sm" variant="outline" onClick={() => handlePreview(file)}>
+            <Eye className="w-3 h-3" />
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => handleEditFile(file)}>
+            <Edit className="w-3 h-3" />
+          </Button>
+          <Button size="sm" variant="outline" asChild>
+            <a href={file.media_url} download={file.title}>
+              <Download className="w-3 h-3" />
+            </a>
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => handleDelete(file)}>
+            <Trash2 className="w-3 h-3" />
+          </Button>
+        </div>
+      </div>
+    )
+  })
 
   if (loading) {
     return (
@@ -1385,107 +1450,59 @@ function App() {
           </div>
         ) : (
           <div className="bg-white rounded-lg shadow">
-            <div className="overflow-x-auto">
-              <table className="min-w-[1100px] w-full">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      <input
-                        type="checkbox"
-                        checked={selectedMediaFiles.length === filteredFiles.length && filteredFiles.length > 0}
-                        onChange={selectedMediaFiles.length === filteredFiles.length ? handleClearSelection : handleSelectAll}
-                        className="rounded"
-                      />
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Thumbnail
-                    </th>
-                    <th
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                      onClick={() => handleSort('title')}
-                    >
-                      Name {getSortIcon('title')}
-                    </th>
-                    <th
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                      onClick={() => handleSort('file_type')}
-                    >
-                      Type {getSortIcon('file_type')}
-                    </th>
-                    <th
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                      onClick={() => handleSort('file_size')}
-                    >
-                      Size {getSortIcon('file_size')}
-                    </th>
-                    <th
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                      onClick={() => handleSort('created_at')}
-                    >
-                      Date {getSortIcon('created_at')}
-                    </th>
-                    <th className="sticky right-0 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50 shadow-[-4px_0_6px_-1px_rgba(0,0,0,0.1)]">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredFiles.map((file) => {
-                    const isSelected = selectedMediaFiles.some((f: MediaFile) => f.id === file.id)
-                    return (
-                      <tr
-                        key={file.id}
-                        className={`hover:bg-gray-50 cursor-pointer ${
-                          isSelected ? 'bg-blue-50' : ''
-                        }`}
-                        onContextMenu={(e) => handleContextMenu(e, file)}
-                      >
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <input
-                            type="checkbox"
-                            checked={isSelected}
-                            onChange={() => handleFileSelect(file)}
-                            className="rounded"
-                          />
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <ThumbnailCell file={file} />
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="flex items-center">
-                            <div>
-                              <div className="text-sm font-medium text-gray-900">{file.title}</div>
-                              <div className="text-sm text-gray-500 line-clamp-2">{file.description}</div>
-                              {file.author && (
-                                <div className="text-xs text-gray-400">By: {file.author}</div>
-                              )}
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{file.file_type}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatFileSize(file.file_size)}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatDate(file.created_at)}</td>
-                        <td className="sticky right-0 px-6 py-4 whitespace-nowrap text-sm font-medium bg-white shadow-[-4px_0_6px_-1px_rgba(0,0,0,0.1)]">
-                          <div className="flex gap-2">
-                            <Button size="sm" variant="outline" onClick={() => handlePreview(file)}>
-                              <Eye className="w-3 h-3" />
-                            </Button>
-                            <Button size="sm" variant="outline" onClick={() => handleEditFile(file)}>
-                              <Edit className="w-3 h-3" />
-                            </Button>
-                            <Button size="sm" variant="outline" asChild>
-                              <a href={file.media_url} download={file.title}>
-                                <Download className="w-3 h-3" />
-                              </a>
-                            </Button>
-                            <Button size="sm" variant="outline" onClick={() => handleDelete(file)}>
-                              <Trash2 className="w-3 h-3" />
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
+            <div className="grid grid-cols-[auto_100px_1fr_100px_100px_120px_200px] gap-4 px-6 py-3 bg-gray-50 border-b border-gray-200 text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <div>
+                <input
+                  type="checkbox"
+                  checked={selectedMediaFiles.length === filteredFiles.length && filteredFiles.length > 0}
+                  onChange={selectedMediaFiles.length === filteredFiles.length ? handleClearSelection : handleSelectAll}
+                  className="rounded"
+                />
+              </div>
+              <div>Thumbnail</div>
+              <div className="cursor-pointer hover:bg-gray-100 px-2 py-1 rounded" onClick={() => handleSort('title')}>
+                Name {getSortIcon('title')}
+              </div>
+              <div className="cursor-pointer hover:bg-gray-100 px-2 py-1 rounded" onClick={() => handleSort('file_type')}>
+                Type {getSortIcon('file_type')}
+              </div>
+              <div className="cursor-pointer hover:bg-gray-100 px-2 py-1 rounded" onClick={() => handleSort('file_size')}>
+                Size {getSortIcon('file_size')}
+              </div>
+              <div className="cursor-pointer hover:bg-gray-100 px-2 py-1 rounded" onClick={() => handleSort('created_at')}>
+                Date {getSortIcon('created_at')}
+              </div>
+              <div className="sticky right-0 bg-gray-50">Actions</div>
+            </div>
+            <div
+              ref={listContainerRef}
+              className="overflow-auto"
+              style={{ height: '600px' }}
+            >
+              <div
+                style={{
+                  height: `${rowVirtualizer.getTotalSize()}px`,
+                  width: '100%',
+                  position: 'relative',
+                }}
+              >
+                {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+                  const file = filteredFiles[virtualRow.index]
+                  return (
+                    <VirtualListRow
+                      key={file.id}
+                      file={file}
+                      style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        width: '100%',
+                        transform: `translateY(${virtualRow.start}px)`,
+                      }}
+                    />
+                  )
+                })}
+              </div>
             </div>
           </div>
         )}
