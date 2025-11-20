@@ -90,10 +90,28 @@ const categoryLabel: Record<CategoryKey, string> = {
 const extractCloudinaryFolder = (mediaUrl: string): string | null => {
   if (!mediaUrl) return null
   try {
-    const match = mediaUrl.match(/\/upload\/(?:v\d+\/)?([^\/]+(?:\/[^\/]+)*)\/[^\/]+$/)
-    if (match && match[1]) {
-      return match[1]
+    // Extract everything after /upload/
+    const match = mediaUrl.match(/\/upload\/(.+)$/)
+    if (!match) return null
+    
+    let rest = match[1]
+    
+    const versionSegments = rest.match(/v\d+\//g)
+    if (versionSegments && versionSegments.length > 0) {
+      const lastVersion = versionSegments[versionSegments.length - 1]
+      const versionIndex = rest.lastIndexOf(lastVersion)
+      rest = rest.slice(versionIndex + lastVersion.length)
     }
+    
+    const lastSlash = rest.lastIndexOf('/')
+    if (lastSlash === -1) return null // No folder, asset at root
+    
+    const folderPath = rest.slice(0, lastSlash)
+    
+    if (!folderPath.trim()) return null
+    if (/^v\d+$/.test(folderPath)) return null // Version number, not a folder
+    
+    return folderPath
   } catch (error) {
     console.error('Error extracting Cloudinary folder:', error)
   }
@@ -792,7 +810,14 @@ function App() {
                       const folder = extractCloudinaryFolder(f.media_url)
                       if (folder) cloudinaryFolders.add(folder)
                     })
-                    return Array.from(cloudinaryFolders).map(folderPath => {
+                    
+                    const isLikelyVersion = (s: string) => /^v\d{6,}$/.test(s)
+                    const cleanedFolders = Array.from(cloudinaryFolders).filter(fp => {
+                      const leaf = fp.split('/').pop() || ''
+                      return !isLikelyVersion(leaf)
+                    })
+                    
+                    return cleanedFolders.map(folderPath => {
                       const displayName = folderPath.includes('/') ? folderPath.split("/").pop() || folderPath : folderPath
                       return (
                         <SelectItem key={folderPath} value={folderPath}>
