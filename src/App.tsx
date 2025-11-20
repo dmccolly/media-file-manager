@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react'
+import React, { useState, useEffect, useMemo, useCallback, useDeferredValue, useRef, memo } from 'react'
 import { Upload, Search, Grid, List, Eye, Edit, Download, FolderOpen, File, Image, Video, Music, FileText, X, Plus, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -205,7 +205,7 @@ function App() {
   const [files, setFiles] = useState<MediaFile[]>([])
   const [filteredFiles, setFilteredFiles] = useState<MediaFile[]>([])
   const [searchTerm, setSearchTerm] = useState('')
-  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('')
+  const deferredSearchTerm = useDeferredValue(searchTerm)
   const [selectedCategory, setSelectedCategory] = useState('all')
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   const [selectedFile, setSelectedFile] = useState<MediaFile | null>(null)
@@ -269,13 +269,6 @@ function App() {
     loadFolders()
   }, [])
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearchTerm(searchTerm)
-    }, 300)
-    return () => clearTimeout(timer)
-  }, [searchTerm])
-
   const filesWithSearchIndex = useMemo(() => {
     return files.map(file => ({
       ...file,
@@ -300,9 +293,9 @@ function App() {
       filtered = filtered.filter(file => file.category === selectedCategory)
     }
 
-    // Filter by search term using precomputed search index
-    if (debouncedSearchTerm) {
-      const searchLower = debouncedSearchTerm.toLowerCase()
+    // Filter by search term using precomputed search index and deferred value
+    if (deferredSearchTerm) {
+      const searchLower = deferredSearchTerm.toLowerCase()
       filtered = filtered.filter(file => 
         file.searchIndex && file.searchIndex.includes(searchLower)
       )
@@ -342,7 +335,7 @@ function App() {
     })
     
     setFilteredFiles(sortedFiles)
-  }, [filesWithSearchIndex, debouncedSearchTerm, selectedCategory, searchFilters, sortField, sortDirection, currentFolderPath])
+  }, [filesWithSearchIndex, deferredSearchTerm, selectedCategory, searchFilters, sortField, sortDirection, currentFolderPath])
 
   const loadFiles = async () => {
     try {
