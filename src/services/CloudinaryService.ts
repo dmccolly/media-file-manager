@@ -47,14 +47,16 @@ export class CloudinaryService {
     this.baseUrl = `https://api.cloudinary.com/v1_1/${this.cloudName}/upload`;
   }
 
-  async uploadFile(file: File, onProgress?: (progress: number, fileName: string) => void): Promise<CloudinaryUploadResult> {
+  async uploadFile(file: File, folder?: string, onProgress?: (progress: number, fileName: string) => void): Promise<CloudinaryUploadResult> {
     console.log('🔄 CloudinaryService: Starting upload for:', file.name);
     
     try {
       const formData = new FormData();
       formData.append('file', file);
       formData.append('upload_preset', this.uploadPreset);
-      formData.append('folder', 'HIBF_assets');
+      const targetFolder = folder || 'HIBF_assets';
+      formData.append('folder', targetFolder);
+      console.log('📁 CloudinaryService: Uploading to folder:', targetFolder);
 
       return new Promise((resolve, reject) => {
         const xhr = new XMLHttpRequest();
@@ -117,10 +119,12 @@ export class CloudinaryService {
   async uploadMultipleFiles(
     files: FileList | File[], 
     sharedMetadata: any = {}, 
-    onProgress?: (fileIndex: number, progress: number, fileName: string) => void
+    onProgress?: (fileIndex: number, progress: number, fileName: string) => void,
+    folder?: string
   ): Promise<BatchUploadResult> {
     console.log('🔄 CloudinaryService: Starting batch upload for', files.length, 'files');
     console.log('📋 CloudinaryService: Shared metadata:', sharedMetadata);
+    console.log('📁 CloudinaryService: Target folder:', folder || 'HIBF_assets');
     
     const uploadPromises = Array.from(files).map(async (file, index) => {
       try {
@@ -130,7 +134,7 @@ export class CloudinaryService {
           }
         };
 
-        const cloudinaryResult = await this.uploadFile(file, fileProgress);
+        const cloudinaryResult = await this.uploadFile(file, folder, fileProgress);
         
         const fileData: FileUploadData = {
           name: file.name,
