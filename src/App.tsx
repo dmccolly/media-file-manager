@@ -839,12 +839,13 @@ function App() {
     return (
       <div
         style={style}
-        className={`grid grid-cols-[auto_100px_1fr_100px_100px_120px_200px] gap-4 px-6 py-4 border-b border-gray-200 hover:bg-gray-50 ${
+        className={`grid grid-cols-[auto_100px_1fr_100px_100px_120px_200px] gap-4 px-6 py-4 border-b border-gray-200 hover:bg-gray-50 cursor-pointer ${
           isSelected ? 'bg-blue-50' : 'bg-white'
         }`}
+        onClick={() => handlePreview(file)}
         onContextMenu={(e) => handleContextMenu(e, file)}
       >
-        <div className="flex items-center">
+        <div className="flex items-center" onClick={(e) => e.stopPropagation()}>
           <input
             type="checkbox"
             checked={isSelected}
@@ -867,7 +868,7 @@ function App() {
         <div className="flex items-center text-sm text-gray-500">{file.file_type}</div>
         <div className="flex items-center text-sm text-gray-500">{formatFileSize(file.file_size)}</div>
         <div className="flex items-center text-sm text-gray-500">{formatDate(file.created_at)}</div>
-        <div className="flex items-center gap-2 sticky right-0 bg-inherit">
+        <div className="flex items-center gap-2 sticky right-0 bg-inherit" onClick={(e) => e.stopPropagation()}>
           <Button size="sm" variant="outline" onClick={() => handlePreview(file)}>
             <Eye className="w-3 h-3" />
           </Button>
@@ -924,7 +925,7 @@ function App() {
           <p className="text-sm sm:text-base text-gray-600">Upload, organize, and manage your media files</p>
         </div>
         {/* Controls */}
-        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="sticky top-0 z-40 bg-gray-50 pb-4 mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-col gap-4 sm:flex-row sm:flex-1">
             <div className="relative w-full sm:flex-1 sm:max-w-md">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
@@ -1639,7 +1640,7 @@ function App() {
         </Dialog>
         {/* Batch Operations Panel */}
 {showBatchPanel && selectedMediaFiles.length > 0 && (
-            <div className="fixed bottom-4 right-4 bg-white border border-gray-300 rounded-lg shadow-xl p-4 w-96 z-50">
+            <div className="fixed top-20 right-4 bg-white border border-gray-300 rounded-lg shadow-xl p-4 w-96 z-50 max-h-[calc(100vh-6rem)] overflow-y-auto">
               <BulkOperationsPanel
                 selectedFiles={selectedMediaFiles}
                 folders={folders}
