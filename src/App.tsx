@@ -302,6 +302,12 @@ function App() {
   }, [folders, files])
 
   useEffect(() => {
+    if (searchTerm && viewMode === 'grid') {
+      setViewMode('list')
+    }
+  }, [searchTerm, viewMode])
+
+  useEffect(() => {
     let filtered = filesWithSearchIndex
 
     // Filter by current folder path
