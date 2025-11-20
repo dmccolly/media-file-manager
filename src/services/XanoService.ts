@@ -240,31 +240,43 @@ export class XanoService {
         pageSize: pageSize.toString()
       });
       
-      const response = await fetch(`${this.baseUrl}/search?${params}`, {
+      const response = await fetch(`${this.baseUrl}/media?${params}`, {
         credentials: 'same-origin',
         signal
       });
       
       if (!response.ok) {
         const text = await response.text().catch(() => '');
-        console.error('Xano /api/search failed', response.status, text);
+        console.error('Xano /api/media search failed', response.status, text);
         return { items: [], total: 0, page, pageSize };
       }
       
       const data = await response.json().catch((e) => {
-        console.error('Xano /api/search JSON parse failed', e);
+        console.error('Xano /api/media JSON parse failed', e);
         return { items: [], total: 0, page, pageSize };
       });
       
-      const processedItems = this.processRecords(data.items || []);
-      console.log(`✅ XanoService: Search found ${data.total} total matches, returning ${processedItems.length} items`);
+      if (data.items && Array.isArray(data.items)) {
+        const processedItems = this.processRecords(data.items);
+        console.log(`✅ XanoService: Search found ${data.total} total matches, returning ${processedItems.length} items`);
+        
+        return {
+          items: processedItems,
+          total: data.total || 0,
+          page: data.page || page,
+          pageSize: data.pageSize || pageSize
+        };
+      } else if (Array.isArray(data)) {
+        const processedItems = this.processRecords(data);
+        return {
+          items: processedItems,
+          total: processedItems.length,
+          page: 1,
+          pageSize: processedItems.length
+        };
+      }
       
-      return {
-        items: processedItems,
-        total: data.total || 0,
-        page: data.page || page,
-        pageSize: data.pageSize || pageSize
-      };
+      return { items: [], total: 0, page, pageSize };
     } catch (error: any) {
       if (error.name === 'AbortError') {
         console.log('🚫 XanoService: Search request aborted');
