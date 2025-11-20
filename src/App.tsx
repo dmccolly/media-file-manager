@@ -259,8 +259,11 @@ function App() {
     station: '',
     author: ''
   })
+  const [isSearching, setIsSearching] = useState(false)
+  const [searchTotal, setSearchTotal] = useState(0)
 
   const listContainerRef = useRef<HTMLDivElement>(null)
+  const searchAbortController = useRef<AbortController | null>(null)
 
   const cloudinaryService = useMemo(() => new CloudinaryService(), [])
   const xanoService = useMemo(() => new XanoService(), [])
@@ -308,67 +311,90 @@ function App() {
   }, [searchTerm, viewMode])
 
   useEffect(() => {
-    let filtered = filesWithSearchIndex
+    const performSearch = async () => {
+      if (deferredSearchTerm && deferredSearchTerm.trim().length >= 2) {
+        if (searchAbortController.current) {
+          searchAbortController.current.abort()
+        }
+        
+        searchAbortController.current = new AbortController()
+        setIsSearching(true)
+        
+        try {
+          const result = await xanoService.searchFiles(
+            deferredSearchTerm,
+            1,
+            100,
+            searchAbortController.current.signal
+          )
+          
+          startTransition(() => {
+            setFilteredFiles(result.items)
+            setSearchTotal(result.total)
+          })
+        } catch (error: any) {
+          if (error.name !== 'AbortError') {
+            console.error('Search error:', error)
+          }
+        } finally {
+          setIsSearching(false)
+        }
+        return
+      }
+      
+      let filtered = filesWithSearchIndex
 
-    // Filter by current folder path
-    if (currentFolderPath !== '' && currentFolderPath !== 'all') {
-      filtered = filtered.filter(file => {
-        if (file.folder_path === currentFolderPath) return true
-        const cloudinaryFolder = extractCloudinaryFolder(file.media_url)
-        return cloudinaryFolder === currentFolderPath
+      if (currentFolderPath !== '' && currentFolderPath !== 'all') {
+        filtered = filtered.filter(file => {
+          if (file.folder_path === currentFolderPath) return true
+          const cloudinaryFolder = extractCloudinaryFolder(file.media_url)
+          return cloudinaryFolder === currentFolderPath
+        })
+      }
+
+      if (selectedCategory !== 'all') {
+        filtered = filtered.filter(file => file.category === selectedCategory)
+      }
+
+      if (searchFilters.type && searchFilters.type !== 'all') {
+        filtered = filtered.filter(file => file.file_type === searchFilters.type)
+      }
+
+      if (searchFilters.dateFrom) {
+        const fromDate = new Date(searchFilters.dateFrom)
+        filtered = filtered.filter(file => new Date(file.created_at) >= fromDate)
+      }
+      if (searchFilters.dateTo) {
+        const toDate = new Date(searchFilters.dateTo)
+        filtered = filtered.filter(file => new Date(file.created_at) <= toDate)
+      }
+
+      const sortedFiles = [...filtered].sort((a, b) => {
+        let aValue: any = a[sortField]
+        let bValue: any = b[sortField]
+        if (sortField === 'file_size') {
+          aValue = Number(aValue) || 0
+          bValue = Number(bValue) || 0
+        } else if (sortField === 'created_at') {
+          aValue = new Date(aValue as string).getTime()
+          bValue = new Date(bValue as string).getTime()
+        } else {
+          aValue = String(aValue || '').toLowerCase()
+          bValue = String(bValue || '').toLowerCase()
+        }
+        if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1
+        if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1
+        return 0
+      })
+      
+      startTransition(() => {
+        setFilteredFiles(sortedFiles)
+        setSearchTotal(0)
       })
     }
-
-    // Filter by category
-    if (selectedCategory !== 'all') {
-      filtered = filtered.filter(file => file.category === selectedCategory)
-    }
-
-    // Filter by search term using precomputed search index and deferred value
-    if (deferredSearchTerm) {
-      const searchLower = deferredSearchTerm.toLowerCase()
-      filtered = filtered.filter(file => 
-        file.searchIndex && file.searchIndex.includes(searchLower)
-      )
-    }
-
-    // Filter by file type
-    if (searchFilters.type && searchFilters.type !== 'all') {
-      filtered = filtered.filter(file => file.file_type === searchFilters.type)
-    }
-
-    // Filter by date range
-    if (searchFilters.dateFrom) {
-      const fromDate = new Date(searchFilters.dateFrom)
-      filtered = filtered.filter(file => new Date(file.created_at) >= fromDate)
-    }
-    if (searchFilters.dateTo) {
-      const toDate = new Date(searchFilters.dateTo)
-      filtered = filtered.filter(file => new Date(file.created_at) <= toDate)
-    }
-
-    const sortedFiles = [...filtered].sort((a, b) => {
-      let aValue: any = a[sortField]
-      let bValue: any = b[sortField]
-      if (sortField === 'file_size') {
-        aValue = Number(aValue) || 0
-        bValue = Number(bValue) || 0
-      } else if (sortField === 'created_at') {
-        aValue = new Date(aValue as string).getTime()
-        bValue = new Date(bValue as string).getTime()
-      } else {
-        aValue = String(aValue || '').toLowerCase()
-        bValue = String(bValue || '').toLowerCase()
-      }
-      if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1
-      if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1
-      return 0
-    })
     
-    startTransition(() => {
-      setFilteredFiles(sortedFiles)
-    })
-  }, [filesWithSearchIndex, deferredSearchTerm, selectedCategory, searchFilters, sortField, sortDirection, currentFolderPath])
+    performSearch()
+  }, [filesWithSearchIndex, deferredSearchTerm, selectedCategory, searchFilters, sortField, sortDirection, currentFolderPath, xanoService])
 
   const loadFiles = async () => {
     try {
@@ -935,11 +961,21 @@ function App() {
             <div className="relative w-full sm:flex-1 sm:max-w-md">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
               <Input
-                placeholder="Search files..."
+                placeholder="Search entire database..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
               />
+              {isSearching && (
+                <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                </div>
+              )}
+              {searchTotal > 0 && (
+                <div className="text-xs text-gray-600 mt-1">
+                  Found {searchTotal} result{searchTotal !== 1 ? 's' : ''} across entire database
+                </div>
+              )}
             </div>
             <Select
               value={currentFolderPath === '' ? UNCATEGORIZED_VALUE : currentFolderPath}

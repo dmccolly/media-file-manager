@@ -227,6 +227,55 @@ export class XanoService {
   }
 
   /**
+   * Search the entire Xano database for files matching the query.
+   * Searches across all fields: title, description, author, tags, category, station, file_type.
+   * Returns paginated results from the server.
+   */
+  async searchFiles(query: string, page: number = 1, pageSize: number = 100, signal?: AbortSignal): Promise<{ items: XanoFileRecord[], total: number, page: number, pageSize: number }> {
+    console.log(`🔍 XanoService: Searching database for: "${query}"`);
+    try {
+      const params = new URLSearchParams({
+        q: query,
+        page: page.toString(),
+        pageSize: pageSize.toString()
+      });
+      
+      const response = await fetch(`${this.baseUrl}/search?${params}`, {
+        credentials: 'same-origin',
+        signal
+      });
+      
+      if (!response.ok) {
+        const text = await response.text().catch(() => '');
+        console.error('Xano /api/search failed', response.status, text);
+        return { items: [], total: 0, page, pageSize };
+      }
+      
+      const data = await response.json().catch((e) => {
+        console.error('Xano /api/search JSON parse failed', e);
+        return { items: [], total: 0, page, pageSize };
+      });
+      
+      const processedItems = this.processRecords(data.items || []);
+      console.log(`✅ XanoService: Search found ${data.total} total matches, returning ${processedItems.length} items`);
+      
+      return {
+        items: processedItems,
+        total: data.total || 0,
+        page: data.page || page,
+        pageSize: data.pageSize || pageSize
+      };
+    } catch (error: any) {
+      if (error.name === 'AbortError') {
+        console.log('🚫 XanoService: Search request aborted');
+        throw error;
+      }
+      console.error('❌ XanoService: Error searching files:', error);
+      return { items: [], total: 0, page, pageSize };
+    }
+  }
+
+  /**
    * Infer a MIME type from the file extension in a URL. Defaults to
    * application/octet-stream when no specific type can be determined.
    */
