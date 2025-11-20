@@ -1346,6 +1346,9 @@ function App() {
                         className="rounded"
                       />
                     </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Thumbnail
+                    </th>
                     <th
                       className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                       onClick={() => handleSort('title')}
@@ -1376,6 +1379,7 @@ function App() {
                 <tbody className="bg-white divide-y divide-gray-200">
                   {filteredFiles.map((file) => {
                     const isSelected = selectedMediaFiles.some((f: MediaFile) => f.id === file.id)
+                    const thumbnailUrl = getThumbnailUrl(file)
                     return (
                       <tr
                         key={file.id}
@@ -1393,11 +1397,35 @@ function App() {
                           />
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="w-16 h-16 flex items-center justify-center bg-gray-100 rounded">
+                            {thumbnailUrl ? (
+                              <img
+                                src={thumbnailUrl}
+                                alt={file.title}
+                                className="w-full h-full object-cover rounded"
+                                onError={(e) => {
+                                  e.currentTarget.style.display = 'none'
+                                  const parent = e.currentTarget.parentElement
+                                  if (parent) {
+                                    const icon = document.createElement('div')
+                                    icon.className = 'flex items-center justify-center w-full h-full'
+                                    icon.innerHTML = '<svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>'
+                                    parent.appendChild(icon)
+                                  }
+                                }}
+                              />
+                            ) : isVideoResource(file.media_url) ? (
+                              <Video className="w-8 h-8 text-gray-400" />
+                            ) : (
+                              getFileIcon(file.file_type)
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
                           <div className="flex items-center">
-                            {getFileIcon(file.file_type)}
-                            <div className="ml-3">
+                            <div>
                               <div className="text-sm font-medium text-gray-900">{file.title}</div>
-                              <div className="text-sm text-gray-500">{file.description}</div>
+                              <div className="text-sm text-gray-500 line-clamp-2">{file.description}</div>
                               {file.author && (
                                 <div className="text-xs text-gray-400">By: {file.author}</div>
                               )}
