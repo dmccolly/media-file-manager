@@ -252,13 +252,6 @@ function App() {
   useEffect(() => {
     let filtered = files
 
-    console.log('📊 Filter Debug:', {
-      totalFiles: files.length,
-      currentFolderPath,
-      selectedCategory,
-      searchTerm: searchTerm ? `"${searchTerm}"` : 'none'
-    })
-
     // Filter by current folder path - check both folder_path and extract from media_url
     if (currentFolderPath !== '' && currentFolderPath !== 'all') {
       filtered = filtered.filter(file => {

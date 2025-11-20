@@ -50,7 +50,6 @@ export class XanoService {
         console.error('Xano /api/media JSON parse failed', e);
         return [];
       });
-      console.log('🔄 XanoService: Raw response data:', data);
       const records = Array.isArray(data) ? data : (data.records || []);
       console.log('✅ XanoService: Fetched', records.length, 'files');
       return this.processRecords(records);
@@ -67,10 +66,7 @@ export class XanoService {
    * compatibility and filters out entries without a media URL.
    */
   processRecords(records: any[]): XanoFileRecord[] {
-    console.log(' XanoService: Processing records...', records);
-
     const processedFiles: XanoFileRecord[] = records.map(record => {
-      console.log(' DEBUG: Available fields for record:', record.id, Object.keys(record));
 
       const mediaUrl = record.media_url || record.URL || record.url || '';
       const detectedFileType = this.detectFileTypeFromUrl(mediaUrl);
