@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback, useDeferredValue, useRef, memo } from 'react'
+import React, { useState, useEffect, useMemo, useCallback, useDeferredValue, useRef, memo, startTransition } from 'react'
 import { Upload, Search, Grid, List, Eye, Edit, Download, FolderOpen, File, Image, Video, Music, FileText, X, Plus, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -276,6 +276,23 @@ function App() {
     }))
   }, [files])
 
+  const fallbackFolders = useMemo(() => {
+    if (folders && folders.length > 0) return []
+    if (!files || files.length === 0) return []
+    
+    const cloudinaryFolders = new Set<string>()
+    files.forEach(f => {
+      const folder = extractCloudinaryFolder(f.media_url)
+      if (folder) cloudinaryFolders.add(folder)
+    })
+    
+    const isLikelyVersion = (s: string) => /^v\d{6,}$/.test(s)
+    return Array.from(cloudinaryFolders).filter(fp => {
+      const leaf = fp.split('/').pop() || ''
+      return !isLikelyVersion(leaf)
+    })
+  }, [folders, files])
+
   useEffect(() => {
     let filtered = filesWithSearchIndex
 
@@ -334,7 +351,9 @@ function App() {
       return 0
     })
     
-    setFilteredFiles(sortedFiles)
+    startTransition(() => {
+      setFilteredFiles(sortedFiles)
+    })
   }, [filesWithSearchIndex, deferredSearchTerm, selectedCategory, searchFilters, sortField, sortDirection, currentFolderPath])
 
   const loadFiles = async () => {
@@ -872,29 +891,14 @@ function App() {
                       📁 {folder.name}
                     </SelectItem>
                   ))}
-                  {(!folders || folders.length === 0) && files && files.length > 0 && (() => {
-                    // Extract unique Cloudinary folders from media_url
-                    const cloudinaryFolders = new Set<string>()
-                    files.forEach(f => {
-                      const folder = extractCloudinaryFolder(f.media_url)
-                      if (folder) cloudinaryFolders.add(folder)
-                    })
-                    
-                    const isLikelyVersion = (s: string) => /^v\d{6,}$/.test(s)
-                    const cleanedFolders = Array.from(cloudinaryFolders).filter(fp => {
-                      const leaf = fp.split('/').pop() || ''
-                      return !isLikelyVersion(leaf)
-                    })
-                    
-                    return cleanedFolders.map(folderPath => {
-                      const displayName = folderPath.includes('/') ? folderPath.split("/").pop() || folderPath : folderPath
-                      return (
-                        <SelectItem key={folderPath} value={folderPath}>
-                          📁 {displayName}
-                        </SelectItem>
-                      )
-                    })
-                  })()}
+                  {fallbackFolders.map(folderPath => {
+                    const displayName = folderPath.includes('/') ? folderPath.split("/").pop() || folderPath : folderPath
+                    return (
+                      <SelectItem key={folderPath} value={folderPath}>
+                        📁 {displayName}
+                      </SelectItem>
+                    )
+                  })}
                  </SelectContent>
             </Select>
             <Select value={selectedCategory} onValueChange={setSelectedCategory}>
