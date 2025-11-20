@@ -4,12 +4,6 @@ export class WebflowService {
     this.siteId = import.meta.env.VITE_WEBFLOW_SITE_ID || '688ed8debc05764047afa2a7';
     this.collectionId = import.meta.env.VITE_WEBFLOW_COLLECTION_ID || '6891479d29ed1066b71124e9';
     this.baseUrl = 'https://api.webflow.com/v2';
-    
-    console.log('🔧 WebflowService: Environment variables debug:');
-    console.log('  API Token:', this.apiToken ? `${this.apiToken.substring(0, 10)}...` : 'MISSING');
-    console.log('  Site ID:', this.siteId);
-    console.log('  Collection ID:', this.collectionId);
-    console.log('  All env vars:', import.meta.env);
   }
 
   async syncToMediaAssets(fileData) {
