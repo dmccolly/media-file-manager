@@ -118,6 +118,26 @@ const extractCloudinaryFolder = (mediaUrl: string): string | null => {
   return null
 }
 
+const isImageResource = (url: string): boolean => {
+  if (!url) return false
+  return url.includes('/image/upload/')
+}
+
+const isVideoResource = (url: string): boolean => {
+  if (!url) return false
+  return url.includes('/video/upload/')
+}
+
+const getThumbnailUrl = (file: MediaFile): string | null => {
+  if (file.thumbnail) return file.thumbnail
+  
+  if (isImageResource(file.media_url)) {
+    return file.media_url
+  }
+  
+  return null
+}
+
 // Radix Select treats an empty string as a special clearing value. If an
 // option’s value is '' then selecting it will clear the Select and show the
 // placeholder, which causes runtime errors (see Radix docs). To support an
@@ -1227,9 +1247,34 @@ function App() {
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-3">
-                    {file.thumbnail && (
-                      <img src={file.thumbnail} alt={file.title} className="w-full h-32 object-cover rounded" />
-                    )}
+                    {(() => {
+                      const thumbnailUrl = getThumbnailUrl(file)
+                      if (thumbnailUrl) {
+                        return (
+                          <img 
+                            src={thumbnailUrl} 
+                            alt={file.title} 
+                            className="w-full h-32 object-cover rounded"
+                            onError={(e) => {
+                              e.currentTarget.style.display = 'none'
+                              console.warn('Failed to load image:', file.id, thumbnailUrl)
+                            }}
+                          />
+                        )
+                      } else if (isVideoResource(file.media_url)) {
+                        return (
+                          <div className="w-full h-32 bg-gray-100 rounded flex items-center justify-center">
+                            <Video className="w-12 h-12 text-gray-400" />
+                          </div>
+                        )
+                      } else {
+                        return (
+                          <div className="w-full h-32 bg-gray-100 rounded flex items-center justify-center">
+                            <File className="w-12 h-12 text-gray-400" />
+                          </div>
+                        )
+                      }
+                    })()}
                     <p className="text-sm text-gray-600 line-clamp-2">{file.description || 'No description'}</p>
                     {file.author && (
                       <p className="text-xs text-gray-500">By: {file.author}</p>
