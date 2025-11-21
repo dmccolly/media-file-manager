@@ -1,6 +1,22 @@
-import React, { useState, useEffect, useMemo, useCallback, useDeferredValue, useRef, memo, startTransition } from 'react'
+import React, { useState, useEffect, useMemo, useCallback, useDeferredValue, useRef, memo, startTransition, useLayoutEffect } from 'react'
 import { useWindowVirtualizer } from '@tanstack/react-virtual'
-import { Upload, Search, Grid, List, Eye, Edit, Download, FolderOpen, File, Image, Video, Music, FileText, X, Plus, Trash2 } from 'lucide-react'
+import { Upload, Search, Grid, List, Eye, Edit, Download, FolderOpen, File, Image, Video, Music, FileText, X, Plus, Trash2, ChevronLeft, ChevronRight } from 'lucide-react'
+
+function useDebounce<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value)
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value)
+    }, delay)
+
+    return () => {
+      clearTimeout(handler)
+    }
+  }, [value, delay])
+
+  return debouncedValue
+}
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -206,9 +222,13 @@ function App() {
   const [files, setFiles] = useState<MediaFile[]>([])
   const [filteredFiles, setFilteredFiles] = useState<MediaFile[]>([])
   const [searchTerm, setSearchTerm] = useState('')
-  const deferredSearchTerm = useDeferredValue(searchTerm)
+  const debouncedSearchTerm = useDebounce(searchTerm, 350)
+  const deferredSearchTerm = useDeferredValue(debouncedSearchTerm)
   const [selectedCategory, setSelectedCategory] = useState('all')
+  const [currentFileIndex, setCurrentFileIndex] = useState<number>(-1)
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
+  const [toolbarHeight, setToolbarHeight] = useState(0)
+  const toolbarRef = useRef<HTMLDivElement>(null)
   const [selectedFile, setSelectedFile] = useState<MediaFile | null>(null)
   const [isUploadOpen, setIsUploadOpen] = useState(false)
   const [isPreviewOpen, setIsPreviewOpen] = useState(false)
@@ -278,6 +298,26 @@ function App() {
   useEffect(() => {
     loadFiles()
     loadFolders()
+  }, [])
+
+  useLayoutEffect(() => {
+    const el = toolbarRef.current
+    if (!el) return
+    
+    const updateHeight = () => {
+      setToolbarHeight(el.offsetHeight)
+    }
+    
+    updateHeight()
+    
+    const resizeObserver = new ResizeObserver(updateHeight)
+    resizeObserver.observe(el)
+    window.addEventListener('resize', updateHeight)
+    
+    return () => {
+      window.removeEventListener('resize', updateHeight)
+      resizeObserver.disconnect()
+    }
   }, [])
 
   const filesWithSearchIndex = useMemo(() => {
@@ -750,7 +790,31 @@ function App() {
   const handlePreview = useCallback((file: MediaFile) => {
     setSelectedFile(file)
     setIsPreviewOpen(true)
-  }, [])
+    const index = filteredFiles.findIndex(f => f.id === file.id)
+    setCurrentFileIndex(index)
+  }, [filteredFiles])
+
+  const handlePreviousFile = useCallback(() => {
+    if (currentFileIndex > 0) {
+      const prevFile = filteredFiles[currentFileIndex - 1]
+      setSelectedFile(prevFile)
+      setCurrentFileIndex(currentFileIndex - 1)
+      if (isEditOpen) {
+        setEditingFile(prevFile)
+      }
+    }
+  }, [currentFileIndex, filteredFiles, isEditOpen])
+
+  const handleNextFile = useCallback(() => {
+    if (currentFileIndex < filteredFiles.length - 1) {
+      const nextFile = filteredFiles[currentFileIndex + 1]
+      setSelectedFile(nextFile)
+      setCurrentFileIndex(currentFileIndex + 1)
+      if (isEditOpen) {
+        setEditingFile(nextFile)
+      }
+    }
+  }, [currentFileIndex, filteredFiles, isEditOpen])
 
   const handleSort = useCallback((field: 'title' | 'file_type' | 'file_size' | 'created_at') => {
     if (sortField === field) {
@@ -948,35 +1012,51 @@ function App() {
   }
 
   return (
-    <div className="min-h-[100dvh] overflow-y-auto bg-gray-50 p-4 sm:p-6">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-6 sm:mb-8">
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Media File Manager</h1>
-          <p className="text-sm sm:text-base text-gray-600">Upload, organize, and manage your media files</p>
-        </div>
-        {/* Controls */}
-        <div className="sticky top-0 z-40 bg-gray-50 pb-4 mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex flex-col gap-4 sm:flex-row sm:flex-1">
-            <div className="relative w-full sm:flex-1 sm:max-w-md">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <Input
-                placeholder="Search entire database..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-              {isSearching && (
-                <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                </div>
-              )}
-              {searchTotal > 0 && (
-                <div className="text-xs text-gray-600 mt-1">
-                  Found {searchTotal} result{searchTotal !== 1 ? 's' : ''} across entire database
-                </div>
-              )}
-            </div>
+    <div className="min-h-[100dvh] bg-gray-50">
+      {/* Fixed Toolbar with Header */}
+      <div 
+        ref={toolbarRef}
+        className="fixed inset-x-0 top-0 z-40 bg-gray-50 shadow-sm"
+      >
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-4 sm:pt-6">
+          {/* Header */}
+          <div className="pb-4">
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Media File Manager</h1>
+            <p className="text-sm sm:text-base text-gray-600">Upload, organize, and manage your media files</p>
+          </div>
+          
+          {/* Controls */}
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between pb-3">
+            <div className="flex flex-col gap-4 sm:flex-row sm:flex-1">
+              <div className="relative w-full sm:flex-1 sm:max-w-md">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <Input
+                  placeholder="Search entire database..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+                {isSearching && (
+                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                  </div>
+                )}
+                {searchTerm.length > 0 && searchTerm.length < 2 && (
+                  <div className="text-xs text-gray-500 mt-1">
+                    Type at least 2 characters to search entire database
+                  </div>
+                )}
+                {isSearching && searchTerm.length >= 2 && (
+                  <div className="text-xs text-blue-600 mt-1">
+                    Searching entire database for "{searchTerm}"...
+                  </div>
+                )}
+                {searchTotal > 0 && !isSearching && (
+                  <div className="text-xs text-green-600 mt-1">
+                    Found {searchTotal} result{searchTotal !== 1 ? 's' : ''} across entire database
+                  </div>
+                )}
+              </div>
             <Select
               value={currentFolderPath === '' ? UNCATEGORIZED_VALUE : currentFolderPath}
               onValueChange={(value) => {
@@ -1020,22 +1100,47 @@ function App() {
                 ))}
               </SelectContent>
             </Select>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Button
-              variant={viewMode === 'grid' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setViewMode('grid')}
-            >
-              <Grid className="w-4 h-4" />
-            </Button>
-            <Button
-              variant={viewMode === 'list' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setViewMode('list')}
-            >
-              <List className="w-4 h-4" />
-            </Button>
+            </div>
+            <div className="flex flex-wrap gap-2 items-center">
+              {currentFileIndex >= 0 && (isPreviewOpen || isEditOpen) && (
+                <div className="flex items-center gap-2 mr-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handlePreviousFile}
+                    disabled={currentFileIndex <= 0}
+                    title="Previous file"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </Button>
+                  <span className="text-xs text-gray-600 whitespace-nowrap">
+                    {currentFileIndex + 1} of {filteredFiles.length}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleNextFile}
+                    disabled={currentFileIndex >= filteredFiles.length - 1}
+                    title="Next file"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </Button>
+                </div>
+              )}
+              <Button
+                variant={viewMode === 'grid' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setViewMode('grid')}
+              >
+                <Grid className="w-4 h-4" />
+              </Button>
+              <Button
+                variant={viewMode === 'list' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setViewMode('list')}
+              >
+                <List className="w-4 h-4" />
+              </Button>
               <Dialog open={isCreateFolderOpen} onOpenChange={setIsCreateFolderOpen}>
                 <DialogTrigger asChild>
                   <Button variant="outline" size="sm">
@@ -1081,10 +1186,20 @@ function App() {
                   </div>
                 </DialogContent>
               </Dialog>
-            <Dialog open={isUploadOpen} onOpenChange={(open) => {
-              setIsUploadOpen(open)
-              if (!open) resetUploadModal()
-            }}>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      {/* Spacer for fixed toolbar */}
+      <div style={{ height: toolbarHeight }} />
+      
+      {/* Main content area */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6">
+        <Dialog open={isUploadOpen} onOpenChange={(open) => {
+          setIsUploadOpen(open)
+          if (!open) resetUploadModal()
+        }}>
               <DialogTrigger asChild>
                 <Button>
                   <Upload className="w-4 h-4 mr-2" />
@@ -1382,8 +1497,6 @@ function App() {
                 </div>
               </DialogContent>
             </Dialog>
-          </div>
-        </div>
         {/* Selection Controls */}
         {filteredFiles.length > 0 && (
           <div className="flex items-center gap-4 mb-4 p-3 bg-blue-50 rounded-lg">
@@ -1583,7 +1696,7 @@ function App() {
         </Dialog>
         {/* Edit Modal */}
         <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
-          <DialogContent draggable>
+          <DialogContent draggable className="fixed top-6 right-6 left-auto translate-x-0 translate-y-0 max-w-md z-[60]">
             <DialogHeader>
               <DialogTitle>Edit File</DialogTitle>
             </DialogHeader>
