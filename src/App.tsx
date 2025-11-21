@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback, useDeferredValue, useRef, memo, startTransition } from 'react'
+import React, { useState, useEffect, useMemo, useCallback, useDeferredValue, useRef, memo, startTransition, useLayoutEffect } from 'react'
 import { useWindowVirtualizer } from '@tanstack/react-virtual'
 import { Upload, Search, Grid, List, Eye, Edit, Download, FolderOpen, File, Image, Video, Music, FileText, X, Plus, Trash2, ChevronLeft, ChevronRight } from 'lucide-react'
 
@@ -227,6 +227,8 @@ function App() {
   const [selectedCategory, setSelectedCategory] = useState('all')
   const [currentFileIndex, setCurrentFileIndex] = useState<number>(-1)
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
+  const [toolbarHeight, setToolbarHeight] = useState(0)
+  const toolbarRef = useRef<HTMLDivElement>(null)
   const [selectedFile, setSelectedFile] = useState<MediaFile | null>(null)
   const [isUploadOpen, setIsUploadOpen] = useState(false)
   const [isPreviewOpen, setIsPreviewOpen] = useState(false)
@@ -296,6 +298,26 @@ function App() {
   useEffect(() => {
     loadFiles()
     loadFolders()
+  }, [])
+
+  useLayoutEffect(() => {
+    const el = toolbarRef.current
+    if (!el) return
+    
+    const updateHeight = () => {
+      setToolbarHeight(el.offsetHeight)
+    }
+    
+    updateHeight()
+    
+    const resizeObserver = new ResizeObserver(updateHeight)
+    resizeObserver.observe(el)
+    window.addEventListener('resize', updateHeight)
+    
+    return () => {
+      window.removeEventListener('resize', updateHeight)
+      resizeObserver.disconnect()
+    }
   }, [])
 
   const filesWithSearchIndex = useMemo(() => {
@@ -990,15 +1012,20 @@ function App() {
   }
 
   return (
-    <div className="min-h-[100dvh] bg-gray-50 p-4 sm:p-6">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-6 sm:mb-8">
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Media File Manager</h1>
-          <p className="text-sm sm:text-base text-gray-600">Upload, organize, and manage your media files</p>
-        </div>
-        {/* Controls */}
-        <div className="sticky top-0 z-40 bg-gray-50 pb-4 mb-6 shadow-sm">
+    <div className="min-h-[100dvh] bg-gray-50">
+      {/* Header */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-4 sm:pt-6 pb-6 sm:pb-8">
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Media File Manager</h1>
+        <p className="text-sm sm:text-base text-gray-600">Upload, organize, and manage your media files</p>
+      </div>
+      
+      {/* Fixed Toolbar */}
+      <div 
+        ref={toolbarRef}
+        className="fixed inset-x-0 top-0 z-40 bg-gray-50/95 backdrop-blur supports-[backdrop-filter]:bg-gray-50/80 shadow-sm"
+        style={{ marginTop: '120px' }}
+      >
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex flex-col gap-4 sm:flex-row sm:flex-1">
               <div className="relative w-full sm:flex-1 sm:max-w-md">
@@ -1162,6 +1189,13 @@ function App() {
             </div>
           </div>
         </div>
+      </div>
+      
+      {/* Spacer for fixed toolbar */}
+      <div style={{ height: toolbarHeight }} />
+      
+      {/* Main content area */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6">
         <Dialog open={isUploadOpen} onOpenChange={(open) => {
           setIsUploadOpen(open)
           if (!open) resetUploadModal()
