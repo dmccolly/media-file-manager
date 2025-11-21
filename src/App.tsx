@@ -1696,7 +1696,7 @@ function App() {
         </Dialog>
         {/* Edit Modal */}
         <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
-          <DialogContent draggable className="fixed top-6 right-6 left-auto translate-x-0 translate-y-0 max-w-md z-[60]">
+          <DialogContent draggable className="fixed top-6 right-6 left-auto translate-x-0 translate-y-0 max-w-md z-[120]">
             <DialogHeader>
               <DialogTitle>Edit File</DialogTitle>
             </DialogHeader>
