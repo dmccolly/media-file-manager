@@ -1186,6 +1186,44 @@ function App() {
                   </div>
                 </DialogContent>
               </Dialog>
+              
+              {/* Upload Button */}
+              <Dialog open={isUploadOpen} onOpenChange={(open) => {
+                setIsUploadOpen(open)
+                if (!open) resetUploadModal()
+              }}>
+                <DialogTrigger asChild>
+                  <Button variant="default" size="sm">
+                    <Upload className="w-4 h-4 mr-2" />
+                    <span className="hidden sm:inline">Upload</span>
+                    <span className="sm:hidden">Upload</span>
+                  </Button>
+                </DialogTrigger>
+              </Dialog>
+              
+              {/* Add Video URL Button */}
+              <Dialog open={isAddVideoUrlOpen} onOpenChange={(open) => {
+                setIsAddVideoUrlOpen(open)
+                if (!open) {
+                  setVideoUrlData({
+                    url: '',
+                    title: '',
+                    description: '',
+                    category: 'videos',
+                    tags: '',
+                    station: '',
+                    author: ''
+                  })
+                }
+              }}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    <Video className="w-4 h-4 mr-2" />
+                    <span className="hidden sm:inline">Add Video URL</span>
+                    <span className="sm:hidden">Add Video</span>
+                  </Button>
+                </DialogTrigger>
+              </Dialog>
             </div>
           </div>
         </div>
@@ -1196,16 +1234,11 @@ function App() {
       
       {/* Main content area */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
+        {/* Upload Dialog Content */}
         <Dialog open={isUploadOpen} onOpenChange={(open) => {
           setIsUploadOpen(open)
           if (!open) resetUploadModal()
         }}>
-              <DialogTrigger asChild>
-                <Button>
-                  <Upload className="w-4 h-4 mr-2" />
-                  Upload
-                </Button>
-              </DialogTrigger>
               <DialogContent className="max-w-2xl">
                 <DialogHeader>
                   <DialogTitle>Batch Upload Files (Max 10)</DialogTitle>
@@ -1381,6 +1414,8 @@ function App() {
                 </div>
               </DialogContent>
             </Dialog>
+            
+            {/* Add Video URL Dialog Content */}
             <Dialog open={isAddVideoUrlOpen} onOpenChange={(open) => {
               setIsAddVideoUrlOpen(open)
               if (!open) {
@@ -1395,12 +1430,6 @@ function App() {
                 })
               }
             }}>
-              <DialogTrigger asChild>
-                <Button variant="outline">
-                  <Video className="w-4 h-4 mr-2" />
-                  Add Video URL
-                </Button>
-              </DialogTrigger>
               <DialogContent className="max-w-md">
                 <DialogHeader>
                   <DialogTitle>Add Video URL (YouTube/Vimeo)</DialogTitle>
