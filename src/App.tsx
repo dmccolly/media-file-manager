@@ -1013,20 +1013,20 @@ function App() {
 
   return (
     <div className="min-h-[100dvh] bg-gray-50">
-      {/* Header */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-4 sm:pt-6 pb-6 sm:pb-8">
-        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Media File Manager</h1>
-        <p className="text-sm sm:text-base text-gray-600">Upload, organize, and manage your media files</p>
-      </div>
-      
-      {/* Fixed Toolbar */}
+      {/* Fixed Toolbar with Header */}
       <div 
         ref={toolbarRef}
         className="fixed inset-x-0 top-0 z-40 bg-gray-50/95 backdrop-blur supports-[backdrop-filter]:bg-gray-50/80 shadow-sm"
-        style={{ marginTop: '120px' }}
       >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-4 sm:pt-6">
+          {/* Header */}
+          <div className="pb-4">
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Media File Manager</h1>
+            <p className="text-sm sm:text-base text-gray-600">Upload, organize, and manage your media files</p>
+          </div>
+          
+          {/* Controls */}
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between pb-3">
             <div className="flex flex-col gap-4 sm:flex-row sm:flex-1">
               <div className="relative w-full sm:flex-1 sm:max-w-md">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
