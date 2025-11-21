@@ -1239,7 +1239,7 @@ function App() {
           setIsUploadOpen(open)
           if (!open) resetUploadModal()
         }}>
-              <DialogContent className="max-w-2xl">
+              <DialogContent className="fixed left-1/2 -translate-x-1/2 top-20 translate-y-0 max-w-2xl z-[120] max-h-[calc(100vh-6rem)] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>Batch Upload Files (Max 10)</DialogTitle>
                 </DialogHeader>
@@ -1430,7 +1430,7 @@ function App() {
                 })
               }
             }}>
-              <DialogContent className="max-w-md">
+              <DialogContent className="fixed left-1/2 -translate-x-1/2 top-20 translate-y-0 max-w-md z-[120] max-h-[calc(100vh-6rem)] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>Add Video URL (YouTube/Vimeo)</DialogTitle>
                 </DialogHeader>
