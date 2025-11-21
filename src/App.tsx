@@ -1016,7 +1016,7 @@ function App() {
       {/* Fixed Toolbar with Header */}
       <div 
         ref={toolbarRef}
-        className="fixed inset-x-0 top-0 z-40 bg-gray-50/95 backdrop-blur supports-[backdrop-filter]:bg-gray-50/80 shadow-sm"
+        className="fixed inset-x-0 top-0 z-40 bg-gray-50 shadow-sm"
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-4 sm:pt-6">
           {/* Header */}
