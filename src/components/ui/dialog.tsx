@@ -45,6 +45,10 @@ const DialogContent = React.forwardRef<
   const handlePointerDown = (e: React.PointerEvent) => {
     if (!draggable) return
     
+    // Don't interfere with button clicks or other interactive elements
+    const target = e.target as HTMLElement
+    if (target.closest('button, a, input, textarea, select')) return
+    
     const rect = contentRef.current?.getBoundingClientRect()
     if (!rect) return
     

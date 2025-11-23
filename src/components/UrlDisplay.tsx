@@ -13,7 +13,7 @@ interface UrlDisplayProps {
 
 export const UrlDisplay: React.FC<UrlDisplayProps> = ({
   url,
-  
+  title,
   showCopy = true,
   showOpen = true,
   className = ''
@@ -35,7 +35,7 @@ export const UrlDisplay: React.FC<UrlDisplayProps> = ({
   return (
     <div className={`flex items-center gap-2 ${className}`}>
       <div className="flex-1 min-w-0">
-        <div className="text-xs text-muted-foreground mb-1">Webflow URL:</div>
+        <div className="text-xs text-muted-foreground mb-1">{title}:</div>
         <div className="text-sm font-mono bg-muted p-2 rounded-md break-all">
           {url}
         </div>
