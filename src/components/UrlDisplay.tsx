@@ -20,11 +20,37 @@ export const UrlDisplay: React.FC<UrlDisplayProps> = ({
 }) => {
   const handleCopyUrl = async () => {
     try {
-      await navigator.clipboard.writeText(url);
-      toast.success('URL copied to clipboard!');
+      // Try modern clipboard API first
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(url);
+        toast.success('URL copied to clipboard!');
+      } else {
+        // Fallback for older browsers or insecure contexts
+        const textArea = document.createElement('textarea');
+        textArea.value = url;
+        textArea.style.position = 'fixed';
+        textArea.style.left = '-999999px';
+        textArea.style.top = '-999999px';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        try {
+          const successful = document.execCommand('copy');
+          if (successful) {
+            toast.success('URL copied to clipboard!');
+          } else {
+            throw new Error('execCommand failed');
+          }
+        } catch (err) {
+          console.error('Fallback copy failed:', err);
+          toast.error('Failed to copy URL. Please copy manually.');
+        } finally {
+          document.body.removeChild(textArea);
+        }
+      }
     } catch (error) {
       console.error('Failed to copy URL:', error);
-      toast.error('Failed to copy URL');
+      toast.error('Failed to copy URL. Please copy manually.');
     }
   };
 
