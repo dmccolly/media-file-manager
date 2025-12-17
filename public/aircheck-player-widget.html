@@ -928,10 +928,65 @@
         toggleMute: toggleMute
     };
     
-    // Initialize - fetch tracks from backend on load
+    // Check if tracks are different from defaults (have real content)
+    function hasRealTracks(tracksToCheck) {
+        if (!tracksToCheck || !Array.isArray(tracksToCheck)) return false;
+        // Check if any track has a non-default URL (not SoundHelix)
+        return tracksToCheck.some(track => 
+            track.url && !track.url.includes('soundhelix.com')
+        );
+    }
+    
+    // Initialize - fetch tracks from backend, but migrate localStorage if it has real tracks
     async function initialize() {
         statusText.textContent = 'LOADING TRACKS...';
-        tracks = await fetchTracksFromBackend();
+        
+        // First, check localStorage for existing real tracks
+        const localTracks = loadTracksFromLocalStorage();
+        const localHasRealTracks = hasRealTracks(localTracks);
+        
+        // Fetch from backend
+        let backendTracks = null;
+        let backendHasRealTracks = false;
+        try {
+            const response = await fetch(API_BASE, {
+                method: 'GET',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            if (response.ok) {
+                const data = await response.json();
+                if (data.tracks && Array.isArray(data.tracks)) {
+                    backendTracks = data.tracks;
+                    backendHasRealTracks = hasRealTracks(backendTracks);
+                    console.log('Backend tracks loaded, has real tracks:', backendHasRealTracks);
+                }
+            }
+        } catch (error) {
+            console.error('Failed to fetch from backend:', error);
+        }
+        
+        // Decision logic:
+        // 1. If localStorage has real tracks but backend doesn't, migrate localStorage to backend
+        // 2. If backend has real tracks, use backend (it's the source of truth)
+        // 3. Otherwise use whatever we have
+        
+        if (localHasRealTracks && !backendHasRealTracks) {
+            console.log('Migrating localStorage tracks to backend...');
+            tracks = localTracks;
+            // Migrate to backend in background
+            saveTracksToBackend(localTracks).then(success => {
+                if (success) {
+                    console.log('Successfully migrated localStorage tracks to backend');
+                }
+            });
+        } else if (backendTracks) {
+            tracks = backendTracks;
+            // Update localStorage cache
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(backendTracks));
+        } else {
+            tracks = localTracks;
+        }
+        
         renderTracks();
         drawVisualization();
         statusText.textContent = 'SELECT TRACK';
