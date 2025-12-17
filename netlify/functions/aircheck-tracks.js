@@ -6,8 +6,10 @@ const XANO_API_BASE = process.env.XANO_API_BASE || 'https://xajo-bs7d-cagt.n7e.x
 const XANO_API_KEY = process.env.XANO_API_KEY;
 const ADMIN_PASSWORD = 'HOIBF###';
 
-// Config key used to identify the aircheck tracks config in Xano
-const CONFIG_KEY = 'aircheck_player_tracks';
+// Config is stored in user_submission table with this special title
+const CONFIG_TITLE = '__aircheck_player_config__';
+// Known config record ID (created in Xano user_submission table)
+const CONFIG_RECORD_ID = 3541;
 
 const DEFAULT_TRACKS = [
   { label: 'Track 1', url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3' },
@@ -74,7 +76,7 @@ exports.handler = async (event, context) => {
 
 async function getTracks(headers) {
   try {
-    // Try to fetch from Xano app_config table
+    // Fetch from Xano user_submission table using the known config record ID
     const fetchOptions = {
       method: 'GET',
       headers: {
@@ -86,31 +88,36 @@ async function getTracks(headers) {
       fetchOptions.headers['Authorization'] = `Bearer ${XANO_API_KEY}`;
     }
 
+    // Fetch the specific config record by ID
     const response = await fetch(
-      `${XANO_API_BASE}/app_config?key=${CONFIG_KEY}`,
+      `${XANO_API_BASE}/user_submission/${CONFIG_RECORD_ID}`,
       fetchOptions
     );
 
     if (response.ok) {
-      const data = await response.json();
-      // Xano might return an array or single object
-      const config = Array.isArray(data) ? data[0] : data;
+      const record = await response.json();
       
-      if (config && config.value) {
-        const tracks = typeof config.value === 'string' 
-          ? JSON.parse(config.value) 
-          : config.value;
-        
-        return {
-          statusCode: 200,
-          headers,
-          body: JSON.stringify({ tracks, source: 'database' })
-        };
+      // The tracks are stored as JSON string in the description field
+      if (record && record.description) {
+        try {
+          const configData = JSON.parse(record.description);
+          if (configData && configData.tracks && Array.isArray(configData.tracks)) {
+            return {
+              statusCode: 200,
+              headers,
+              body: JSON.stringify({ tracks: configData.tracks, source: 'database' })
+            };
+          }
+        } catch (parseError) {
+          console.error('Error parsing config JSON:', parseError);
+        }
       }
+    } else {
+      console.log('Xano response not ok:', response.status);
     }
 
     // If no config found in database, return defaults
-    console.log('No config found in Xano, returning defaults');
+    console.log('No valid config found in Xano, returning defaults');
     return {
       statusCode: 200,
       headers,
@@ -138,14 +145,16 @@ async function saveTracks(tracks, headers) {
       };
     }
 
+    // Store tracks as JSON in the description field of the user_submission record
+    const configData = JSON.stringify({ tracks: tracks });
+
     const fetchOptions = {
-      method: 'POST',
+      method: 'PATCH',
       headers: {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        key: CONFIG_KEY,
-        value: JSON.stringify(tracks)
+        description: configData
       })
     };
 
@@ -153,38 +162,11 @@ async function saveTracks(tracks, headers) {
       fetchOptions.headers['Authorization'] = `Bearer ${XANO_API_KEY}`;
     }
 
-    // First, try to check if config exists
-    const checkResponse = await fetch(
-      `${XANO_API_BASE}/app_config?key=${CONFIG_KEY}`,
-      {
-        method: 'GET',
-        headers: fetchOptions.headers
-      }
+    // Update the existing config record in user_submission table
+    const response = await fetch(
+      `${XANO_API_BASE}/user_submission/${CONFIG_RECORD_ID}`,
+      fetchOptions
     );
-
-    let response;
-    const checkData = await checkResponse.json();
-    const existingConfig = Array.isArray(checkData) ? checkData[0] : checkData;
-
-    if (existingConfig && existingConfig.id) {
-      // Update existing config
-      response = await fetch(
-        `${XANO_API_BASE}/app_config/${existingConfig.id}`,
-        {
-          method: 'PATCH',
-          headers: fetchOptions.headers,
-          body: JSON.stringify({
-            value: JSON.stringify(tracks)
-          })
-        }
-      );
-    } else {
-      // Create new config
-      response = await fetch(
-        `${XANO_API_BASE}/app_config`,
-        fetchOptions
-      );
-    }
 
     if (!response.ok) {
       const errorData = await response.text();
