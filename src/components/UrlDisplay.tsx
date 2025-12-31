@@ -18,7 +18,15 @@ export const UrlDisplay: React.FC<UrlDisplayProps> = ({
   showOpen = true,
   className = ''
 }) => {
-  const handleCopyUrl = async () => {
+  const handleCopyUrl = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (!url || url.trim() === '') {
+      toast.error('No URL to copy');
+      return;
+    }
+    
     try {
       // Try modern clipboard API first
       if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -54,7 +62,9 @@ export const UrlDisplay: React.FC<UrlDisplayProps> = ({
     }
   };
 
-  const handleOpenUrl = () => {
+  const handleOpenUrl = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
     window.open(url, '_blank');
   };
 
